@@ -1,43 +1,66 @@
-"""Generation endpoints."""
-from __future__ import annotations
+"""Generation endpoints for the new FastAPI backend."""
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 from pydantic import BaseModel
 
 from app.config import get_settings
-from app.core.capability_matrix import is_compatible_with_workspace
-from app.schemas.generation import GenerationRequest
-from app.utils.response import error, success
+from app.database import AsyncSessionLocal
+from app.models import GenerationJob
+from app.schemas import (
+    GenerationRequest,
+    GenerationJobCreate,
+    GenerationJobResponse,
+    GenerationHistoryResponse,
+    CostEstimateRequest,
+    CostEstimateResponse,
+    CancelResponse,
+    SuccessResponse,
+    ErrorResponse,
+)
+from app.core import (
+    get_comfyui_client,
+    get_workflow_manager,
+    get_artifact_manager,
+    create_job_listener,
+    stop_job_listener,
+    get_progress_tracker,
+    get_rate_limiter,
+)
 
-router = APIRouter(tags=["Generation"])
-logger = logging.getLogger(__name__)
+router = APIRouter()
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 _WORKSPACE_MODE_MAP = {
-    'mesh-generation': 'text-to-3d',
-    'texture-generation': 'texture-generation',
-    'rigging': 'rigging',
-    'animation': 'animation',
-    'remesh': 'remesh',
-    'post-processing': 'texture-generation',
-    'world-generation': 'text-to-3d',
+    "mesh-generation": "text-to-3d",
+    "texture-generation": "texture-generation",
+    "rigging": "rigging",
+    "animation": "animation",
+    "remesh": "remesh",
+    "post-processing": "texture-generation",
+    "world-generation": "text-to-3d",
+}
+
+CREDIT_COSTS = {
+    "low-poly": {"base": 10, "texture": 5, "rig": 10},
+    "standard": {"base": 20, "texture": 5, "rig": 10},
+    "high-poly": {"base": 50, "texture": 5, "rig": 10},
+    "ultra": {"base": 100, "texture": 10, "rig": 20},
+    "draft": {"base": 5, "texture": 2, "rig": 5},
 }
 
 
-# FIX: Define /history route FIRST before /{job_id}/status
-# FastAPI matches routes in order, so literal paths must come before parameterized ones
-@router.get("/history")
+@router.get("/history", response_model=GenerationHistoryResponse)
 async def generation_history(limit: int = 20, offset: int = 0):
     """Return the most recent generation jobs."""
     try:
         from sqlalchemy import desc, select
-
-        from app.database import AsyncSessionLocal
-        from app.models.job import GenerationJob
 
         async with AsyncSessionLocal() as session:
             result = await session.execute(
@@ -53,55 +76,40 @@ async def generation_history(limit: int = 20, offset: int = 0):
                 pp = meta.get("postprocess")
                 pp_status = pp.get("status") if isinstance(pp, dict) else j.status
                 job_items.append(
-                    {
-                        "id": j.id,
-                        "status": j.status,
-                        "mode": j.mode,
-                        "prompt": j.prompt,
-                        "provider": j.provider,
-                        "progress": j.progress,
-                        "stage": j.stage,
-                        "low_vram": j.low_vram,
-                        "vram_mode": j.vram_mode,
-                        "model_url": j.model_url,
-                        "thumbnail_url": j.thumbnail_url,
-                        "polygon_count": j.polygon_count,
-                        "vertex_count": j.vertex_count,
-                        "file_size": j.file_size,
-                        "has_rig": j.has_rig,
-                        "dimensions": meta.get("dimensions"),
-                        "bounding_box": meta.get("bounding_box"),
-                        "object_count": meta.get("object_count"),
-                        "component_count": meta.get("component_count"),
-                        "material_count": meta.get("material_count"),
-                        "topology": meta.get("topology") or "Triangle",
-                        "mesh_details": meta.get("mesh_details"),
-                        "postprocess_status": pp_status or j.status,
-                        "created_at": j.created_at.isoformat() if j.created_at else None,
-                        "completed_at": j.completed_at.isoformat() if j.completed_at else None,
-                    }
+                    GenerationJobResponse(
+                        job_id=j.id,
+                        status=j.status,
+                        provider=j.provider,
+                        mode=j.mode,
+                        prompt=j.prompt,
+                        progress=j.progress or 0,
+                        stage=j.stage or "queued",
+                        error_message=j.error_message,
+                        model_url=j.model_url,
+                        thumbnail_url=j.thumbnail_url,
+                        polygon_count=j.polygon_count,
+                        vertex_count=j.vertex_count,
+                        has_rig=j.has_rig,
+                        file_size=j.file_size,
+                        download_urls=j.download_urls,
+                        created_at=j.created_at,
+                        updated_at=j.updated_at,
+                        started_at=j.started_at,
+                        completed_at=j.completed_at,
+                    )
                 )
-            return success(
-                {
-                    "jobs": job_items,
-                    "total": len(job_items),
-                    "offset": offset,
-                    "limit": limit,
-                }
+            return GenerationHistoryResponse(
+                jobs=job_items,
+                total=len(job_items),
+                offset=offset,
+                limit=limit,
             )
     except Exception as exc:
         logger.warning("DB unavailable for history: %s", exc)
-        return error("Failed to retrieve generation history from the database.")
+        raise HTTPException(status_code=503, detail="Failed to retrieve generation history")
 
 
-CREDIT_COSTS = {
-    "low-poly": {"base": 10, "texture": 5, "rig": 10},
-    "standard": {"base": 20, "texture": 5, "rig": 10},
-    "high-poly": {"base": 50, "texture": 5, "rig": 10},
-}
-
-
-@router.get("/cost-estimate")
+@router.get("/cost-estimate", response_model=CostEstimateResponse)
 async def estimate_cost(quality: str = "standard", generate_texture: bool = True, auto_rig: bool = False):
     """Estimate generation cost in credits."""
     if quality not in CREDIT_COSTS:
@@ -114,232 +122,45 @@ async def estimate_cost(quality: str = "standard", generate_texture: bool = True
     if auto_rig:
         total += costs["rig"]
 
-    return success({
-        "quality": quality,
-        "credits": total,
-        "breakdown": {
+    return CostEstimateResponse(
+        quality=quality,
+        credits=total,
+        breakdown={
             "base": costs["base"],
             "texture": costs["texture"] if generate_texture else 0,
             "rig": costs["rig"] if auto_rig else 0,
         },
-    })
+    )
 
 
-# TODO: Add rate limiting middleware
-@router.post("")
-async def create_generation(req: GenerationRequest, request: Request):
+async def _check_rate_limit(client_ip: str, max_requests: int = 10, window_seconds: int = 60) -> bool:
+    """Check rate limit."""
+    limiter = get_rate_limiter()
+    return limiter.is_allowed(f"gen:{client_ip}", max_requests, window_seconds)
+
+
+@router.post("", response_model=GenerationJobCreate)
+async def create_generation(req: GenerationRequest, request: Request, background_tasks: BackgroundTasks):
     """Submit a new 3D generation job."""
-    # Redis-backed rate limiting: 10 requests per minute per IP
+    # Rate limiting
     client_ip = request.client.host if request.client else "unknown"
-    if not await _check_rate_limit(client_ip, max_requests=10, window_seconds=60):
+    if not await _check_rate_limit(client_ip):
         raise HTTPException(
-            status_code=429,
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Rate limit exceeded. Maximum 10 generation requests per minute.",
         )
+
     job_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
+    # Map workspace to mode
     if req.workspace and req.mode == "text-to-3d" and req.workspace in _WORKSPACE_MODE_MAP:
         req.mode = _WORKSPACE_MODE_MAP[req.workspace]
 
-    builtin_provider = {
-        "remesh": "builtin-remesh",
-        "render": "builtin-render",
-        "rigging": "builtin-rigging",
-    }.get(req.mode)
-    provider = builtin_provider or req.provider
-    if not provider and (req.workspace == "animation" or req.mode in ("animation", "motion")):
-        provider = "ardy"
-    provider = provider or settings.ai_provider
+    # Determine provider
+    provider = req.provider or "comfyui"
 
-    # Animation workspace / mode validation
-    if req.workspace == "animation" or req.mode in ("animation", "motion"):
-        if provider not in ("ardy", "mock"):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Animation/motion generation is not supported by model '{provider}'. Please select ARDY for humanoid motion generation.",
-            )
-
-    # Reject post-processing-only providers (e.g. DetailGen3D, TripoSF) as standalone
-    # text/image generation targets. They are only valid with an input mesh.
-    from app.core.providers.registry import is_standalone_generation_provider
-    if not builtin_provider and not is_standalone_generation_provider(provider):
-        if not (req.mode == "remesh" or req.source_mesh_url):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Provider '{provider}' is a post-processing-only provider and "
-                    f"cannot be used for standalone generation without a source mesh."
-                ),
-            )
-
-    # Provider-specific input validation
-    if provider == "triposr":
-        if req.mode == "text-to-3d" and not req.reference_image_url:
-            raise HTTPException(
-                status_code=400,
-                detail="TripoSR is an image-to-3D model and requires an input image (reference_image_url).",
-            )
-    elif provider == "triposf":
-        if not req.source_mesh_url:
-            raise HTTPException(
-                status_code=400,
-                detail="TripoSF is a mesh reconstruction model and requires a source mesh (source_mesh_url).",
-            )
-    elif provider == "ardy":
-        if not req.prompt or not req.prompt.strip():
-            raise HTTPException(
-                status_code=400,
-                detail="ARDY requires a text prompt describing the motion to generate.",
-            )
-        if req.mode not in ("animation", "motion"):
-            req.mode = "animation"
-
-    # Low VRAM guard: reject an explicit low-vram request for a provider that
-    # has no verified low-VRAM execution path instead of silently running in
-    # normal mode (and likely OOMing). 'auto' is never rejected — the worker
-    # resolves a fitting mode at runtime.
-    try:
-        if builtin_provider:
-            supports_low_vram = lambda _provider: True
-        else:
-            from runtime.capability import supports_low_vram  # noqa: PLC0415
-        if req.low_vram and not supports_low_vram(provider):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Model '{provider}' does not support verified low-VRAM "
-                    f"execution. Disable Low VRAM mode or choose a model that "
-                    f"supports it (Hunyuan3D 2.1)."
-                ),
-            )
-        if req.vram_mode == "low" and not supports_low_vram(provider):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Model '{provider}' does not support verified low-VRAM "
-                    f"execution, so vram_mode='low' is unavailable."
-                ),
-            )
-    except HTTPException:
-        raise
-    except Exception:
-        pass  # Soft fail: never block generation on a capability-check error
-
-    # Installation guard: block only when required installation prerequisites are missing.
-    # Runtime VRAM and preflight are execution concerns handled by RuntimeEngine.
-    try:
-        if builtin_provider:
-            state = {provider: {"repo_ready": True, "venv_ready": True, "weights_ready": True}}
-        else:
-            from runtime.installer import get_install_status_cached  # noqa: PLC0415
-            state = get_install_status_cached()
-        inst = state.get(provider, {})
-        missing = []
-        if not inst.get("repo_ready", True):
-            missing.append("repo")
-        if not inst.get("venv_ready", True):
-            missing.append("venv")
-        if not inst.get("weights_ready", True):
-            missing.append("weights")
-        comps = inst.get("components", {}) or {}
-        native_state = (comps.get("native_build", {}) or {}).get("state")
-        if native_state in ("failed", "running", "pending"):
-            missing.append(f"native_build:{native_state}")
-        if missing:
-            detail = (
-                f"Model '{provider}' is not installed/usable yet. "
-                f"Missing: {', '.join(missing)}."
-            )
-            logger.warning("Blocked generation for missing installation prerequisites: provider=%s missing=%s", provider, missing)
-            raise HTTPException(status_code=400, detail=detail)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.warning("Installation check failed for %s: %s", provider, exc)
-        # Soft-fail the diagnostic guard; RuntimeEngine/provider loading remains authoritative.
-
-    # Validate workspace/provider compatibility if workspace is specified.
-    # Built-in remesh/render paths do not have manifest-backed model providers.
-    if req.workspace and not builtin_provider:
-        try:
-            from runtime.manifest_loader import get_provider_metadata
-            meta = get_provider_metadata(provider)
-            if not is_compatible_with_workspace(meta, req.workspace):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Provider '{provider}' is incompatible with workspace '{req.workspace}'.",
-                )
-        except HTTPException:
-            raise
-        except Exception as exc:
-            logger.warning("Workspace/provider compatibility check failed: %s", exc)
-
-    # Texture VRAM gate: generating with texture uses the manifest's
-    # capabilities.texture_pbr (or .texture) footprint, which is materially
-    # larger than shape-only (e.g. 16 GB vs 8 GB). Verify the active
-    # capability fits the GPU before queuing so the user gets a clear answer
-    # instead of a runtime OOM.
-    if not builtin_provider and req.generate_texture:
-        try:
-            from runtime.capability import (
-                get_capability_vram_mb,
-                get_detected_free_vram_mb,
-                get_vram_safety_margin_mb,
-            )
-            # NOTE: use load_manifest(), NOT get_provider_metadata(). The
-            # metadata view flattens capabilities into supports_* booleans,
-            # so caps.get("texture_pbr") would be None there — reading it
-            # from the metadata view made has_texture_cap False for every
-            # model and silently disabled texture for Hunyuan3D 2.1/TRELLIS.
-            from runtime.manifest_loader import load_manifest
-
-            manifest = load_manifest(provider)
-            caps = manifest.get("capabilities") or {}
-            has_texture_cap = any(
-                isinstance(c, dict) and c.get("enabled")
-                for key, c in caps.items()
-                if key in ("texture_pbr", "texture")
-            )
-            if not has_texture_cap:
-                # ponytail: don't reject — coerce to mesh-only. A client that
-                # sends generate_texture=true for a model that cannot texture
-                # (TripoSG, Hunyuan3D-2mini) should still succeed, just without
-                # texture, rather than 400. The UI hides the toggle for these
-                # models anyway; this is a defensive default for API callers.
-                logger.info(
-                    "Coercing generate_texture=false for '%s': manifest has no texture capability",
-                    provider,
-                )
-                req.generate_texture = False
-                needed = 0
-                free = 0
-                margin = 0
-            else:
-                needed = get_capability_vram_mb(provider, "texture_pbr") or get_capability_vram_mb(provider, "texture")
-                free = get_detected_free_vram_mb()
-                margin = get_vram_safety_margin_mb()
-            if free and needed and free < needed + margin:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"Insufficient VRAM for textured generation with '{provider}': "
-                        f"texture needs ~{round(needed / 1024)} GB, "
-                        f"{round(free / 1024)} GB available "
-                        f"(includes {round(margin / 1024)} GB safety margin). "
-                        f"Disable texture to generate mesh-only (~{round(get_capability_vram_mb(provider, 'shape') / 1024)} GB), "
-                        f"or switch to a smaller model."
-                    ),
-                )
-        except HTTPException:
-            raise
-        except Exception as exc:
-            logger.warning("Texture VRAM check failed for %s: %s", provider, exc)
-
-    from app.database import AsyncSessionLocal
-    from app.models.job import GenerationJob
-    from app.workers.tasks import generate_3d_model
-
+    # Create job in database
     try:
         async with AsyncSessionLocal() as session:
             job = GenerationJob(
@@ -356,19 +177,18 @@ async def create_generation(req: GenerationRequest, request: Request):
                 reference_image_url=req.reference_image_url,
                 progress=0,
                 stage="queued",
-                has_rig=False,
                 low_vram=req.low_vram,
                 vram_mode=req.vram_mode,
                 processing_metadata={
+                    "workspace": req.workspace,
                     "detail_pass": req.detail_pass,
                     "detail_guidance": req.detail_guidance,
                     "triposf_pass": req.triposf_pass,
                     "mesh_enhancement_mode": req.mesh_enhancement_mode,
-                    "workspace": req.workspace,
                     "postprocess": req.postprocess,
                     "skip_postprocessing": req.skip_postprocessing,
                     "auto_optimize": req.auto_optimize,
-                    "auto_optimize_settings": req.auto_optimize_settings.model_dump() if req.auto_optimize_settings else None,
+                    "auto_optimize_settings": req.auto_optimize_settings,
                     "remesh_settings": req.remesh_settings,
                     "source_mesh_url": req.source_mesh_url,
                     "game_ready": req.game_ready,
@@ -403,71 +223,178 @@ async def create_generation(req: GenerationRequest, request: Request):
             )
             session.add(job)
             await session.commit()
-            # ponytail: Ensure flush so job is queryable immediately after
             await session.refresh(job)
     except Exception as exc:
         logger.exception("Failed to persist generation job %s", job_id)
-        raise HTTPException(
-            status_code=503,
-            detail=f"Failed to create generation job: {exc}",
-        )
+        raise HTTPException(status_code=503, detail=f"Failed to create generation job: {exc}")
 
-    try:
-        task_res = generate_3d_model.delay(job_id)
-        if getattr(task_res, "id", None):
-            try:
-                async with AsyncSessionLocal() as session:
-                    job = await session.get(GenerationJob, job_id)
-                    if job:
-                        meta = dict(job.processing_metadata or {})
-                        meta["celery_task_id"] = task_res.id
-                        job.processing_metadata = meta
-                        await session.commit()
-            except Exception as meta_exc:
-                logger.warning("Could not persist celery_task_id for %s: %s", job_id, meta_exc)
-    except Exception as exc:
-        logger.exception("Failed to enqueue generation job %s", job_id)
-        # Keep the persisted row so status polling does not 404.
-        try:
-            async with AsyncSessionLocal() as session:
-                job = await session.get(GenerationJob, job_id)
-                if job:
-                    job.status = "failed"
-                    job.stage = "failed"
-                    job.error_message = f"Failed to enqueue worker task: {exc}"
-                    job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-                    await session.commit()
-        except Exception:
-            logger.exception("Could not mark generation job %s as failed after enqueue error", job_id)
-        raise HTTPException(
-            status_code=503,
-            detail=f"Failed to queue generation job: {exc}",
-        )
+    # Start background generation
+    background_tasks.add_task(process_generation_job, job_id, req)
 
     logger.info("Generation job %s queued (provider=%s, mode=%s)", job_id, provider, req.mode)
-    return success(
-        {
-            "job_id": job_id,
-            "status": "queued",
-            "provider": provider,
-            "created_at": now.isoformat(),
-        },
-        "Generation job queued.",
+    return GenerationJobCreate(
+        job_id=job_id,
+        status="queued",
+        provider=provider,
+        mode=req.mode,
+        prompt=req.prompt,
+        created_at=now,
     )
 
 
-@router.post("/{job_id}/cancel")
-async def cancel_generation(job_id: str):
-    """Cancel a generation job.
-
-    Marks the job as cancelled in the DB (single source of truth). Also revokes
-    the Celery worker task to terminate running background compute immediately.
-    """
-    from app.database import AsyncSessionLocal
-    from app.models.job import GenerationJob
+async def process_generation_job(job_id: str, req: GenerationRequest):
+    """Background task to process generation job via ComfyUI."""
+    client = get_comfyui_client()
+    workflow_manager = get_workflow_manager()
+    artifact_manager = get_artifact_manager()
 
     try:
-        celery_task_id = None
+        async with AsyncSessionLocal() as session:
+            job = await session.get(GenerationJob, job_id)
+            if not job:
+                logger.error("Job %s not found", job_id)
+                return
+
+            job.status = "processing"
+            job.stage = "preparing"
+            job.started_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            job.updated_at = job.started_at
+            await session.commit()
+
+        # Create event listener for progress
+        listener, tracker = await create_job_listener(job_id)
+
+        # Determine workflow template based on mode
+        workflow_name = "hunyuan3d_text_to_3d"
+        if req.mode == "image-to-3d":
+            workflow_name = "hunyuan3d_image_to_3d"
+        elif req.mode == "texture-generation":
+            workflow_name = "texture_generation"
+        elif req.mode == "remesh":
+            workflow_name = "remesh"
+        elif req.mode == "animation":
+            workflow_name = "trellis_text_to_3d"  # or ardy workflow
+
+        # Prepare workflow
+        workflow_params = {
+            "prompt": req.prompt,
+            "negative_prompt": req.negative_prompt or "low quality, bad anatomy",
+            "seed": req.seed or 0,
+            "steps": req.num_inference_steps or 20,
+            "cfg": req.guidance_scale or 7.0,
+            "job_id": job_id,
+        }
+
+        if req.reference_image_url:
+            workflow_params["reference_image"] = req.reference_image_url
+
+        if req.source_mesh_url:
+            workflow_params["mesh_path"] = req.source_mesh_url
+
+        if req.mode == "remesh":
+            workflow_params["target_faces"] = req.face_count or 10000
+
+        if req.generate_texture:
+            workflow_params["texture_resolution"] = req.pbr_resolution or 1024
+
+        workflow = workflow_manager.prepare_workflow(workflow_name, **workflow_params)
+
+        # Queue prompt in ComfyUI
+        prompt_response = await client.queue_prompt(workflow, client_id=f"job_{job_id}")
+        prompt_id = prompt_response.get("prompt_id")
+
+        if not prompt_id:
+            raise RuntimeError("Failed to get prompt_id from ComfyUI")
+
+        # Update job with prompt_id
+        async with AsyncSessionLocal() as session:
+            job = await session.get(GenerationJob, job_id)
+            if job:
+                meta = dict(job.processing_metadata or {})
+                meta["comfyui_prompt_id"] = prompt_id
+                job.processing_metadata = meta
+                job.stage = "generating"
+                job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                await session.commit()
+
+        # Wait for completion (poll queue)
+        max_wait = 300  # 5 minutes
+        poll_interval = 2
+        waited = 0
+
+        while waited < max_wait:
+            await asyncio.sleep(poll_interval)
+            waited += poll_interval
+
+            queue = await client.get_queue()
+            running = queue.get("queue_running", [])
+            pending = queue.get("queue_pending", [])
+
+            # Check if our prompt is still running/pending
+            is_running = any(item[1] == prompt_id for item in running)
+            is_pending = any(item[1] == prompt_id for item in pending)
+
+            if not is_running and not is_pending:
+                break
+
+            # Update progress
+            async with AsyncSessionLocal() as session:
+                job = await session.get(GenerationJob, job_id)
+                if job:
+                    progress = min(90, 10 + (waited / max_wait) * 80)
+                    job.progress = int(progress)
+                    job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                    await session.commit()
+
+        # Get results
+        history = await client.get_history(prompt_id)
+        prompt_history = history.get(prompt_id, {})
+
+        # Process artifacts
+        metadata = artifact_manager.process_job_outputs(job_id, prompt_id, f"hunyuan3d_{job_id}")
+
+        # Update job with results
+        async with AsyncSessionLocal() as session:
+            job = await session.get(GenerationJob, job_id)
+            if job:
+                job.status = "completed"
+                job.stage = "completed"
+                job.progress = 100
+                job.model_url = metadata.get("model_url")
+                job.thumbnail_url = metadata.get("thumbnail_url")
+                job.polygon_count = metadata.get("polygon_count")
+                job.vertex_count = metadata.get("vertex_count")
+                job.file_size = metadata.get("file_size")
+                job.download_urls = metadata.get("download_urls")
+                job.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                job.updated_at = job.completed_at
+
+                meta = dict(job.processing_metadata or {})
+                meta.update(metadata)
+                job.processing_metadata = meta
+                await session.commit()
+
+    except Exception as e:
+        logger.exception("Generation job %s failed: %s", job_id, e)
+        async with AsyncSessionLocal() as session:
+            job = await session.get(GenerationJob, job_id)
+            if job:
+                job.status = "failed"
+                job.stage = "failed"
+                job.error_message = str(e)
+                job.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                job.updated_at = job.completed_at
+                await session.commit()
+    finally:
+        await stop_job_listener(job_id)
+
+
+@router.post("/{job_id}/cancel", response_model=CancelResponse)
+async def cancel_generation(job_id: str):
+    """Cancel a generation job."""
+    client = get_comfyui_client()
+
+    try:
         async with AsyncSessionLocal() as session:
             from sqlalchemy import select
             result = await session.execute(
@@ -477,258 +404,95 @@ async def cancel_generation(job_id: str):
             if not job:
                 raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
             if job.status in ("completed", "failed", "cancelled"):
-                return success({"job_id": job_id, "status": job.status})
+                return CancelResponse(job_id=job_id, status=job.status)
+
+            # Try to interrupt ComfyUI
+            prompt_id = (job.processing_metadata or {}).get("comfyui_prompt_id")
+            if prompt_id:
+                try:
+                    await client.interrupt()
+                except Exception:
+                    pass
+
             job.status = "cancelled"
             job.stage = "cancelled"
             job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-            celery_task_id = (job.processing_metadata or {}).get("celery_task_id")
             await session.commit()
 
-        if celery_task_id:
-            try:
-                from app.workers.celery_app import celery_app
-                celery_app.control.revoke(celery_task_id, terminate=True, signal="SIGUSR1")
-                logger.info("Revoked Celery task %s for job %s", celery_task_id, job_id)
-            except Exception as e:
-                logger.warning("Failed to revoke Celery task %s: %s", celery_task_id, e)
-
-        logger.info("Generation job %s cancelled", job_id)
-        return success({"job_id": job_id, "status": "cancelled"})
+        await stop_job_listener(job_id)
+        return CancelResponse(job_id=job_id, status="cancelled")
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("Failed to cancel generation job %s", job_id)
-        return error(f"Failed to cancel job: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to cancel job: {exc}")
 
 
-# FIX: This now comes AFTER /history so it's not shadowed
-@router.get("/{job_id}/status")
+@router.get("/{job_id}/status", response_model=GenerationJobResponse)
 async def get_generation_status(job_id: str):
-    """Get the status of a generation job.
+    """Get the status of a generation job."""
+    tracker = get_progress_tracker(job_id)
+    if tracker:
+        progress_status = tracker.get_status()
+        # Try to get from DB for complete info
+        try:
+            async with AsyncSessionLocal() as session:
+                job = await session.get(GenerationJob, job_id)
+                if job:
+                    return GenerationJobResponse(
+                        job_id=job.id,
+                        status=job.status,
+                        provider=job.provider,
+                        mode=job.mode,
+                        prompt=job.prompt,
+                        progress=progress_status.get("progress", job.progress or 0),
+                        stage=progress_status.get("stage", job.stage or "queued"),
+                        error_message=job.error_message,
+                        model_url=job.model_url,
+                        thumbnail_url=job.thumbnail_url,
+                        polygon_count=job.polygon_count,
+                        vertex_count=job.vertex_count,
+                        has_rig=job.has_rig,
+                        file_size=job.file_size,
+                        download_urls=job.download_urls,
+                        created_at=job.created_at,
+                        updated_at=job.updated_at,
+                        started_at=job.started_at,
+                        completed_at=job.completed_at,
+                    )
+        except Exception:
+            pass
 
-    This endpoint is polled by the frontend during generation to show
-    progress, stage, and estimated completion.
-    """
+    # Fallback to DB
     try:
-        from sqlalchemy import select
-
-        from app.database import AsyncSessionLocal
-        from app.models.job import GenerationJob
-
         async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                select(GenerationJob).where(GenerationJob.id == job_id)
-            )
-            job = result.scalar_one_or_none()
-
+            job = await session.get(GenerationJob, job_id)
             if not job:
                 raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
-            meta = job.processing_metadata or {}
-            response = {
-                "job_id": job.id,
-                "status": job.status,
-                "progress": job.progress or 0,
-                "stage": job.stage or "queued",
-                "message": meta.get("current_message") or _get_stage_message(job.stage, job.progress),
-                "logs": meta.get("logs") or [],
-                "pipeline_stages": meta.get("pipeline_stages") or [],
-                "mode": job.mode,
-                "prompt": job.prompt,
-                "provider": job.provider,
-                "error_message": job.error_message,
-                "detail_pass": meta.get("detail_pass", False),
-                "triposf_pass": meta.get("triposf_pass", False),
-                "mesh_enhancement_mode": meta.get("mesh_enhancement_mode", "none"),
-                "low_vram": job.low_vram,
-                "vram_mode": job.vram_mode,
-                "auto_optimize": meta.get("auto_optimize", False),
-                "auto_optimize_result": meta.get("auto_optimize_result"),
-                "model_url_detailed": meta.get("model_url_detailed"),
-                "triposf_model_url": meta.get("triposf_model_url"),
-                "created_at": job.created_at.isoformat() if job.created_at else None,
-                "updated_at": job.updated_at.isoformat() if job.updated_at else None,
-            }
-
-            if job.status in ("completed", "completed_degraded", "succeeded"):
-                pp = meta.get("postprocess")
-                pp_status = pp.get("status") if isinstance(pp, dict) else job.status
-                response["result"] = {
-                    "model_url": job.model_url,
-                    "thumbnail_url": job.thumbnail_url,
-                    "polygon_count": job.polygon_count,
-                    "vertex_count": job.vertex_count,
-                    "dimensions": meta.get("dimensions"),
-                    "bounding_box": meta.get("bounding_box"),
-                    "object_count": meta.get("object_count"),
-                    "component_count": meta.get("component_count"),
-                    "material_count": meta.get("material_count"),
-                    "topology": meta.get("topology") or "Triangle",
-                    "mesh_details": meta.get("mesh_details"),
-                    "postprocess_status": pp_status or job.status,
-                    "texture_resolution": job.texture_resolution,
-                    "has_rig": job.has_rig,
-                    "file_size": job.file_size,
-                    "download_urls": job.download_urls or {},
-                    "source_model_url": meta.get("source_model_url") or job.model_url,
-                    "game_ready_url": meta.get("game_ready_url"),
-                    "active_model_url": meta.get("active_model_url") or job.model_url,
-                    "model_url_detailed": meta.get("model_url_detailed"),
-                    "triposf_model_url": meta.get("triposf_model_url"),
-                    "lod_urls": meta.get("lod_urls") or [],
-                    "collision_url": meta.get("collision_url"),
-                    "qa_report": meta.get("qa_report"),
-                    "pipeline_stages": meta.get("pipeline_stages") or [],
-                    "pbr_maps": meta.get("pbr_maps"),
-                    "pbr_resolution": meta.get("pbr_resolution"),
-                    "artifact": {
-                        "artifact_type": "mesh",
-                        "primary_url": job.model_url,
-                        "source_url": meta.get("source_model_url") or job.model_url,
-                        "metadata": {
-                            "format": "glb",
-                            "vertices": job.vertex_count,
-                            "triangles": job.polygon_count,
-                            "dimensions": meta.get("dimensions"),
-                            "bounding_box": meta.get("bounding_box"),
-                            "object_count": meta.get("object_count"),
-                            "component_count": meta.get("component_count"),
-                            "material_count": meta.get("material_count"),
-                            "topology": meta.get("topology") or "Triangle",
-                            "mesh_details": meta.get("mesh_details"),
-                            "postprocess_status": pp_status or job.status,
-                        },
-                    },
-                    "postprocess": pp if isinstance(pp, dict) else None,
-                }
-
-            return success(response)
-
+            return GenerationJobResponse(
+                job_id=job.id,
+                status=job.status,
+                provider=job.provider,
+                mode=job.mode,
+                prompt=job.prompt,
+                progress=job.progress or 0,
+                stage=job.stage or "queued",
+                error_message=job.error_message,
+                model_url=job.model_url,
+                thumbnail_url=job.thumbnail_url,
+                polygon_count=job.polygon_count,
+                vertex_count=job.vertex_count,
+                has_rig=job.has_rig,
+                file_size=job.file_size,
+                download_urls=job.download_urls,
+                created_at=job.created_at,
+                updated_at=job.updated_at,
+                started_at=job.started_at,
+                completed_at=job.completed_at,
+            )
     except HTTPException:
         raise
     except Exception as exc:
         logger.warning("Failed to get job status for %s: %s", job_id, exc)
-        return error("Failed to retrieve job status")
-
-
-@router.get("/{job_id}/stream")
-async def generation_progress_stream(job_id: str, request: Request):
-    """SSE stream of generation progress for a specific job."""
-    from fastapi.responses import StreamingResponse
-    import redis.asyncio as redis
-    import asyncio
-    import json
-
-    # Validate job exists before opening SSE stream
-    from app.database import AsyncSessionLocal
-    from app.models.job import GenerationJob
-    async with AsyncSessionLocal() as session:
-        job = await session.get(GenerationJob, job_id)
-        if job is None:
-            raise HTTPException(status_code=404, detail="Job not found")
-
-    async def _event_generator():
-        from app.core.redis_client import get_async_redis
-        r = await get_async_redis()
-        pubsub = r.pubsub()
-        channel = f"job_progress:{job_id}"
-        await pubsub.subscribe(channel)
-
-        try:
-            # Yield initial state from DB if available
-            try:
-                from app.database import AsyncSessionLocal
-                from app.models.job import GenerationJob
-                async with AsyncSessionLocal() as session:
-                    job = await session.get(GenerationJob, job_id)
-                    if job:
-                        yield f"data: {json.dumps({'status': job.status, 'progress': job.progress, 'stage': job.stage, 'message': 'Initial state'})}\n\n"
-                        if job.status in ("completed", "failed", "cancelled"):
-                            return
-            except Exception as exc:
-                logger.warning("SSE initial state fetch failed for %s: %s", job_id, exc)
-
-            while True:
-                # Check for client disconnect
-                if await request.is_disconnected():
-                    break
-                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-                if message:
-                    data = message["data"]
-                    yield f"data: {data}\n\n"
-                    # Stop if job reaches terminal state
-                    try:
-                        payload = json.loads(data)
-                        if payload.get("status") in ("completed", "failed", "cancelled"):
-                            break
-                    except Exception:
-                        pass
-                await asyncio.sleep(0.1)
-        finally:
-            await pubsub.unsubscribe(channel)
-            await r.close()
-
-    return StreamingResponse(_event_generator(), media_type="text/event-stream")
-
-
-def _get_stage_message(stage: str, progress: int) -> str:
-    """Generate a user-friendly message for the current stage."""
-    messages = {
-        "queued": "Job queued — waiting for GPU slot",
-        "preparing": "Preparing model and assets...",
-        "generating": f"Generating 3D model... {progress}%",
-        "texturing": "Applying textures and materials...",
-        "rigging": "Adding skeletal rig...",
-        "postprocessing": "Finalizing model...",
-        "completed": "Generation complete!",
-        "failed": "Generation failed",
-    }
-    return messages.get(stage, f"Processing... {progress}%")
-
-
-async def _check_rate_limit(client_ip: str, max_requests: int, window_seconds: int) -> bool:
-    """Redis-backed sliding-window rate limiter.
-
-    Returns True if the request is allowed, False if rate limited.
-    Uses a Redis sorted set to track request timestamps per IP.
-    """
-    try:
-        from app.core.redis_client import get_async_redis
-
-        r = await get_async_redis()
-        key = f"rate_limit:gen:{client_ip}"
-        now = datetime.now(timezone.utc).timestamp()
-        window_start = now - window_seconds
-
-        pipe = r.pipeline()
-        # Remove entries outside the window
-        pipe.zremrangebyscore(key, 0, window_start)
-        # Count current entries in window
-        pipe.zcard(key)
-        # Add current request
-        pipe.zadd(key, {f"{now}:{uuid.uuid4()}": now})
-        # Set expiry on the key
-        pipe.expire(key, window_seconds)
-        results = await pipe.execute()
-
-        # results[1] is the count of existing entries before adding current
-        current_count = results[1]
-        return current_count < max_requests
-    except Exception as exc:
-        # Never block generation on rate-limit check failure
-        logger.warning("Rate limit check failed for %s: %s", client_ip, exc)
-        return True
-
-
-class EnhancePromptRequest(BaseModel):
-    prompt: str
-
-
-@router.post("/enhance-prompt")
-async def api_enhance_prompt(req: EnhancePromptRequest):
-    """Expand user prompt with 3D domain descriptors (Meshy/Tripo AI style)."""
-    from app.core.prompt_enhancer import enhance_prompt
-
-    enhanced = await enhance_prompt(req.prompt)
-    return success({"prompt": req.prompt, "enhanced_prompt": enhanced}, "Prompt enhanced successfully.")
-
+        raise HTTPException(status_code=503, detail="Failed to retrieve job status")

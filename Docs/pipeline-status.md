@@ -1,8 +1,26 @@
-# AI 3D Studio - Pipeline V2 Implementation Status
+# AI 3D Studio - Pipeline Implementation Status
 
-> **Version**: 5.0.81 (UI Generate Toolbar: Dedicated 1-Click Mesh Quality Controls & Resolution Presets)
-> **Status**: Verified and active; 0 TypeScript / JSX build errors, full pipeline synchronization.
-> **Last Updated**: September 17, 2026
+> **Version**: 6.0.0 (ComfyUI Core Engine & ComfyUI-3D-Pack Integration)
+> **Status**: Verified and operational; 5/5 backend self-checks pass, Next.js frontend intact.
+> **Last Updated**: September 19, 2026
+
+---
+
+## v6.0.0 — ComfyUI 0.36.0 Execution Core & ComfyUI-3D-Pack Integration (2026-09-19)
+
+### Architectural Transformation & Resolutions
+1. **Single Execution Core (ComfyUI 0.36.0)**:
+   - Eliminated the bespoke multi-venv runtime engine, Celery task workers, and Redis task broker.
+   - Installed upstream ComfyUI (`ENGINE/ComfyUI`) and ComfyUI-3D-Pack (`ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack`).
+   - Integrated native support for Hunyuan3D-2.1 (`hy3dshape`, `hy3dpaint`), TRELLIS, TripoSR, TripoSF, and SV3D.
+2. **Performance & Low-Latency Optimizations**:
+   - ComfyUI launched with `--enable-compress-response-body`, `--mmap-torch-files`, `--use-split-cross-attention` (CPU), and `--async-offload 2` (GPU).
+   - Client implemented with persistent TCP connection pooling (`aiohttp.TCPConnector(limit=100, keepalive_timeout=60.0)`).
+   - Micro-caching (3.0s) for `/system_stats` to ensure sub-millisecond response for frontend telemetry queries.
+   - In-memory object info caching (`get_object_info`) to avoid repetitive node schema deserialization.
+   - Added `POST /api/v1/runtime/clear-vram` calling ComfyUI `/free` with `{"unload_models": False, "free_memory": True}`.
+3. **Automated Verification**:
+   - `python3 backend/tests/test_backend_e2e.py` validates all 5 critical subsystems: Config, PostgreSQL DB CRUD, ComfyUI connection, Workflow Manager, and Model Registry.
 
 ---
 

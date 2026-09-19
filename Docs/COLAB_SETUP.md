@@ -1,6 +1,6 @@
 # Google Colab Setup & Deployment Guide
 
-> **Version**: 5.0.81 (One-Click Notebook & 3D Detail Pipeline)  
+> **Version**: 6.0.0 (ComfyUI Core + ComfyUI-3D-Pack Engine)  
 > **Target GPUs**: Google Colab Free (T4 15GB), Pro/Pro+ (V100 16GB, L4 24GB, A100 40GB/80GB)  
 > **Estimated Setup Time**: ~3-5 minutes  
 
@@ -8,7 +8,7 @@
 
 ## Overview
 
-AI 3D Studio provides full first-class support for Google Colab environments via `colab.ipynb` and `AI_Studio_Colab.ipynb`. The notebook automates environment bootstrapping, 8GB swap memory allocation to prevent Linux kernel OOM kills, dependency isolation with `uv`, service orchestration, and secure Cloudflare public tunneling.
+AI 3D Studio provides first-class support for Google Colab environments via `colab.ipynb` and `AI_Studio_Colab.ipynb`. The notebook automates environment bootstrapping, 8GB swap memory allocation to prevent Linux kernel OOM kills during heavy tensor operations, dependency installation, service orchestration (ComfyUI + FastAPI + Next.js), and secure Cloudflare public tunneling.
 
 ---
 
@@ -24,15 +24,15 @@ flowchart TD
 
     subgraph ColabSystem["System & Memory Hardening"]
         C --> S1["setup_swap()<br/>Allocate 8GB /swapfile"]
-        C --> S2["uv Virtual Environment<br/>Isolated Python 3.12+ backend"]
-        C --> S3["Database Migration<br/>alembic upgrade head"]
-        C --> S4["Frontend Production Build<br/>Next.js 15 Turbopack"]
+        C --> S2["uv Virtual Environment<br/>Python 3.12 + PyTorch cu128"]
+        C --> S3["ComfyUI Engine Setup<br/>scripts/install_comfyui.sh"]
+        C --> S4["Frontend Production Build<br/>Next.js 16"]
     end
 
-    subgraph Services["Orchestrated Daemons (--pool=solo)"]
-        S4 --> D1["FastAPI Application (:8000)"]
-        S4 --> D2["Celery Solo Worker (default, installation)"]
-        S4 --> D3["Next.js Production Web Server (:3000)"]
+    subgraph Services["Orchestrated Daemons"]
+        S4 --> D1["ComfyUI Engine (:8188)<br/>mmap Tensors + Split Attention"]
+        S4 --> D2["FastAPI Application (:8000)<br/>Connection-pooled proxy"]
+        S4 --> D3["Next.js Web Server (:3000)"]
         S4 --> D4["Cloudflare Tunnel Egress"]
     end
 
@@ -53,18 +53,18 @@ flowchart TD
 5. Run **Cell 2**: Clone or update the repository.
 6. Run **Cell 3**: Click Play on the **1-Click Bootstrap Launcher**.
 7. Once startup finishes, an interactive HTML card displays your public Cloudflare tunnel URLs:
-   - **Studio Frontend**: Open to create 3D assets, edit voxels, inspect meshes.
-   - **API Docs**: Swagger/OpenAPI documentation.
+   - **Studio Frontend**: Open to create 3D assets, view real-time generation, and inspect meshes.
+   - **API Docs**: Interactive Swagger/OpenAPI documentation.
 
 ---
 
 ## Features & Resilience
 
-- **8GB Swapfile Safety Net**: Colab free-tier instances provide only 12.7GB CPU RAM with 0 swap. Downloading heavy model weights (e.g., Hunyuan3D or TRELLIS) or building native packages can trigger the Linux kernel Out-Of-Memory (OOM) killer. `scripts/colab.sh` automatically allocates an 8GB `/swapfile` to ensure uninterrupted installation.
-- **Headless Non-Interactive Mode**: Passing `--setup` or executing in headless subshells automatically detects non-interactive EOF and installs recommended models without blocking on interactive prompts.
-- **Single-Worker Celery Pool**: To eliminate subprocess thread crashes and VRAM lock contention, Celery runs with `--pool=solo --concurrency=1`.
-- **Browser Keepalive Guard**: An embedded JavaScript keepalive prevents browser tab inactivity timeouts.
-- **Maintenance Cell**: Cell 4 provides helper routines:
-  - `check_status()`: Inspect running daemon PIDs and listening ports.
-  - `view_logs(service="fastapi")`: Tail live logs from `fastapi`, `celery`, `nextjs`, or `watchdog`.
+- **8GB Swapfile Safety Net**: Colab free-tier instances provide only 12.7GB CPU RAM with 0 swap. Loading heavy 3D diffusion weights (e.g., Hunyuan3D or TRELLIS) can trigger the Linux kernel Out-Of-Memory (OOM) killer. The bootstrap script automatically allocates an 8GB `/swapfile` to ensure uninterrupted operation.
+- **Engine Performance Flags**: ComfyUI launches with `--mmap-torch-files` and `--enable-compress-response-body` to minimize RAM pressure and accelerate HTTP transfers. On GPU runtimes, `--async-offload 2` is enabled.
+- **Single Execution Core**: Eliminates multiple conflicting virtual environments by running all 3D generation workloads through ComfyUI 0.36.0 and ComfyUI-3D-Pack.
+- **Browser Keepalive Guard**: An embedded JavaScript keepalive prevents browser tab inactivity disconnects.
+- **Maintenance Cell**: Helper routines:
+  - `check_status()`: Inspect running daemon PIDs and listening ports (3000, 8000, 8188).
+  - `view_logs(service="comfyui")`: Tail live logs from `comfyui`, `api`, or `frontend`.
   - `restart_services()`: Gracefully cycle all background daemons.

@@ -1,92 +1,25 @@
-# AI 3D Studio Backend — Python 3.12+
-# GPU-ONLY MODE: CUDA-enabled PyTorch is required.
-# PyTorch is installed via scripts/setup.sh (CUDA or CPU wheel, not from this file).
+# AI Studio Backend Requirements
+# ComfyUI + ComfyUI-3D-Pack integration
 
-# Web framework
-fastapi==0.115.6
-requests==2.31.0
-uvicorn[standard]==0.32.1
-python-multipart==0.0.20
+fastapi==0.109.0
+uvicorn==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+alembic==1.13.1
+redis==5.0.1
+websockets==12.0
+aiohttp==3.9.1
 
-# Pydantic / Settings
-pydantic>=2.11.0
-pydantic-settings>=2.7.0
+# Storage
+trimesh==4.0.0
+pillow==10.2.0
 
-# Database
-sqlalchemy==2.0.36
-alembic==1.14.0
-asyncpg==0.30.0
-psycopg2-binary==2.9.10
-numpy<2.0
-greenlet>=3.1.0
+# Utilities
+pyyaml==6.0.1
+python-dotenv==1.0.0
 
-# Redis / Celery
-redis==5.2.1
-celery==5.4.0
-kombu==5.4.2
-
-# HTTP client
-httpx==0.28.1
-aiohttp>=3.10.0
-aiofiles==24.1.0
-
-# Image processing
-# NOTE: Pillow requires C extensions. On Linux, install: build-essential libpng-dev libjpeg-dev zlib1g-dev libfreetype6-dev
-Pillow==11.1.0
-rembg<=2.0.69
-onnxruntime
-
-# 3D mesh processing
-open3d>=0.19.0
-trimesh==4.5.3
-xxhash>=3.0.0
-scipy>=1.11.0
-scikit-image>=0.21.0
-xatlas
-meshoptimizer
-pymeshlab>=2022.2.post3
-# OpenX Clay native post-processing dependencies
-pygltflib>=1.16.0
-networkx>=3.2
-typer>=0.15.0
-rich>=14.0.0
-mcp>=1.2.0
-# ponytail: trimesh's simplify_quadric_decimation requires fast_simplification at
-# runtime; without it every decimation attempt raises and the optimizer silently
-# copies the original mesh through (fake optimization). Required for real decimation.
-fast-simplification==0.2.0
-# ponytail: trimesh's offscreen thumbnail renderer (save_image) needs pyglet<2 for
-# OpenGL rasterization; pyglet>=2 dropped legacy OpenGL APIs trimesh relies on.
-pyglet>=1.5.0,<2
-
-# Tensor operations (TripoSR dependency)
-einops>=0.7.0
-
-# Model weight downloads
-huggingface_hub==0.27.1
-
-# OpenAI (prompt enhancement only)
-openai==1.60.1
-
-# System monitoring
-psutil==6.1.1
-nvidia-ml-py>=12.535.0
-
-# Dev / testing
-pytest==8.3.4
-pytest-asyncio==0.24.0
-
-# Manifest parsing & environment
-pyyaml>=6.0.1
-packaging>=24.0
-
-# Hugging Face Accelerate — big-model inference, memory-aware device dispatch,
-# CPU/disk offloading, and mixed-precision support for local model loading.
-# Installed into the backend venv (where local providers load models in-process).
-# Per-model venvs also receive it via each manifest `dependencies.extra` section.
-accelerate>=0.34.0
-
-# NOTE: PyTorch is installed separately by scripts/setup.sh with CUDA support:
-# uv pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
-# NOTE: xformers is optional — install separately if needed:
-# uv pip install xformers==0.0.24
+# Optional: for mesh processing
+# pymeshlab==2023.12.0

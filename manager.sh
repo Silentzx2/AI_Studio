@@ -433,7 +433,7 @@ cmd_service() {
     echo ""
     echo "Select a service to manage:"
     echo "  1) Backend API"
-    echo "  2) Celery Worker"
+    echo "  2) ComfyUI Engine"
     echo "  3) Frontend"
     echo "  4) PostgreSQL"
     echo "  5) Redis"
@@ -444,7 +444,7 @@ cmd_service() {
 
     case "$svc_choice" in
         1) _service_submenu "api" "Backend API" "uvicorn app.main:app" "cd backend && source .venv/bin/activate && setsid python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info > ../logs/api.log 2>&1 &" "$PID_DIR/api.pid" ;;
-        2) _service_submenu "worker" "Celery Worker" "celery -A app.workers.celery_app worker" "cd backend && source .venv/bin/activate && setsid python -m celery -A app.workers.celery_app worker --loglevel=info --concurrency=1 -B -Q generation,images > ../logs/worker.log 2>&1 &" "$PID_DIR/worker.pid" ;;
+        2) _service_submenu "comfyui" "ComfyUI Engine" "ENGINE/ComfyUI/main.py" "setsid backend/.venv/bin/python ENGINE/ComfyUI/main.py --listen 0.0.0.0 --port 8188 --enable-compress-response-body --mmap-torch-files --cpu --use-split-cross-attention > logs/comfyui.log 2>&1 &" "$PID_DIR/comfyui.pid" ;;
         3) _service_submenu "frontend" "Frontend" "next" "NEXT_PUBLIC_API_URL=http://localhost:8000 bun start > logs/frontend.log 2>&1 &" "$PID_DIR/frontend.pid" ;;
         4) _systemd_service_submenu "postgresql" "PostgreSQL" ;;
         5) _systemd_service_submenu "redis-server" "Redis" ;;

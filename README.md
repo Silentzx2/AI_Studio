@@ -14,13 +14,13 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-5.0.81-8A2BE2?style=for-the-badge" alt="Version 5.0.81">
-  <img src="https://img.shields.io/badge/Pipeline-Game--Ready_V2-00FF9D?style=for-the-badge" alt="Game-Ready V2">
+  <img src="https://img.shields.io/badge/Version-6.0.0-8A2BE2?style=for-the-badge" alt="Version 6.0.0">
+  <img src="https://img.shields.io/badge/Engine-ComfyUI_0.36.0-FF6B6B?style=for-the-badge" alt="ComfyUI">
+  <img src="https://img.shields.io/badge/3D_Layer-ComfyUI--3D--Pack-4ECDC4?style=for-the-badge" alt="ComfyUI-3D-Pack">
   <img src="https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.12+">
   <img src="https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
   <img src="https://img.shields.io/badge/Next.js-16.x-Frontend-000000?style=for-the-badge&logo=nextdotjs" alt="Next.js 16">
   <img src="https://img.shields.io/badge/Blender-4.x_Headless-F5792A?style=for-the-badge&logo=blender&logoColor=white" alt="Blender 4.x">
-  <img src="https://img.shields.io/badge/Linux-Ubuntu-E95420?style=for-the-badge&logo=ubuntu&logoColor=white" alt="Ubuntu">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License MIT">
 </p>
 
@@ -42,23 +42,17 @@
 - [📊 Automated QA Validation Rubric](#-automated-qa-validation-rubric)
 - [📦 Structured Export Archive](#-structured-export-archive)
 - [🚀 Features & Capabilities](#-features--capabilities)
-- [🆕 What's New in V2](#-whats-new-in-v2)
+- [🆕 What's New in V6](#-whats-new-in-v6)
 - [🤖 Supported Model Catalog](#-supported-model-catalog)
 - [🛠️ Technology Stack](#️-technology-stack)
 - [📦 Installation & Quick Start](#-installation--quick-start)
   - [Prerequisites](#prerequisites)
-  - [Native Two-Stage Setup](#native-two-stage-setup)
+  - [Automated Setup](#automated-setup)
   - [Google Colab 1-Click Launch](#google-colab-1-click-launch)
   - [Access Points](#access-points)
   - [Manual Development Setup](#manual-development-setup)
 - [⚙️ Configuration](#️-configuration)
 - [🎮 Application Usage](#-application-usage)
-  - [Basic Workflow](#basic-workflow)
-  - [Workspace Features](#workspace-features)
-  - [Supported Workspaces](#supported-workspaces)
-  - [Texture Generation Workflow](#texture-generation-workflow)
-  - [Model Manager Interface](#model-manager-interface)
-  - [Admin & Monitoring Dashboard](#admin--monitoring-dashboard)
 - [🔌 API Endpoints Reference](#-api-endpoints-reference)
 - [🛠️ Development & Testing](#️-development--testing)
 - [📁 Project Structure](#-project-structure)
@@ -72,10 +66,13 @@
 
 ## ⚡ Overview
 
-**AI 3D Studio** is an open-source generative 3D asset factory. It bridges state-of-the-art neural shape and texture synthesis models (**Hunyuan3D-2.1**, **Hunyuan3D-2 Mini**, **TRELLIS**, **TripoSG**, **DetailGen3D**) with a non-destructive production pipeline that preserves raw master geometry while generating engine-compliant game assets with automated Level-of-Detail (LOD) cascades, physics collision hulls, and objective QA validation scores.
+**AI 3D Studio** is an open-source generative 3D asset factory. Built on top of **ComfyUI 0.36.0** as the execution core and **ComfyUI-3D-Pack** as the 3D node suite, it bridges state-of-the-art neural shape and texture synthesis models (**Hunyuan3D-2.1**, **TRELLIS**, **TripoSR**, **TripoSF**, **SV3D**) with a non-destructive production pipeline that preserves raw master geometry while generating engine-compliant game assets with automated Level-of-Detail (LOD) cascades, physics collision hulls, and objective QA validation scores.
 
 ### Key Highlights
-- **Two-Stage Runtime Engine**: Decouples dependency/venv preparation from gigabyte-scale weight downloads.
+- **ComfyUI 0.36.0 Core Engine**: Robust, node-based computational graph execution with prompt queuing, WebSocket event streaming, and native custom node extensibility.
+- **ComfyUI-3D-Pack Integration**: Native custom nodes for generative 3D, Marching Cubes, FlexiCubes, texture baking, and remeshing.
+- **Performance Optimized**: Built-in `--enable-compress-response-body`, `--mmap-torch-files`, `--use-split-cross-attention` (CPU), and `--async-offload 2` (GPU) for minimal latency and maximum VRAM efficiency.
+- **FastAPI Product & Gateway Layer**: High-throughput REST and WebSocket proxy with persistent TCP connection pooling (`aiohttp.TCPConnector`), micro-caching, and PostgreSQL 16 persistence.
 - **Master Asset Preservation**: Always archives the original byte-for-byte neural output (`source.glb`) alongside optimized game meshes.
 - **Automated LOD Generation**: Generates LOD0 (100%), LOD1 (50%), LOD2 (25%), and LOD3 (12.5%) variants with UV and material preservation.
 - **Convex Hull Physics Colliders**: Produces watertight simplified collision geometry for immediate game engine physics.
@@ -95,39 +92,28 @@ graph TB
         UI_MODELS["AI Models & Pipeline Telemetry"]
     end
 
-    subgraph API["Backend Gateway (FastAPI 0.115 / AsyncIO)"]
+    subgraph API["Backend Gateway (FastAPI / AsyncIO :8000)"]
         ROUTER_GEN["/api/v1/generation"]
         ROUTER_EXP["/api/v1/project/export"]
         ROUTER_MODELS["/api/v1/models"]
+        ROUTER_RUN["/api/v1/runtime"]
         ROUTER_SYS["/api/v1/system"]
-        WS_STREAM["WS & SSE Telemetry Streams"]
-        CACHE["In-Memory TTL & LRU Caches"]
+        COMFY_CLIENT["ComfyUI Client<br/>(TCP Connection Pool & WS Stream)"]
+        DB[("PostgreSQL :5432<br/>Jobs & Metadata")]
     end
 
-    subgraph Queue["Asynchronous Task Broker"]
-        REDIS[("Redis :6379<br/>Task Queue & Locks")]
-        CELERY["Celery Workers<br/>(Concurrency & GPU Slots)"]
+    subgraph Engine["ComfyUI Execution Core (:8188)"]
+        COMFY_CORE["ComfyUI 0.36.0 Engine<br/>(mmap Tensors & Compress Body)"]
+        QUEUE["Prompt Execution Queue"]
+        CACHE["RAM/VRAM Cache Management"]
     end
 
-    subgraph Runtime["Runtime Engine & Provider Isolation"]
-        SCHED["GPU Scheduler<br/>(Mutual Exclusion Slot)"]
-        VRAM["VRAM Tracker & Low-VRAM Offload"]
-        ENV["Dynamic ModelEnv Site-Packages Bridge"]
-    end
-
-    subgraph Providers["Generative AI Models"]
+    subgraph Nodes["ComfyUI-3D-Pack Node Suite"]
         HY21["Hunyuan3D-2.1 (Shape + Paint)"]
-        HYMINI["Hunyuan3D-2 Mini (Fast DiT)"]
         TREL["TRELLIS (FlexiCubes PBR)"]
-        TSG["TripoSG (Isosurface)"]
-        DG["DetailGen3D (Refinement)"]
-    end
-
-    subgraph Pipeline["3D Quality Pipeline & Post-Processing"]
-        BLENDER["Headless Blender 4.x<br/>(Safe Component Retention & UV Guard)"]
-        OPT["Mesh Optimizer<br/>(Target Decimation & LOD0–LOD3)"]
-        COL["Physics Collision<br/>(Convex Hull Generator)"]
-        QA["QA Diagnostics<br/>(Topology & 0–100 Scoring)"]
+        TSG["TripoSR / TripoSF (Fast Mesh)"]
+        SV3D["SV3D (Multi-view Synthesis)"]
+        REMESH["Remesh & Optimization Nodes"]
     end
 
     subgraph Output["Production Asset Delivery"]
@@ -138,13 +124,11 @@ graph TB
         ZIP["Structured ZIP Package"]
     end
 
-    Client <==>|REST / SSE / WS| API
-    API --> REDIS
-    REDIS --> CELERY
-    CELERY --> Runtime
-    Runtime --> Providers
-    Providers --> Pipeline
-    Pipeline --> Output
+    Client <==>|REST / Next.js Proxy| API
+    API --> DB
+    API <==>|HTTP Connection Pool / WS| Engine
+    Engine --> Nodes
+    Nodes --> Output
     Output --> Client
 ```
 
@@ -398,11 +382,17 @@ Hero_Character.zip
 | **UI Components** | Tailwind CSS, Radix UI, Lucide Icons | Premium Tripo-style dark interface |
 | **State Management** | Zustand | Real-time global client state |
 | **3D Rendering** | Three.js, React Three Fiber | WebGL model inspection, lighting, wireframe views |
-| **Backend Framework** | FastAPI 0.115, Python 3.12+, Pydantic V2 | High-throughput asynchronous REST API |
-| **Task Queue** | Celery 5.4, Redis 7 | Distributed job execution and GPU concurrency control |
-| **Database** | PostgreSQL 16 (Native) / SQLite (Colab) | Persistent job logs, settings, and metrics |
-| **3D Quality Engine** | Blender 4.x (Headless), PyMeshLab, Trimesh | Retopology, decimation, collision hulls, QA scoring |
-| **Package Management** | `uv` (Ultra-fast Python package resolver) | Per-provider virtual environment management |
+| **Frontend Framework** | Next.js 16 (App Router), React 19, TypeScript | Reactive modern web application |
+| **UI Components** | Tailwind CSS, Radix UI, Lucide Icons | Premium Tripo-style dark interface |
+| **State Management** | Zustand | Real-time global client state |
+| **3D Rendering** | Three.js, React Three Fiber | WebGL model inspection, lighting, wireframe views |
+| **Backend Framework** | FastAPI 0.115, Python 3.12+, Pydantic V2 | High-throughput asynchronous REST API & Gateway |
+| **Execution Engine** | ComfyUI 0.36.0 Core | Computational graph execution, prompt queue & events |
+| **3D Node Suite** | ComfyUI-3D-Pack | Hunyuan3D-2.1, TRELLIS, TripoSR, SV3D, 3DGS, Remesh |
+| **Database** | PostgreSQL 16 (Native) | Persistent jobs, model registries, and asset metadata |
+| **Caching & Broker** | Redis 7 | Distributed key-value caching and session state |
+| **3D Quality Engine** | Blender 4.x (Headless), Trimesh | Retopology, decimation, collision hulls, QA scoring |
+| **Package Management** | `uv` (Ultra-fast Python package resolver) | Virtual environment & dependency installer |
 
 ---
 
@@ -411,16 +401,17 @@ Hero_Character.zip
 ### Prerequisites
 
 - **OS**: Linux (Ubuntu 20.04, 22.04, or 24.04 recommended)
-- **GPU**: NVIDIA GPU with CUDA 12.1+ compute capability
+- **GPU**: NVIDIA GPU with CUDA compute capability (or CPU mode with auto-fallback)
 - **Package Manager**: `uv` (installed automatically if missing)
 - **Disk Space**: 50 GB free disk space
-- **System Memory**: 16 GB+ RAM (8 GB minimum for Colab/testing)
+- **System Memory**: 16 GB+ RAM (8 GB minimum)
 
-### Native Two-Stage Setup
+### Automated Setup
 
-Model installation uses a **two-stage** decoupled pipeline:
-- **Stage A — Runtime**: Clones repositories, creates per-model virtual environments, and installs torch and dependencies (no weight downloads).
-- **Stage B — Weights**: Downloads model weights for prepared runtimes via the UI or API.
+Installation is streamlined and idempotent:
+1. **ComfyUI & 3D Pack**: Automatically cloned and configured in `ENGINE/ComfyUI` with `custom_nodes/ComfyUI-3D-Pack`.
+2. **Backend API**: Python virtual environment configured with FastAPI, SQLAlchemy, and ComfyUI client.
+3. **Frontend**: Next.js 16 built and configured.
 
 ```bash
 # 1. Clone repository
@@ -430,18 +421,11 @@ cd AI_Studio
 # 2. Make management scripts executable
 chmod +x scripts/*.sh manager.sh
 
-# 3. Execute Stage A (Runtime preparation: repos, venvs, dependencies; NO weights)
+# 3. Run automated setup (installs ComfyUI, 3D Pack, dependencies)
 ./scripts/setup.sh
 
-# 4. Start all services (Backend, Frontend, Celery Worker, Redis)
+# 4. Start all services (PostgreSQL, Redis, ComfyUI, FastAPI, Next.js)
 ./scripts/start.sh
-```
-
-After startup, download model weights via the **Settings → Model Manager** web UI or via the API:
-```bash
-curl -X POST http://localhost:8000/api/v1/runtime/download-weights \
-  -H "Content-Type: application/json" \
-  -d '{"providers": ["hunyuan3d-2-mini"]}'
 ```
 
 ### Google Colab 1-Click Launch
@@ -463,13 +447,11 @@ Or run in a Colab GPU runtime cell (T4, V100, L4, or A100):
 ```
 
 **What the Colab notebook (`colab.ipynb`) does automatically:**
-1. **Hardware Diagnostic**: Detects GPU (T4/V100/A100/L4), VRAM, and CUDA 12.4 configuration.
-2. **RAM Protection**: Automatically allocates an 8GB `/swapfile` to prevent the Linux OOM-killer from terminating PyTorch model loading on standard 12.7GB CPU RAM.
-3. **Automated Setup**: Installs `uv`, sets up Python 3.12, PostgreSQL, and Redis (with memory fallback).
-4. **Isolated Model Runtimes**: Prepares dedicated virtual environments for TripoSG, TRELLIS, and Hunyuan3D-2mini to guarantee zero dependency conflicts.
-5. **Microservices Stack**: Executes database migrations, starts FastAPI backend (`:8000`), Celery worker (`--pool=solo`), and builds/serves Next.js frontend (`:3000`).
-6. **Cloudflare Tunnels**: Generates public HTTPS URLs and renders clickable links directly in the notebook output cell.
-7. **Service Manager**: Built-in dashboard to monitor status, view live logs, restart/stop services, and refresh tunnels.
+1. **Hardware Diagnostic**: Detects GPU (T4/V100/A100/L4), VRAM, and CUDA configuration.
+2. **RAM Protection**: Automatically allocates an 8GB `/swapfile` to prevent OOM errors during heavy 3D tensor processing.
+3. **Automated Setup**: Installs `uv`, sets up Python 3.12, PostgreSQL, Redis, ComfyUI, and ComfyUI-3D-Pack.
+4. **Microservices Stack**: Starts ComfyUI (`:8188`), FastAPI backend (`:8000`), and builds/serves Next.js frontend (`:3000`).
+5. **Cloudflare Tunnels**: Generates public HTTPS URLs and renders clickable links directly in the notebook output cell.
 
 ### Access Points
 
@@ -477,30 +459,25 @@ Or run in a Colab GPU runtime cell (T4, V100, L4, or A100):
 |---|---|---|---|
 | **Frontend Workspace** | `http://localhost:3000` | 3000 | Interactive generation and 3D viewport |
 | **Backend REST API** | `http://localhost:8000` | 8000 | FastAPI application gateway |
+| **ComfyUI Engine** | `http://localhost:8188` | 8188 | ComfyUI core execution engine |
 | **Interactive API Docs** | `http://localhost:8000/docs` | 8000 | Swagger UI with test sandbox |
-| **Model Manager** | `http://localhost:3000/admin?tab=models` | 3000 | Model downloads, venvs, and health |
-| **System Diagnostics** | `http://localhost:3000/admin?tab=health` | 3000 | Hardware telemetry and worker logs |
-| **Admin & Settings** | `http://localhost:3000/admin?tab=settings` | 3000 | Full configuration and settings |
+| **Model Manager** | `http://localhost:3000/settings` | 3000 | AI Model inspection and options |
+| **System Diagnostics** | `http://localhost:8000/api/v1/health` | 8000 | Service health & telemetry |
 
 ### Manual Development Setup
 
 If you prefer running services manually across separate terminals:
 
 ```bash
-# Terminal 1 - Backend API
+# Terminal 1 - ComfyUI Execution Engine
+./backend/.venv/bin/python ENGINE/ComfyUI/main.py --listen 0.0.0.0 --port 8188 --enable-compress-response-body --mmap-torch-files --cpu --use-split-cross-attention
+
+# Terminal 2 - Backend FastAPI Gateway
 cd backend
 source .venv/bin/activate
 uvicorn app.main:app --reload --port 8000
 
-# Terminal 2 - Celery Task Worker
-cd backend
-source .venv/bin/activate
-celery -A app.workers.celery_app worker --loglevel=info
-
-# Terminal 3 - Redis Broker
-redis-server
-
-# Terminal 4 - Frontend Development Server
+# Terminal 3 - Frontend Development Server
 bun run dev
 ```
 
@@ -521,19 +498,23 @@ cp .env.example .env
 ENVIRONMENT=development
 DEBUG=true
 APP_NAME=AI 3D Studio
-APP_VERSION=5.0.18
+APP_VERSION=6.0.0
 
-# ===== DATABASE =====
+# ===== COMFYUI ENGINE =====
+COMFYUI_URL=http://127.0.0.1:8188
+COMFYUI_TIMEOUT=300
+
+# ===== DATABASE & CACHE =====
 DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@localhost:5432/ai_studio
-
-# ===== REDIS & CELERY =====
 REDIS_URL=redis://localhost:6379/0
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
-# ===== ACTIVE AI PROVIDER =====
-AI_PROVIDER=hunyuan3d-2-mini
-# Options: hunyuan3d-2.1, hunyuan3d-2-mini, trellis, triposg, detailgen3d, mock
+# ===== STORAGE PATHS =====
+STORAGE_LOCAL_PATH=/teamspace/studios/this_studio/AI_Studio/backend/storage
+
+# ===== API SETTINGS =====
+API_V1_PREFIX=/api/v1
+CORS_ORIGINS=["http://localhost:3000"]
+```
 
 # ===== HARDWARE & VRAM =====
 CUDA_DEVICE=auto
@@ -571,7 +552,7 @@ CORS_ORIGINS=["http://localhost:3000"]
 ### Workspace Features
 
 - **Tripo-Style UI**: Modern dark theme with compact typography and dedicated tool panels.
-- **Hardware Telemetry**: Real-time status pills displaying GPU temperatures, VRAM allocation, and Celery queue length.
+- **Hardware Telemetry**: Real-time status pills displaying GPU temperatures, VRAM allocation, and ComfyUI queue status.
 - **Model-to-Workspace Filtering**: The UI automatically filters models compatible with the active workspace tab.
 - **Side-by-Side Comparison**: Compare raw source geometry against decimated game-ready variants.
 
@@ -579,11 +560,11 @@ CORS_ORIGINS=["http://localhost:3000"]
 
 | Workspace | Purpose | Compatible Models |
 |---|---|---|
-| **Mesh Generation** | Primary shape generation from text or image | Hunyuan3D-2.1, Hunyuan3D-2 Mini, TRELLIS, TripoSG |
+| **Mesh Generation** | Primary shape generation from text or image | Hunyuan3D-2.1, TRELLIS, TripoSR, TripoSF |
 | **Texture Generation** | PBR material synthesis, multi-view paint projection | Hunyuan3D-2.1, TRELLIS |
 | **Rigging & Skinning** | Automated bipedal armature generation & skin weight binding | Blender Rigify Integration |
-| **Remesh & Optimization** | Retopology, decimation, and manifold cleanup | Mesh Optimizer, DetailGen3D |
-| **Post-Processing** | Second-pass geometry refinement and micro-detailing | DetailGen3D |
+| **Remesh & Optimization** | Retopology, decimation, and manifold cleanup | ComfyUI-3D-Pack Remesh, Trimesh |
+| **Post-Processing** | Second-pass geometry refinement and micro-detailing | ComfyUI-3D-Pack Refinement |
 
 ### Texture Generation Workflow
 
@@ -595,17 +576,16 @@ The dedicated **Texture Tab** (`/workspace/texture`) provides granular material 
 ### Model Manager Interface
 
 Accessible via **Settings → AI Models**:
-- **Installed Models**: Inspect installed providers, verify venv integrity, run health diagnostics, and uninstall models.
-- **Available Models**: Browse remote repositories, check hardware compatibility, and trigger installation.
-- **Download Queue**: Monitor download speeds, remaining bytes, and pause/resume active transfers.
-- **Benchmarks**: Benchmark inference times and peak memory on your local GPU.
+- **Installed Models**: Inspect installed 3D checkpoints, verify ComfyUI node readiness, and run health diagnostics.
+- **Available Models**: Browse models available across HuggingFace, ModelScope, and CivitAI.
+- **Hardware Telemetry**: Live VRAM allocation and device execution status.
 
 ### Admin & Monitoring Dashboard
 
-Located at `/admin?tab=health`:
-- Real-time GPU telemetry (utilization, VRAM, thermal levels).
-- Celery worker task queues and background worker logs.
-- Interactive terminal for maintenance commands.
+Located at `/admin?tab=health` or via API `/api/v1/health`:
+- Real-time GPU/CPU telemetry (utilization, VRAM, thermal levels).
+- ComfyUI engine prompt queue status and node load times.
+- PostgreSQL and Redis connection health.
 
 ---
 
@@ -616,32 +596,39 @@ Located at `/admin?tab=health`:
 | Method | Endpoint | Description |
 |---|---|---|
 | `POST` | `/api/v1/generation` | Submit image/text-to-3D generation job with platform budgets and LOD flags |
-| `GET` | `/api/v1/generation/{job_id}` | Query job progress, output paths, and QA score |
+| `GET` | `/api/v1/generation/status/{job_id}` | Query job progress, execution stage, and generated output URLs |
+| `POST` | `/api/v1/generation/cancel/{job_id}` | Interrupt active generation in ComfyUI and mark job cancelled |
+| `GET` | `/api/v1/generation/history` | List recent generation history from database |
+| `POST` | `/api/v1/generation/cost-estimate` | Estimate VRAM and execution time for generation parameters |
 | `POST` | `/api/v1/project/export` | Export structured ZIP archive (`Source/`, `GameReady/`, `LODs/`, `Collision/`, `QA/`) |
-| `POST` | `/api/v1/project/convert` | Convert GLB asset to OBJ, FBX, or STL format |
 
 ### Model Management & Runtime
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/v1/runtime/prepare-runtime` | **Stage A**: Clone repos, build virtual environments, and install dependencies |
-| `POST` | `/api/v1/runtime/download-weights` | **Stage B**: Download neural model weights for prepared runtimes |
-| `GET` | `/api/v1/runtime/status` | Current GPU allocation, provider health, and VRAM telemetry |
-| `GET` | `/api/v1/models/installed` | List all locally installed models and venv paths |
-| `GET` | `/api/v1/models/available` | Browse models available across HuggingFace, ModelScope, CivitAI, and NGC |
-| `POST` | `/api/v1/models/{id}/repair` | Trigger automated environment repair for damaged model packages |
-| `POST` | `/api/v1/download/start` | Start resumable chunked model weight download |
-| `GET` | `/api/v1/download/queue` | View active download queue status and ETA |
+| `GET` | `/api/v1/models` | List all available and installed 3D generative models |
+| `GET` | `/api/v1/models/installed` | List locally installed and verified models |
+| `GET` | `/api/v1/models/available` | Browse models available for installation |
+| `GET` | `/api/v1/models/{model_id}` | Get detailed specification and capabilities for a model |
+| `GET` | `/api/v1/models/health/all` | Run comprehensive health check on all registered models |
+| `POST` | `/api/v1/models/switch` | Switch active model in runtime configuration |
+| `GET` | `/api/v1/runtime/health` | Quick health check of runtime engine |
+| `GET` | `/api/v1/runtime/status` | Comprehensive runtime status including GPU VRAM and disk space |
+| `GET` | `/api/v1/runtime/options` | Available options for frontend dropdowns (models, formats, qualities) |
+| `POST` | `/api/v1/runtime/clear-vram` | Free ComfyUI memory and purge PyTorch CUDA cache |
+| `GET` | `/api/v1/runtime/hf-token` | Check Hugging Face token configuration |
+| `POST` | `/api/v1/runtime/hf-token` | Set Hugging Face token for authenticated model downloads |
 
-### System & Telemetry
+### System & Jobs
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/v1/system/info` | Host hardware specifications, GPU models, and RAM capacity |
-| `POST` | `/api/v1/system/compatibility` | Evaluate hardware compatibility for a target model ID |
-| `GET` | `/api/v1/system/health` | Comprehensive health check across DB, Redis, Celery, and GPU |
-| `WS` | `/api/v1/realtime/ws` | Real-time WebSocket connection for GPU telemetry and job events |
-| `GET` | `/api/v1/system/stream` | Server-Sent Events (SSE) system telemetry stream |
+| `GET` | `/api/v1/health` | Comprehensive multi-service health check (ComfyUI, DB, Redis, Storage) |
+| `GET` | `/api/v1/system/info` | Host hardware specifications, OS, RAM, and GPU telemetry |
+| `GET` | `/api/v1/system/health` | System health check endpoint |
+| `GET` | `/api/v1/jobs` | List persistent generation jobs with pagination |
+| `GET` | `/api/v1/jobs/{job_id}` | Retrieve specific job details |
+| `DELETE` | `/api/v1/jobs/{job_id}` | Delete job and its associated artifacts |
 
 ---
 
@@ -650,13 +637,14 @@ Located at `/admin?tab=health`:
 ### Running Tests
 
 ```bash
-# Run backend test suite
-pytest backend/runtime/test_warm_cache_retention.py \
-       backend/runtime/test_mesh_remesh_optimizer.py \
-       backend/runtime/test_validate_env.py -v
+# Run backend automated validation suite (5/5 checks)
+python3 backend/tests/test_backend_e2e.py
 
-# Run full end-to-end 3D quality pipeline and export verification
-python3 scripts/test_pipeline_and_export.py
+# Verify health endpoint
+curl -s http://127.0.0.1:8000/api/v1/health | jq .
+
+# Check runtime options
+curl -s http://127.0.0.1:8000/api/v1/runtime/options | jq .
 
 # Verify frontend TypeScript types
 npx tsc --noEmit
@@ -685,40 +673,45 @@ AI_Studio/
 │   └── admin/                         # System monitoring & diagnostics
 │
 ├── components/                        # Shared UI component library
-├── hooks/                             # React hooks (WebSocket, SSE, hardware telemetry)
+├── hooks/                             # React hooks (API client, telemetry)
 ├── stores/                            # Zustand stores (generation, project, UI state)
 │
-├── backend/                           # FastAPI Python backend
+├── backend/                           # Clean FastAPI Python backend
 │   ├── app/
-│   │   ├── main.py                    # Application entry point
+│   │   ├── main.py                    # Application entry point & lifespan
+│   │   ├── config.py                  # Pydantic settings & environment configuration
+│   │   ├── database.py                # PostgreSQL async engine & Base model
 │   │   ├── api/v1/                    # Modular API route controllers
+│   │   │   ├── generation.py          # /api/v1/generation endpoints
+│   │   │   ├── health.py              # /api/v1/health endpoints
+│   │   │   ├── jobs.py                # /api/v1/jobs endpoints
+│   │   │   ├── models.py              # /api/v1/models endpoints
+│   │   │   ├── projects.py            # /api/v1/project/export endpoints
+│   │   │   ├── runtime.py             # /api/v1/runtime endpoints
+│   │   │   └── system.py              # /api/v1/system endpoints
 │   │   ├── core/
-│   │   │   ├── mesh_optimizer.py      # Decimation, LOD cascade & collision hulls
-│   │   │   ├── mesh_processor.py      # Diagnostics & QA scoring engine
-│   │   │   └── providers/             # Generative AI provider bridges
-│   │   ├── workers/                   # Celery asynchronous task workers
+│   │   │   ├── comfy/                 # ComfyUI client, workflows & artifacts
+│   │   │   ├── storage.py             # Storage manager & file utilities
+│   │   │   └── security.py            # Rate limiting & token handling
+│   │   ├── models/                    # SQLAlchemy database models
 │   │   └── schemas/                   # Pydantic validation schemas
-│   ├── runtime/                       # VRAM tracking, GPU scheduler & venv installer
+│   ├── tests/
+│   │   └── test_backend_e2e.py        # Automated E2E verification test suite
+│   ├── pyproject.toml                 # Backend project metadata
 │   └── requirements.txt               # Backend Python dependencies
 │
-├── PLANS/                             # Architectural plans & specifications
-│   ├── 3D_QUALITY_PIPELINE.md         # 8-stage quality pipeline specification
-│   ├── GAME_READY_SPEC.md             # Game-ready asset specifications & QA rubric
-│   ├── QUALITY_BENCHMARK.md           # Benchmark tests & verification matrix
-│   └── ROOT_CAUSE_REPORT.md           # Technical post-mortem & root-cause report
-│
-├── Docs/                              # Technical documentation
-│   ├── architecture.md                # Detailed system architecture guide
-│   ├── api-documentation.md           # Full REST API documentation
-│   ├── developer-guide.md             # Developer workflow & contributing guidelines
-│   └── pipeline-status.md             # Detailed implementation progress tracker
+├── ENGINE/                            # ComfyUI Execution Core (git-ignored)
+│   └── ComfyUI/
+│       └── custom_nodes/
+│           └── ComfyUI-3D-Pack/       # Generative 3D custom nodes
 │
 ├── scripts/                           # System orchestration scripts
-│   ├── setup.sh                       # Stage A automated setup script
+│   ├── install_comfyui.sh             # Idempotent ComfyUI & 3D Pack installer
+│   ├── setup.sh                       # System setup & environment builder
 │   ├── start.sh                       # Multi-service launch script
-│   ├── colab.sh                       # 1-click Google Colab bootstrap script
-│   └── test_pipeline_and_export.py    # Pipeline verification test script
+│   └── stop.sh                        # Clean service shutdown script
 │
+├── Docs/                              # Technical documentation
 ├── README.md                          # Single authoritative project documentation
 └── LICENSE                            # MIT License
 ```
@@ -727,34 +720,41 @@ AI_Studio/
 
 ## 🔧 Troubleshooting
 
-### 1. GPU Not Detected
+### 1. GPU / CUDA Detection
 ```bash
 # Verify NVIDIA driver and CUDA installation
 nvidia-smi
 
-# Check visible CUDA devices
-echo $CUDA_VISIBLE_DEVICES
+# If no GPU is available, ComfyUI automatically falls back to CPU mode
+# with split-cross-attention optimization.
 ```
 
-### 2. Port Already in Use (3000 or 8000)
+### 2. Port Already in Use (3000, 8000, or 8188)
 ```bash
-# Identify and terminate process holding port 3000 or 8000
-lsof -i :3000 -t | xargs kill -9
-lsof -i :8000 -t | xargs kill -9
+# Gracefully stop all services and free ports
+bash scripts/stop.sh
+
+# Or force free specific ports if orphaned
+lsof -ti :3000 | xargs -r kill -9
+lsof -ti :8000 | xargs -r kill -9
+lsof -ti :8188 | xargs -r kill -9
 ```
 
 ### 3. Out of Memory (CUDA OOM)
-- Switch to a lower VRAM model (e.g. `hunyuan3d-2-mini` or `triposg`).
-- Enable single-worker mode: `export WORKER_CONCURRENCY=1`.
-- Verify GPU scheduler locks are released: inspect Redis key `gpu_lock`.
+- Trigger memory release via the API: `curl -X POST http://localhost:8000/api/v1/runtime/clear-vram`
+- In `scripts/start.sh`, ComfyUI launches with `--mmap-torch-files` and `--enable-compress-response-body` to minimize RAM/VRAM pressure.
+- For low-VRAM GPUs (≤8GB), ensure `--lowvram` flag is passed or use lighter models (e.g., TripoSR).
 
-### 4. Celery Task Queue Not Processing
+### 4. Checking Service Logs
 ```bash
-# Verify Redis connection
-redis-cli ping  # Should return PONG
+# ComfyUI engine log
+tail -f logs/comfyui.log
 
-# Launch worker in debug mode
-celery -A app.workers.celery_app worker --loglevel=debug
+# Backend API log
+tail -f logs/api.log
+
+# Frontend log
+tail -f logs/frontend.log
 ```
 
 ---
@@ -763,11 +763,12 @@ celery -A app.workers.celery_app worker --loglevel=debug
 
 | Component | Status | Details |
 |---|---|---|
-| **Neural Providers** | ✅ Operational | Hunyuan3D-2.1, Hunyuan3D-2 Mini, TRELLIS, TripoSG |
-| **Two-Stage Runtime** | ✅ Operational | Stage A (venv preparation) & Stage B (weights fetch) |
-| **Safe Component Guard** | ✅ Operational | Blender headless post-processing with island vertex guard |
-| **UV & Texture Guard** | ✅ Operational | Non-destructive UV preservation across all pipelines |
-| **Multi-Tier LODs** | ✅ Operational | Automated LOD0–LOD3 cascade with PyMeshLab/Trimesh |
+| **Execution Core** | ✅ Operational | ComfyUI 0.36.0 with mmap tensors & split cross-attention |
+| **3D Node Suite** | ✅ Operational | ComfyUI-3D-Pack with Hunyuan3D-2.1, TRELLIS, TripoSR |
+| **API Gateway** | ✅ Operational | FastAPI with persistent TCP connection pooling |
+| **Database & Cache** | ✅ Operational | PostgreSQL 16 + Redis with automatic table creation |
+| **3D Viewer** | ✅ Operational | WebGL / Three.js interactive 3D viewport |
+| **Multi-Tier LODs** | ✅ Operational | Automated LOD0–LOD3 cascade with meshoptimizer |
 | **Physics Collision Hulls**| ✅ Operational | Automated convex hull generation |
 | **QA Diagnostic Engine** | ✅ Operational | 0–100 topological scoring with machine-readable reports |
 | **Production ZIP Export**| ✅ Operational | Hierarchical export packaging with format conversion |

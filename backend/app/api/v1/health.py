@@ -1,21 +1,26 @@
-"""Health check endpoint with comprehensive service status."""
+"""Health check endpoints."""
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Dict, Any
 
 from fastapi import APIRouter
 from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import AsyncSessionLocal
-from app.utils.response import success, error
+from app.schemas import HealthResponse, SuccessResponse
+from app.core import get_comfyui_client, get_storage_manager
 
 router = APIRouter()
 settings = get_settings()
 logger = logging.getLogger(__name__)
+
+_health_cache: dict | None = None
+_health_cache_time: float = 0.0
+_HEALTH_CACHE_TTL = 20.0
+_health_lock = asyncio.Lock()
 
 
 async def _check_database() -> dict:
@@ -24,6 +29,7 @@ async def _check_database() -> dict:
         async def _ping_db():
             async with AsyncSessionLocal() as session:
                 await session.execute(text("SELECT 1"))
+
         await asyncio.wait_for(_ping_db(), timeout=0.4)
         return {"status": "ok"}
     except Exception as e:
@@ -31,10 +37,9 @@ async def _check_database() -> dict:
 
 
 async def _check_redis() -> dict:
-    """Check Redis connectivity (async — don't block event loop)."""
+    """Check Redis connectivity."""
     try:
         import redis.asyncio as aioredis
-        # Fail fast: 250ms socket timeout avoids blocking the event loop when Redis is down
         r = aioredis.from_url(settings.redis_url, socket_connect_timeout=0.25)
         await asyncio.wait_for(r.ping(), timeout=0.3)
         await r.aclose()
@@ -43,78 +48,39 @@ async def _check_redis() -> dict:
         return {"status": "error", "error": str(e)}
 
 
-import os
-import time
-
-_health_cache: dict | None = None
-_health_cache_time: float = 0.0
-_HEALTH_CACHE_TTL = 20.0  # seconds
-_health_lock = asyncio.Lock()
-
-
 async def _check_storage() -> dict:
-    """Check storage directory writable without disk file write contention."""
+    """Check storage directory writable."""
     try:
-        storage_path = Path(settings.storage_local_path)
-        if not storage_path.exists():
-            storage_path.mkdir(parents=True, exist_ok=True)
-        writable = os.access(storage_path, os.W_OK)
-        return {
-            "status": "ok" if writable else "error",
-            "path": str(storage_path),
-            "writable": writable,
-        }
+        storage = get_storage_manager()
+        info = storage.get_storage_info()
+        return {"status": "ok", "writable": True, **info}
     except Exception as e:
-        return {
-            "status": "error",
-            "path": str(settings.storage_local_path),
-            "writable": False,
-            "error": str(e),
-        }
+        return {"status": "error", "error": str(e)}
 
 
-def _sync_check_engine() -> dict:
-    """Synchronous runtime engine check designed to run in worker thread."""
+async def _check_comfyui() -> dict:
+    """Check ComfyUI connectivity."""
     try:
-        from runtime.engine import get_engine
-        engine = get_engine()
-        engine_health = engine.health()
-        engine_status = "ready" if engine_health.get("initialized") else "not_initialized"
-        engine_ok = engine_status == "ready" and not engine_health.get("error")
-        return {
-            "status": "ok" if engine_ok else "error",
-            "runtime_mode": engine_status,
-        }
-    except ImportError:
-        return {
-            "status": "unavailable",
-            "runtime_mode": "not installed",
-        }
+        client = get_comfyui_client()
+        result = await client.health_check()
+        return result
     except Exception as e:
-        return {
-            "status": "error",
-            "error": str(e),
-        }
+        return {"status": "error", "error": str(e)}
 
 
-async def _check_engine() -> dict:
-    """Check runtime engine status off the async loop."""
-    return await asyncio.to_thread(_sync_check_engine)
-
-
-@router.get("")
-async def health() -> Dict[str, Any]:
-    """Comprehensive health check endpoint with in-memory caching to prevent DB/IO overload."""
+@router.get("", response_model=HealthResponse)
+async def health() -> HealthResponse:
+    """Comprehensive health check endpoint with caching."""
     global _health_cache, _health_cache_time
     now = time.time()
+
     if _health_cache is not None and (now - _health_cache_time < _HEALTH_CACHE_TTL):
-        return success(_health_cache)
+        return HealthResponse(**_health_cache)
 
     async with _health_lock:
-        # Re-check after acquiring lock in case another task populated the cache
         now = time.time()
         if _health_cache is not None and (now - _health_cache_time < _HEALTH_CACHE_TTL):
-            return success(_health_cache)
+            return HealthResponse(**_health_cache)
 
         async def _safe_run(coro, default_err):
             try:
@@ -125,10 +91,10 @@ async def health() -> Dict[str, Any]:
         db_task = _safe_run(_check_database(), "Database check timeout")
         redis_task = _safe_run(_check_redis(), "Redis check timeout")
         storage_task = _safe_run(_check_storage(), "Storage check timeout")
-        engine_task = _safe_run(_check_engine(), "Engine check timeout")
+        comfyui_task = _safe_run(_check_comfyui(), "ComfyUI check timeout")
 
-        db_result, redis_result, storage_result, engine_result = await asyncio.gather(
-            db_task, redis_task, storage_task, engine_task
+        db_result, redis_result, storage_result, comfyui_result = await asyncio.gather(
+            db_task, redis_task, storage_task, comfyui_task
         )
 
         health_status = {
@@ -140,15 +106,14 @@ async def health() -> Dict[str, Any]:
                 "database": db_result,
                 "redis": redis_result,
                 "storage": storage_result,
-                "engine": engine_result,
+                "comfyui": comfyui_result,
                 "api": {"status": "ok"},
             },
         }
 
-        # Determine overall status
         overall_healthy = all(
             s.get("status") in ("ok", "unavailable")
-            for s in [db_result, redis_result, storage_result, engine_result]
+            for s in [db_result, redis_result, storage_result, comfyui_result]
         )
 
         if not overall_healthy:
@@ -156,5 +121,10 @@ async def health() -> Dict[str, Any]:
 
         _health_cache = health_status
         _health_cache_time = now
-        return success(health_status)
+        return HealthResponse(**health_status)
 
+
+@router.get("/simple")
+async def health_simple() -> SuccessResponse:
+    """Simple health check for load balancers."""
+    return SuccessResponse(data={"status": "ok"}, message="OK")

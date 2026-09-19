@@ -50,7 +50,7 @@ if [[ -f "scripts/stop.sh" ]]; then
 else
     warn "scripts/stop.sh not found — killing known processes directly"
     pkill -f "uvicorn app.main:app" 2>/dev/null || true
-    pkill -f "celery -A app.workers.celery_app worker" 2>/dev/null || true
+    pkill -f "ENGINE/ComfyUI/main.py" 2>/dev/null || true
     pkill -f "next-server|next start" 2>/dev/null || true
     pkill -f "redis-server" 2>/dev/null || true
     pkill -f "postgres" 2>/dev/null || true
@@ -322,16 +322,12 @@ case "${1:-start}" in
         curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1 || \
             echo "[ENTRYPOINT] WARNING: API did not become healthy within timeout"
 
-        # ── Celery Worker ──────────────────────────────────────────────────
-        echo "[ENTRYPOINT] Starting Celery Worker..."
-        cd "$WORKDIR/backend"
-        nohup "$WORKDIR/backend/.venv/bin/python" -m celery -A app.workers.celery_app worker \
-            --loglevel=info \
-            --concurrency=1 \
-            -Q generation,images \
-            > ../logs/worker.log 2>&1 &
-        echo $! > ../.pids/worker.pid
-        cd "$WORKDIR"
+        # ── ComfyUI Engine ────────────────────────────────────────────────
+        echo "[ENTRYPOINT] Starting ComfyUI Engine..."
+        nohup "$WORKDIR/backend/.venv/bin/python" ENGINE/ComfyUI/main.py \
+            --listen 0.0.0.0 --port 8188 --enable-compress-response-body --mmap-torch-files --cpu --use-split-cross-attention \
+            > logs/comfyui.log 2>&1 &
+        echo $! > .pids/comfyui.pid
 
         # ── Frontend (Next.js standalone) ──────────────────────────────────
         echo "[ENTRYPOINT] Starting Frontend on :3000..."

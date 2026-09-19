@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# AI 3D Studio v3.2 — Startup Script (Non-Docker)
+# AI 3D Studio v4.0 — Startup Script (Non-Docker)
 # Starts all services natively:
-#   PostgreSQL → Redis → Migrations → Backend API → Celery Worker → Frontend
+#   PostgreSQL → Redis → ComfyUI Engine → Backend API → Frontend
 # ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
@@ -129,6 +129,17 @@ detect_gpu() {
         fi
     fi
     echo "cpu"
+}
+
+# ── Helper: run command with bun if available, else npm fallback ──
+run_bun_or_npm() {
+    local bun_cmd="$1"
+    local npm_cmd="$2"
+    if command -v bun &>/dev/null; then
+        eval "$bun_cmd"
+    else
+        eval "$npm_cmd"
+    fi
 }
 
 # ── Auto-bootstrap for cloud environments ──────────────────
@@ -325,18 +336,23 @@ write_pid() {
 
 # ── Ensure Python venv exists ─────────────────────────────────────────────
 if [[ ! -x backend/.venv/bin/python ]]; then
-    warn "Backend virtual environment not found — running first-time setup..."
-    if [[ -f scripts/setup.sh ]]; then
-        bash scripts/setup.sh || { err "Auto-setup failed. Run: bash scripts/setup.sh"; exit 1; }
+    if [[ -n "${CONDA_PREFIX:-}" && -x "${CONDA_PREFIX}/bin/python" ]]; then
+        ln -sf "${CONDA_PREFIX}" backend/.venv
+    elif [[ -x "/home/zeus/miniconda3/envs/cloudspace/bin/python" ]]; then
+        ln -sf "/home/zeus/miniconda3/envs/cloudspace" backend/.venv
     else
-        err "Backend venv not found and scripts/setup.sh missing — cannot bootstrap."
-        exit 1
+        warn "Backend virtual environment not found — running first-time setup..."
+        if [[ -f scripts/setup.sh ]]; then
+            bash scripts/setup.sh || { err "Auto-setup failed. Run: bash scripts/setup.sh"; exit 1; }
+        else
+            err "Backend venv not found and scripts/setup.sh missing — cannot bootstrap."
+            exit 1
+        fi
     fi
 fi
 
 PYTHON_BIN="${PROJECT_ROOT}/backend/.venv/bin/python"
 UVICORN_BIN="${PROJECT_ROOT}/backend/.venv/bin/uvicorn"
-CELERY_BIN="${PROJECT_ROOT}/backend/.venv/bin/celery"
 
 # ── Ensure Node.js/Bun is available ──────────────────────────────────
 # Prefers bun; falls back to npm if bun is not installed.
@@ -398,9 +414,8 @@ for lock in glob.glob(os.path.join(tp, "*", ".installing.lock")):
 PYEOF
 # ── Service PIDs ───────────────────────────────────────────────────────────
 API_PID_FILE="$PID_DIR/api.pid"
-WORKER_PID_FILE="$PID_DIR/worker.pid"
+COMFYUI_PID_FILE="$PID_DIR/comfyui.pid"
 FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
-MIGRATE_PID_FILE="$PID_DIR/migrate.pid"
 
 # ── Helper: Kill by PID file ──────────────────────────────────────────────
 kill_by_pid_file() {
@@ -531,33 +546,27 @@ if command -v systemctl &>/dev/null && ! systemctl is-active --quiet redis-serve
 fi
 
 if ! redis-cli ping &>/dev/null; then
-    warn "Redis not responding — configuring in-memory broker fallback for Celery."
-    export CELERY_TASK_ALWAYS_EAGER=1
-    export CELERY_BROKER_URL="memory://"
-    export CELERY_RESULT_BACKEND="cache+memory://"
-    export REDIS_URL="memory://"
-    # Update .env file to match (prevents Celery worker from reading stale URLs)
-    sed -i 's|^REDIS_URL=.*|REDIS_URL=memory://|' .env 2>/dev/null || true
-    sed -i 's|^CELERY_BROKER_URL=.*|CELERY_BROKER_URL=memory://|' .env 2>/dev/null || true
-    sed -i 's|^CELERY_RESULT_BACKEND=.*|CELERY_RESULT_BACKEND=cache+memory://|' .env 2>/dev/null || true
-    log "Celery fallback active: eager execution + memory broker (no Redis)"
+    warn "Redis not responding — backend will use in-memory caching"
 else
     log "Redis ready"
 fi
 echo ""
 
-# ── Step 3: Run Migrations ────────────────────────────────────────────────
-step "3/6 Running database migrations..."
+# ── Step 3: Verify Database Schema ───────────────────────────────────────
+step "3/6 Verifying database schema..."
 (
     cd backend
-    if [[ -f scripts/validate_env.py ]]; then
-        $PYTHON_BIN scripts/validate_env.py --quiet 2>/dev/null || python3 scripts/validate_env.py --quiet 2>/dev/null || true
-    fi
-    if $PYTHON_BIN -m alembic upgrade head 2>&1; then
-        log "Migrations complete"
-    else
-        warn "Migrations skipped or failed (may already be applied)"
-    fi
+    $PYTHON_BIN -c "
+import asyncio
+from app.database import engine, Base
+import app.models
+
+async def init():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+asyncio.run(init())
+" 2>/dev/null && log "Database schema ready" || warn "Database verification warning"
 )
 echo ""
 
@@ -567,8 +576,39 @@ find "${PROJECT_ROOT}/backend" -type d -name "__pycache__" -exec rm -rf {} + 2>/
 find "${PROJECT_ROOT}/backend" -type f -name "*.py[co]" -delete 2>/dev/null || true
 log "Bytecode caches cleaned"
 
-# ── Step 4: Start Backend API ──────────────────────────────────────────────
-step "4/6 Starting Backend API (http://localhost:8000)..."
+# ── Step 4: Start ComfyUI Execution Engine ────────────────────────────────
+step "4/6 Starting ComfyUI Execution Engine (http://localhost:8188)..."
+: > "$PROJECT_ROOT/logs/comfyui.log"
+if ! curl -sf http://127.0.0.1:8188/system_stats &>/dev/null; then
+    COMFY_ARGS="--listen 0.0.0.0 --port 8188 --enable-compress-response-body --mmap-torch-files"
+    if ! command -v nvidia-smi &>/dev/null || ! nvidia-smi &>/dev/null; then
+        COMFY_ARGS="$COMFY_ARGS --cpu --use-split-cross-attention"
+    else
+        COMFY_ARGS="$COMFY_ARGS --async-offload 2"
+    fi
+    (
+        cd "$PROJECT_ROOT"
+        setsid $PYTHON_BIN ENGINE/ComfyUI/main.py $COMFY_ARGS \
+            >> "$PROJECT_ROOT/logs/comfyui.log" 2>&1 &
+        write_pid "$COMFYUI_PID_FILE" $!
+    )
+    log "ComfyUI started (PID: $(cat "$COMFYUI_PID_FILE" 2>/dev/null || echo 'unknown'))"
+    info "Waiting for ComfyUI to be ready (timeout: 60s)..."
+    for i in {1..30}; do
+        if curl -sf http://127.0.0.1:8188/system_stats &>/dev/null; then
+            log "ComfyUI is ready"
+            break
+        fi
+        echo -n "."
+        sleep 2
+    done
+    echo ""
+else
+    log "ComfyUI already running"
+fi
+
+# ── Step 5: Start Backend API ──────────────────────────────────────────────
+step "5/6 Starting Backend API (http://localhost:8000)..."
 : > "$PROJECT_ROOT/logs/api.log"
 (
     cd backend
@@ -616,24 +656,6 @@ if [[ -z "${DISPLAY:-}" ]] && command -v Xvfb &>/dev/null; then
 fi
 export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
 
-# ── Step 5: Start Celery Worker ────────────────────────────────────────────
-step "5/6 Starting Celery Worker..."
-: > "$PROJECT_ROOT/logs/worker.log"
-(
-    cd backend
-    # Source .env to ensure Celery worker gets correct config
-    set -a; source ../.env 2>/dev/null || true; set +a
-    setsid $PYTHON_BIN -m celery -A app.workers.celery_app worker \
-        --loglevel=info \
-        --pool=solo \
-        --concurrency=1 \
-        -Q generation,images,installation \
-        >> "$PROJECT_ROOT/logs/worker.log" 2>&1 &
-    write_pid "$WORKER_PID_FILE" $!
-)
-log "Celery Worker started (PID: $(cat $WORKER_PID_FILE))"
-echo ""
-
 # ── Step 6: Start Frontend ────────────────────────────────────────────────
 step "6/6 Starting Frontend  — http://localhost:3000..."
 
@@ -667,15 +689,16 @@ echo -e "${GREEN}╔════════════════════
 echo -e "${GREEN}║${NC}  ${GREEN}✅ All Services Started${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "  ${BOLD}Endpoints:${NC}"
-echo -e "    ${GRAY}├─${NC} Frontend       ${CYAN}http://localhost:3000${NC}  "
-echo -e "    ${GRAY}├─${NC} Backend API    ${CYAN}http://localhost:8000${NC}"
-echo -e "    ${GRAY}└─${NC} API Docs       ${CYAN}http://localhost:8000/docs${NC}"
-echo ""
-echo -e "  ${BOLD}Logs:${NC}"
-echo -e "    ${GRAY}├─${NC} API      ${CYAN}logs/api.log${NC}"
-echo -e "    ${GRAY}├─${NC} Worker   ${CYAN}logs/worker.log${NC}"
-echo -e "    ${GRAY}└─${NC} Frontend ${CYAN}logs/frontend.log${NC}"
-echo ""
-echo -e "  ${BOLD}Stop services:${NC} ${GREEN}bash scripts/stop.sh${NC}"
+echo -e "  ${BOLD}Endpoints:${NC}
+    ${GRAY}├─${NC} Frontend       ${CYAN}http://localhost:3000${NC}
+    ${GRAY}├─${NC} Backend API    ${CYAN}http://localhost:8000${NC}
+    ${GRAY}├─${NC} ComfyUI Engine ${CYAN}http://localhost:8188${NC}
+    ${GRAY}└─${NC} API Docs       ${CYAN}http://localhost:8000/docs${NC}
+
+  ${BOLD}Logs:${NC}
+    ${GRAY}├─${NC} API      ${CYAN}logs/api.log${NC}
+    ${GRAY}├─${NC} ComfyUI  ${CYAN}logs/comfyui.log${NC}
+    ${GRAY}└─${NC} Frontend ${CYAN}logs/frontend.log${NC}
+
+  ${BOLD}Stop services:${NC} ${GREEN}bash scripts/stop.sh${NC}"
 echo ""

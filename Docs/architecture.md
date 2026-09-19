@@ -1,766 +1,215 @@
-# Runtime Architecture
+# AI 3D Studio — System & Runtime Architecture
 
-This document describes the **backend runtime** that loads, schedules, and runs the
-local 3D-generation / rigging / post-processing models on GPU. It is the source of
-truth for how a generation job reaches a model on the GPU.
+> **Architecture Version**: 6.0.0 (ComfyUI Core + ComfyUI-3D-Pack Engine)  
+> **Last Verified**: September 2026  
+> **Target Environments**: Linux (Ubuntu 20.04/22.04/24.04), Google Colab (T4, V100, L4, A100), Cloud GPU / Local Workstations
 
-## Layers
+---
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     API (FastAPI)                            │
-│  app/api/v1/{generation, runtime, admin, models, ...}        │
-└───────────────────────────────┬─────────────────────────────┘
-                                 │  enqueue
-┌───────────────────────────────▼─────────────────────────────┐
-│              Workers (Celery + Redis)                        │
-│  app/workers/tasks.py :: generate_3d_model()                 │
-│    - selects provider (engine.get_best_provider_name)        │
-│    - loads provider (engine.load_provider, VRAM-aware)       │
-│    - runs provider.generate()                                │
-│    - OOM retry once in low-VRAM mode                         │
-│    - unloads after job / on failure                          │
-│  app/workers/installation_workers.py :: run_native_build()   │
-│    - executes manifest native_steps inside per-model venv    │
-│    - owns native-build lock for build + preflight + smoke    │
-│    - auto-triggers preflight on success                      │
-│    - queues on dedicated `installation` queue                │
-└───────────────────────────────┬─────────────────────────────┘
-                                 │
-┌───────────────────────────────▼─────────────────────────────┐
-│                Runtime Engine (runtime/engine.py)            │
-│  RuntimeEngine: single GPU slot, provider registry,          │
-│  VRAM-aware best-provider selection (PROVIDER_PRIORITY,      │
-│  PROVIDER_MODES), low/normal vram planning.                  │
-└───────────────────────────────┬─────────────────────────────┘
-                                 │  instantiate
-┌───────────────────────────────▼─────────────────────────────┐
-│   Local Providers (app/core/providers/*_local.py)            │
-│  Hunyuan3D 2.1 / 2-Mini, TRELLIS, TripoSG, TripoSR,        │
-│  TripoSF, ARDY, DetailGen3D, Mock                           │
-│  - each calls _add_model_env() BEFORE imports so the         │
-│    per-model .venv packages win over the backend's           │
-│  - load on device via accelerate_loader                      │
-└───────────────────────────────┬─────────────────────────────┘
-                                 │
-┌───────────────────────────────▼─────────────────────────────┐
-│   runtime/  support modules                                  │
-│  gpu.py        - CUDA/VRAM detection, device selection      │
-│  accelerate_loader.py - cpu offload / device_map dispatch,   │
-│                    verify_gpu_placement, safe_unload         │
-│  capability.py - per-model VRAM + low-VRAM policy            │
-│  installer.py  - clone repos, per-model venv, weights       │
-│  storage.py    - per-model path resolution (StorageConfig)   │
-└─────────────────────────────────────────────────────────────┘
-```
+## 1. Architectural Mission & Overview
 
-## Provider registry (the integration boundary)
-
-Two maps must stay in sync — `runtime/engine.py::_PROVIDER_MAP` (engine load path)
-and `app/core/providers/registry.py::_RUNTIME_PROVIDER_MAP` (validation +
-`get_provider()`). They list the **same** runtime providers:
-
-| provider id | engine class | low-VRAM |
-|-------------|--------------|----------|
-| `hunyuan3d-2.1` | `Hunyuan3D21LocalProvider` | verified |
-| `hunyuan3d-2-mini` | `Hunyuan3D2MiniLocalProvider` | verified (image-to-3D only) |
-| `trellis` | `TRELLISLocalProvider` | no (native CUDA build) |
-| `triposg` | `TripoSGLocalProvider` | no |
-| `triposr` | `TripoSRLocalProvider` | verified (chunk size 2048) |
-| `triposf` | `TripoSFLocalProvider` | no (reconstruction only) |
-| `ardy` | `ArdyLocalProvider` | verified (fp16 / low-vram mode) |
-| `detailgen3d` | `DetailGen3DProvider` | no |
-| `mock` | `MockProvider` | n/a (testing) |
-
-Aliases `hunyuan3d` / `hunyuan3d-1.0` resolve to `hunyuan3d-2.1`.
-
-> **v3.8.7 fix**: `hunyuan3d-2-mini` and `triposg` were missing from the registry
-> map (engine-only), so `validate_provider_switch()` rejected them and
-> `get_provider()` silently fell back to mock. Both maps are now aligned.
-
-## GPU loading & low-VRAM
-
-1. `engine.load_provider()` resolves a mode via `capability.plan_vram_usage()`
-   (normal vs verified low-VRAM) and selects a device with `gpu.select_device()`.
-2. The local provider loads weights with `accelerate_loader`:
-   - **normal**: `pipeline.from_pretrained(device=...)` (tensors on CUDA).
-   - **low-VRAM** (Hunyuan3D only): `enable_model_cpu_offload` / `device_map`
-     keeps tensors on CPU between steps and moves them to GPU on demand.
-3. `verify_gpu_placement()` runs after load. It **skips** the hard CUDA assertion
-   when the model is offloaded via Accelerate (CPU<->GPU by design) and only fails
-   on a genuine silent CPU fallback.
-
-   > **v3.8.7 fix**: previously the check raised `RuntimeError` on every low-VRAM
-   > load because offloaded tensors rest on CPU at rest — aborting all low-VRAM
-   > Hunyuan3D runs.
-
-## Per-model isolation
-
-Each model is self-contained under `third_party/<RepoName>/`: its own `.venv/`
-(created by `uv`, torch pinned to the backend's exact build), `weights/`, and
-`cache/`. `storage.StorageConfig` resolves weight paths with a legacy fallback.
-Install state is mirrored in `runtime/installer.py::get_install_status()`.
-
-### In-process Torch ABI constraint (v4.3.0)
-
-All local providers execute **in-process** in the backend Python interpreter
-via `RuntimeEngine`. Python's dynamic linker loads a single copy of
-`libtorch` into the backend process. If a per-model venv's torchvision
-registers C++ operators (e.g. `torchvision::nms`) against a different torch
-build than the one already loaded in the backend, inference crashes with
-`RuntimeError: operator torchvision::nms does not exist`.
-
-**Therefore the backend torch stack is authoritative.** The manifests'
-`environment.torch` and `environment.cuda` fields document the upstream-tested
-configuration but are **not installation targets**. `_backend_torch_stack()`
-reads the backend's actual installed `torch`/`torchvision`/`torchaudio` via
-`importlib.metadata`, extracts the `+cuXXX` local version tag, and mirrors the
-exact build into every per-model venv using `--index-url` +
-`--index-strategy unsafe-best-match` + `--reinstall`. Extra dependency
-installs (`hy3dgen`, `diffusers`, `accelerate`, etc.) also include this torch
-pin to prevent transitive resolution from upgrading torch to an
-ABI-incompatible version (e.g. 2.13.0).
-
-Manifest torch fields are preserved as **compatibility metadata** — they
-describe what the upstream repo tested with, not what will be installed.
-
-## Two-Stage Model Setup (v3.9+)
-
-Model installation is split into two strictly separated stages:
-
-### Stage A — Runtime Installation
-`prepare_runtime(provider_name)` in `runtime/installer.py`:
-1. Clone repo into `third_party/<repo>/` (idempotent: reuse if valid)
-2. Create `third_party/<repo>/.venv` (idempotent: reuse if valid)
-3. Discover dependency files (requirements.txt, pyproject.toml, manifest)
-4. Install normal dependencies into model venv
-5. Resolve native dependencies via **wheel-first** logic:
-   - Check manifest `dependencies.wheels` for prebuilt wheel
-   - Wheel found → install wheel (no compilation)
-   - No wheel → interactive prompt "build from source? [y/N]"
-     - YES → build inside model venv
-     - NO → skip, mark SKIPPED, continue
-6. Run preflight (without weights check)
-7. Return: `runtime_ready` | `runtime_partial` | `runtime_blocked` | `runtime_failed`
-
-**Does NOT download weights.**
-
-### Stage B — Weight Download
-`download_model_weights(provider_name)` in `runtime/installer.py`:
-1. Check runtime status → if not ready, return error "Runtime not ready"
-2. Resolve weight manifest
-3. Download to `third_party/<repo>/weights/<provider>` (canonical location)
-4. Verify checksum + completeness
-5. Return: `weights_ready` | `weights_failed`
-
-**Does NOT clone repos, create venvs, or install deps.**
-
-### Entry Points
-- `scripts/setup.sh` → Stage A only (no weights)
-- `scripts/colab.sh` → Stage A + Stage B (separate steps)
-- `POST /api/v1/runtime/prepare-runtime` → Stage A
-- `POST /api/v1/runtime/download-weights` → Stage B
-- `POST /api/v1/runtime/install` → Stage A + B (backward compat)
-
-### Wheel-First Dependency Resolver
-`runtime/dependency_resolver.py` classifies dependencies into:
-- **NORMAL** — standard pip install
-- **NATIVE** — compiles CUDA/C++ (diso, torch-cluster, flash-attn, pytorch3d, spconv, etc.)
-- **BUILD_ONLY** — only needed at build time
-- **OPTIONAL** — platform-specific optional
-
-Static `manifest `dependencies.wheels`` maps native packages to wheel availability per (py_ver, cuda_ver, platform). No network calls — deterministic, works offline.
-
-### Component-Level State Machine
-Fine-grained states for UI status:
-- `RepoState`: missing | ready | failed
-- `EnvState`: missing | creating | ready | failed
-- `DepsState`: pending | installing | ready | partial | failed
-- `NativeState`: not_required | pending | checking_wheel | wheel_found | wheel_installed | build_pending | build_running | ready | skipped | failed
-- `WeightsState`: missing | downloading | verifying | ready | incomplete | failed
-- `ModelState`: not_ready | partial | ready | blocked | failed
-
-MODEL_READY requires: repo=ready AND env=ready AND deps=ready AND (native=ready OR wheel_installed OR not_required) AND weights=ready AND preflight=passed.
-
-## Manifest authority for dependency installation
-
-YAML manifests in `backend/runtime/manifests/` are the **authoritative installation contract**
-for dependency installation. `install_repo_deps()` in `runtime/installer.py` now consumes
-`manifest["environment"]` and `manifest["dependencies"]` directly:
-
-- **Python version pin**: `environment.python` is used to select the base Python binary when
-  creating the per-model venv via Python's standard `venv` module (only when a manifest exists;
-  fallback to system/backend Python otherwise).
-- **Dependency source**: `dependencies.python` + `dependencies.native` are combined into a
-  temporary requirements file and installed via `_uv_install` inside the activated venv. `REPOS[*]["requirements"]` is
-  **not consulted** when a manifest is present — the manifest is the single source of truth.
-- **Torch stack**: `_install_torch_stack()` is called to mirror the backend's exact
-  torch/torchvision/torchaudio build into each per-model venv.
-- **Backward-compat fallback**: When no manifest exists for a provider, `install_repo_deps`
-  falls back to `REPOS[*]["requirements"]`.
-- **External caller compat**: The `requirements_override` parameter on `install_repo_deps()`
-  is retained for backward-compatible callers that still pass it (e.g.
-  `RuntimeInstaller.install_repo_deps_for_models`).
-
-### YAML-only installation architecture (v4.4.0+)
-
-The installation pipeline is **fully YAML-driven**. The Python installer and
-dependency resolver are generic engines; every model-specific detail lives in
-`backend/runtime/manifests/*.yaml`:
-
-- **WHAT** to install → `dependencies.python`, `dependencies.extra`,
-  `dependencies.native`, `dependencies.optional`,
-  `dependencies.representation_required`
-- **WHERE** to get it → `source.repo`, `source.ref`, `source.local_dir`,
-  `dependencies.local_extensions[*].path`,
-  `dependencies.local_extensions[*].hf_dataset`
-- **WHICH WHEEL** to try → `dependencies.wheels[*]` (per-package wheel policy:
-  pypi, custom index, direct wheel URL, VCS+direct wheel)
-- **WHICH FALLBACK** to try → `dependencies.fallbacks[*]` (genuinely
-  different installable sources, not duplicates)
-- **WHETHER SOURCE BUILD** is allowed → derived from `dependencies.optional`
-  vs `dependencies.representation_required` vs required semantics
-- **WHERE WEIGHTS** come from → `weights.primary.repo`,
-  `weights.auxiliary[*]`, `weights.allow_patterns`, `weights.ignore_patterns`
-- **WHICH BUILD STEPS** are required → `capabilities[*].native_steps`,
-  `preflight.*`
-
-#### Manifest loader (`backend/runtime/manifest_loader.py`)
-
-`manifest_loader` is the single access point for model metadata. It exposes:
-
-- `load_manifest(provider_name)` → returns the parsed YAML manifest dict
-- `load_all_manifests()` → dict of provider_name → manifest
-- `list_manifests()` → list of available provider names
-- `get_provider_metadata(provider_name)` → compatibility view for a single
-  provider (label, category, vram_required_mb, supports_*, etc.)
-- `get_all_provider_metadata()` → dict of provider_name → compatibility view
-
-For backward compatibility, the module also exports generated compatibility
-views `REPOS`, `HF_MODELS`, and `PROVIDER_METADATA`. These are **derived
-from manifests at import time** — they are not hardcoded configuration.
-Removing a manifest removes it from these views; the installer no longer
-maintains a separate Python-side model table.
-
-#### Adding a new model
-
-To add a new model, create `backend/runtime/manifests/<name>.yaml` with the
-required keys (name, source, environment, dependencies, weights, hardware,
-capabilities, preflight) and add a `provider_name → filename` entry to
-`_PROVIDER_MANIFEST_MAP` in `manifest_loader.py`. No Python-side
-configuration changes are required.
-
-## Installation States
-
-YAML manifests are the installation-contract authority. Component-level state is persisted to the database. Preflight runs real model load + smoke tests. Repair is manifest-driven.
-
-Models now report detailed component status instead of binary "installed".
-
-### State flow
-
-```text
-DISCOVERED -> REPO_READY -> ENV_READY -> WEIGHTS_READY -> PREFLIGHT_RUNNING -> READY
-```
-
-Blocking states: `NATIVE_BUILD_PENDING`, `BLOCKED`, `AUXILIARY_WEIGHTS_MISSING`, `FAILED`, `CUDA_INCOMPATIBLE`, `VRAM_INSUFFICIENT`
-
-### Key components
-
-Each provider reports status for: Repository, Environment, Main weights, Auxiliary weights, Native build, CUDA, VRAM, Preflight, Capabilities.
-
-### Manifest-driven installation
-
-Each model has a YAML manifest in `backend/runtime/manifests/` that defines:
-- Source repository + submodules
-- Environment requirements (Python, PyTorch, CUDA versions)
-- Dependencies (python packages, import checks, native extensions)
-- Primary and auxiliary weights
-- Hardware requirements (VRAM)
-- Per-capability settings (including per-capability native build requirements)
-- Preflight checks
-
-### Preflight (real tests, not stubs)
-
-`preflight.py` now implements **real** `model_load` and `capability_smoke` tests inside the target model's venv (not the backend interpreter). The previous `NOT_IMPLEMENTED` stubs have been replaced with actual validation, so a provider that fails preflight stays blocked until the issue is resolved.
-
-### VRAM enforcement
-
-Manifest `minimum_vram_mb` (from the `hardware` section) is now a **hard preflight/READY gate** — not just an informational display. During preflight the reported available VRAM is compared against the manifest value; if insufficient the provider transitions to `VRAM_INSUFFICIENT` and cannot reach `READY`.
-
-### Per-capability native builds
-
-Capabilities can declare `native_build_required: true` in their manifest section (e.g., Hunyuan3D 2.1's `texture_pbr`). This triggers a capability-level build step during installation, tracked via a per-capability `native_build_pending` state so other capabilities (e.g., `shape`) remain unblocked.
-
-### Auxiliary weight enforcement
-
-Auxiliary weights marked `required: true` in the manifest produce an `AUXILIARY_WEIGHTS_MISSING` blocking state when the download is missing — even if the primary weights and environment are fine.
-
-### Component-level install state persistence
-
-Component-level install state is persisted to the database via the `ProviderInstallState` model (`backend/app/models/registry.py`). The installer calls `persist_provider_state()` after status changes. The `GET /api/v1/admin/install/status` endpoint is **live-authoritative**: it calls `get_install_status()` at request time and treats the runtime result as the source of truth for `state`, `blocking_reason`, and `components`. Persisted DB state only supplies historical/task details (e.g. last task id, timestamps) and is never used to override a live `BLOCKED`/`PARTIAL`/`FAILED` state or to resurrect a stale `READY`.
-
-### Manifest-driven repair
-
-`POST /repair/{provider_name}` delegates to `install_provider()` in `runtime/installer.py`. The endpoint:
-1. Loads the provider's YAML manifest
-2. Calls `install_provider(provider_name, hf_token, allow_native_build=False, skip_preflight=False)` as a background task
-3. Returns `state`, `components`, and `blocking_reason` via `GET /install/status`
-
-Repair is manifest-driven rather than a hard-coded re-clone/re-install: it re-runs the full install pipeline (repo, env, weights, preflight) and surfaces the exact blocking component if the provider still cannot reach READY.
-
-### Race-safe lock ownership
-
-The install lock tracks `owner_type` (`api` or `celery`) so that an API-initiated install can safely hand off to a Celery worker without deadlocking or stale lock claims. The native-build lock is held by the `native_build_worker` owner for the entire native-build workflow — from start through preflight, model load, and capability smoke tests — and is released only after the complete workflow succeeds or fails. Lock ownership is held across the entire install/native-build workflow and is released only after the complete workflow succeeds or fails.
-
-See `Docs/INSTALLATION_STATES.md` for full reference.
-
-## Frontend Architecture
-
-### Persistent Workspace Layout (v2 - Refactored)
-
-The frontend uses a modern persistent workspace: ONE global 3D viewport (`MeshViewer`) that never unmounts, with dynamic left/right panels that swap based on the active sidebar tab.
-
-#### Routing
-- `app/page.tsx` and `app/workspace/page.tsx` both render `WorkspaceShell` (wrapped in `WorkspaceProvider`).
-- `WorkspaceShell` wraps the new modular layout structure from `/features/new-workspace/`.
-
-#### Layout Structure
-```
-┌─────────────────────────────────────────────────────┐
-│  #persistent-top-header  (brand + nav + status)     │
-├───────────┬─────────────────────────────────┬──────┤
-│           │                                 │      │
-│ #left-    │    CENTER: MeshViewer           │ Right│
-│ tool-rail │    (persistent 3D viewport —   │panel │
-│ (tools)   │     NEVER unmounts)             │      │
-│           │                                 │      │
-│ Left panel│         (Three.js Canvas)       │      │
-│ (dynamic) │                                 │      │
-│           │                                 │      │
-└───────────┴─────────────────────────────────┴──────┘
-```
-
-#### New Component Organization (`/features/new-workspace/`)
-- **WorkspaceShell**: Entry point — renders TopHeader, tool panels, MeshViewer, right panels, modals
-- **Viewport/MeshViewer.tsx**: Full Three.js viewport with 3-point lighting, floor grid, turntable auto-rotation, camera presets, drag-and-drop asset loading
-- **Navigation/LeftNavigation.tsx**: Vertical icon rail with tool buttons; responsive drawer on mobile (`md:` breakpoint)
-- **Panels/**: Tool-specific panels (GeneratePanel, TexturePanel, RemeshPanel, SecondaryPanels)
-- **RightPanel/**: Contextual panels (RightAssetsPanel, RightPropertyPanel)
-- **Header/TopHeader.tsx**: Brand logo, workspace mode switcher, navigation links, backend status pill
-- **Modals/**: ExportModal, SettingsModal, DccBridgeModal
-- **RightPanel/LiveExecutionPanel.tsx**: Real-time generation & OpenX Clay post-processing pipeline monitoring
-- **Dashboard/**: StudioDashboard, SystemPage, OutputsPage
-- **store/WorkspaceContext.tsx**: React Context for UI state, bridged to Zustand via `lib/storeAdapter.ts`
-- **lib/api.ts**: API client targeting `/api/v1/*` FastAPI endpoints
-
-#### Global State
-- `useAppStore`: Primary persisted Zustand store (localStorage) — generation params, UI state, tasks, downloads, project
-- `useViewerStore`: Independent store — loaded model URL/name, shading mode, model stats, rig/animation info
-- `useGenerationStore`: Proxy store — mirrors generation state from `useAppStore` with `subscribeWithSelector`
-- `useUIStore`: Proxy store — mirrors UI state from `useAppStore`
-- `useProjectStore`: Proxy store — project/layer management
-- `WorkspaceContext`: New React Context for workspace UI state (tool selection, assets, execution status), synced with Zustand via `lib/storeAdapter.ts`
-
-#### API Layer
-- All frontend API calls target `/api/v1/*` FastAPI endpoints
-- No ComfyUI backend required; existing FastAPI handles all generation
-- API client in `features/new-workspace/lib/api.ts` provides system stats, history, job management
-
-#### Frontend Model Selection (Manifest-Driven)
-
-The model selector is fully manifest-driven — no hardcoded model lists:
-
-- **`hooks/useManifestModels.ts`**: Consumes `/api/v1/runtime/options` and filters models by capability:
-  - `meshCapableModels`: Models with `supports_image_to_3d` OR `supports_text_to_3d` + `available`
-  - `textureCapableModels`: Models with `supports.texture_generation` + `available`
-
-#### Status Pills
-
-Each tool panel header shows a status pill indicating model availability:
-- **Green "Ready"**: Model is available and weights are present
-- **Amber "Weights missing"**: Model installed but weights not downloaded
-- **Amber "Model not installed"**: Model not installed
-- **Amber with status text**: Any other non-ready state
-- **No pill**: Everything is fine (or model is ready)
-
-#### Responsive Design
-
-The workspace is fully responsive for mobile and tablet:
-- **Desktop (md+)**: Fixed 58px left rail, 264px left panel, 196px right panel
-- **Mobile (<md)**: Left navigation becomes a slide-out drawer; panels become full-screen overlays
-- **TopHeader**: Hamburger menu on mobile; some buttons hidden on small screens
-- **Tool panels**: Full-screen drawers on mobile with close button
-- **Dashboard overlays**: Full-width on mobile, offset by 58px on desktop
-- All desktop behavior is preserved exactly using `md:` breakpoints
-
-- All workspace components use `var(--ws-*, fallback)` for colors
-- Default theme preserved (dark with gold accent)
-- `/3D-SPACE/` — old 3D components (Canvas3D, AssetPanel, GenerationControls)
-- All ComfyUI-specific code and `react-router-dom` dependency from workspace
-
-#### Dependency Installation
-- **Manifest-based**: Each model's `manifest.yaml` is the single source of truth for dependencies
-- **manifest `dependencies.extra`** (v4.3.0+): Packages not in the repo's requirements.txt (e.g., `hy3dgen` for Hunyuan3D) are installed with a torch pin matching the backend's exact build (`_backend_torch_stack()`) to prevent transitive resolution from upgrading torch to an ABI-incompatible version. The previous `--reinstall` flag was removed because it forced uv to re-resolve and could pull a newer torch.
-- **Optional vs representation-required vs required** (v4.3.0+): The resolver distinguishes three classes of native dependency. Truly optional deps (alternatives like `flash-attn`/`xformers`) are skipped on wheel failure. Representation-required deps (e.g., `kaolin` for mesh, `nvdiffrast` for differentiable rasterization) are attempted in non-interactive mode and degrade the corresponding capability on failure. Fully required deps fail the install on failure.
-- **one_of / alternatives**: `attention_backend.one_of` in manifest is respected (only first alternative installed)
-- **Pillow fix**: Force-reinstalls Pillow if C extension (`_imaging`) is missing or corrupted (detects from manifest or repo files)
-- **CUDA 12.x support**: All CUDA 12.0-12.8 versions supported with automatic wheel selection
-- **CPU fallback**: On CPU-only machines, installs CPU wheels and marks models as PARTIAL
-- **Preflight**: Stage A skips weights check (weights are Stage B)
-- **GPU cleanup**: Explicit `torch.cuda.empty_cache()` + `gc.collect()` on model unload
-- **Native dependency resolution (v4.4.11+)**: CUDA env vars (`TORCH_CUDA_ARCH_LIST`, `CUDA_HOME`) are set automatically for source builds; `ninja` is pre-installed as a build dependency for CUDA extensions; shallow clone support for VCS subdirectory deps reduces clone time
-- **Extra-index-url support (v4.4.11+)**: Wheel configs support `mode: extra_index` to install pre-built wheels from custom indexes (e.g., MiroPsota torch_packages_builder for nvdiffrast) via `--extra-index-url`
-
-#### Runtime Health States (v4.3.0+)
-
-The `/api/v1/runtime/health` endpoint exposes per-provider states with a
-`blocking_reason` for each non-ready provider:
-
-| State | Meaning | Can the engine use it? |
-|-------|---------|------------------------|
-| `runtime_ready` | All components (venv, deps, native, preflight) are in their success state | Yes — full functionality |
-| `runtime_partial` | Install succeeded but some required deps failed or a representation-specific native dep failed | No — registry marks it unavailable; UI shows `blocking_reason` |
-| `runtime_failed` | Critical component (venv or deps) not ready | No |
-| `not_installed` | Provider not yet selected for install | No |
-| `discovered` | Repo not yet cloned | No |
-
-The provider registry (`app/core/providers/registry.py`) checks the overall
-state, not just `repo_ok and weight_ok`. A provider with `runtime_partial` is
-no longer marked fully available — the engine won't auto-select a broken
-provider. The `prepare_runtime()` function no longer accepts `DepsState.PARTIAL`
-as "deps OK"; PARTIAL now means the install succeeded but some required deps
-failed, and the runtime is reported as `runtime_partial` with a
-`blocking_reason` listing the failed packages.
-
-#### Disk Space Checking (v4.3.0+)
-
-`full_install()` performs a **cumulative** disk check before starting any
-downloads: the total estimated size of all selected models is compared
-against available space with a 5GB safety margin plus 20% headroom for
-extraction and cache growth. Previously each model was checked individually,
-so a multi-model install could exhaust disk before the last model finished.
-The bulk install path now fails fast with a clear error if the cumulative
-size exceeds available space.
-
-#### Storage Path
-- **Location**: `backend/storage/` (absolute path resolved from `config.py` module location)
-- **Subdirectories**: `models/`, `uploads/`, `thumbnails/`, `exports/`, `images/`
-- **Config**: `storage_local_path` in `backend/app/config.py` — defaults to absolute `backend/storage/` regardless of CWD
-- **Mount**: `app.mount("/static", BinaryStaticFiles(directory=settings.storage_local_path))` serves files via `/static` proxy
-
-#### 3D Model Upload
-- **Endpoint**: `POST /api/v1/upload/model` handles GLB, GLTF, FBX, OBJ, STL
-- **Storage**: Files saved to `storage_local_path/models/`
-- **Thumbnails**: Generated server-side for GLB/GLTF, stored in `storage_local_path/thumbnails/`
-- **Mesh Stats**: Upload response includes `mesh_stats` with polygon/vertex counts via `get_mesh_stats()` from `app/core/mesh_processor.py`
-- **Frontend**: `RightAssetsPanel.tsx` uploads via `apiClient.uploadFile()` and uses backend-returned URLs
-
-#### Static File Proxy
-- **Route**: `app/static/[...path]/route.ts` forwards `/static/*` requests to backend
-- **Purpose**: Resolves token error pages caused by browsers being unable to reach backend's `/static` mount directly in Docker/local dev setups
-- **Implementation**: Uses same `BACKEND_URL` resolution as `/api/v1/*` proxy, forwards with appropriate content-type headers and Cloudflare-compatible binary headers
-
-#### Client-Side File Validation
-- **Module**: `features/new-workspace/lib/fileValidation.ts`
-- **Features**: GLB magic bytes validation (`glTF` header at bytes `0x67, 0x6c, 0x54, 0x46`), GLB structure validation (version, length, chunk headers), truncation detection, format-specific checks for OBJ/STL/PLY
-- **Limits**: 100MB upload limit, 150MB preview limit
-
-#### Asset Persistence
-- **Problem**: `WorkspaceContext.refreshHistory()` rebuilds the assets array every 60s, filtering out assets without `source.localUrl`. Uploaded models/images were purged because they use `source.type: 'input'`/`'upload'` instead.
-- **Fix**: The filter now preserves assets with `source.localUrl` OR `source.type === 'upload'` OR `source.type === 'input'`
-- **Code**: `features/new-workspace/store/WorkspaceContext.tsx` — `refreshHistory` callback
-
-#### Image Upload
-- **Endpoint**: `POST /api/v1/upload/image` handles PNG, JPG, WebP
-- **Storage**: Files saved to `storage_local_path/uploads/`
-- **Frontend**: `RightAssetsPanel.tsx` has a dedicated image upload card (camera icon) separate from the 3D model upload
-- **Asset Type**: Images are stored as `category: 'texture'` with tags `['Uploaded', 'Image']`
-- **Filter**: Assets panel "Images" filter matches `tags?.includes('Image')`
-
-#### Upload Diagnostics
-- **Module**: `features/new-workspace/lib/uploadDiagnostics.ts`
-- **UI**: `features/new-workspace/Modals/UploadDiagnosticModal.tsx`
-- **Features**: Captures request/response details, detects HTML error pages (token errors), provides actionable recommendations for upload failures
-
-#### Compare View
-- **Panel**: `features/new-workspace/Panels/ComparePanel.tsx`
-- **Viewport**: `features/new-workspace/Viewport/CompareViewport.tsx`
-- **Features**: Side-by-side model comparison, synchronized camera, property diff (polycount, vertices, materials, dimensions), multiple view modes (side-by-side, overlay, split)
-
-#### 3D Quality Pipeline, Auto-Optimize & Master Preservation
-- **Modules**: `backend/app/core/mesh_processor.py`, `backend/app/core/mesh_optimizer.py`, `backend/app/core/blender/scripts/process_mesh.py`
-- **Master Asset Preservation**: Always retains raw provider mesh as untouched `source.glb` alongside the optimized `game_ready.glb`.
-- **Safe Component Pruning**: Replaced destructive island stripping with vertex/volume connectivity threshold (≥0.5% vertices or ≥15 vertices), preserving horns, ears, tails, weapons, and accessories.
-- **UV Preservation Guard**: Recomputes UVs only when missing (`if not obj.data.uv_layers:`), preventing destruction of AI provider texture maps.
-- **Humanoid Metarig Guard**: Checks aspect ratio and height before applying Rigify biped armature, avoiding distortion of quadrupeds and props.
-- **Geometry Diagnostics & QA Scoring**: Calculates non-manifold edges, surface winding consistency, connected components, UV validity, texture presence, and scores 0–100 against target platform polygon budgets (`mobile`, `low`, `medium`, `high`, `cinematic`).
-- **LOD Cascades**: Generates multi-tier LOD0–LOD3 variants with UV/material preservation.
-- **Collision Mesh**: Generates simplified physics convex hulls (`collision.glb`).
-
-#### Project Export Engine
-- **Module**: `backend/app/api/v1/project.py` (`POST /api/v1/project/export`)
-- **Variant Selection**: Export `source`, `game_ready`, or `lod_package`.
-- **Format Conversion**: Server-side conversion to GLB, OBJ, STL, and PLY via Trimesh.
-- **Structured ZIP Packaging**: Packages `{name}/Source/`, `{name}/GameReady/`, `{name}/LODs/`, `{name}/Collision/`, and `{name}/QA/quality_report.json`.
-- **Traversal Security**: Rejects directory traversal attempts while safely translating `/static/...` URLs to canonical filesystem paths within `storage_local_path`.
-
-#### Security
-- **Path traversal prevention**: All upload/download endpoints resolve paths with `.resolve()` and validate they stay within storage directory
-- **Upload timeout**: 60-second AbortController timeout on file uploads
-- **HF token**: Stored in `.hf_token` file (should be moved to secrets manager in production)
-
-#### Security Improvements (v4.4.9)
-- **Terminal command allowlist**: Replaced blocklist-based command filtering with an allowlist approach to prevent command injection in terminal/execution endpoints
-- **Path traversal protection in static proxy**: `app/static/[...path]/route.ts` now validates resolved paths stay within the backend's static directory, preventing `../` traversal attacks
-- **Proxy route timeouts**: PUT/DELETE routes in `app/api/v1/[...path]/route.ts` now enforce request timeouts to prevent slowloris and resource exhaustion
-- **CORS origin restriction**: Replaced wildcard (`*`) CORS origin with environment-specific origin configuration to prevent unauthorized cross-origin requests
-
-#### Performance Improvements (v4.4.9)
-- **Chunked file upload**: `backend/app/api/v1/upload.py` now streams uploads in chunks instead of buffering entire files in memory, preventing memory exhaustion on large uploads
-- **Memoized workspace context**: `WorkspaceContext.tsx` split into smaller memoized selectors to prevent cascading re-renders when any context value changes
-- **Blob URL model loading**: `MeshViewer.tsx` now uses blob URLs to eliminate redundant network fetches when loading models into Three.js
-- **Always-on render loop**: Animation loop removed `needsRenderRef` gating — loop always runs, fixing "frozen until auto-rotate toggle" bug and keeping OrbitControls damping alive
-- **Performance**: Pixel ratio cap reduced to 1.5×, shadow maps reduced to 512×512 for higher FPS
-- **Asset persistence**: `refreshHistory` preserves uploaded models (`source.type: 'input'`/`'upload'`), no longer purges them every 60s
-- **Image upload removed from assets panel**: Images stay in backend storage only; assets panel shows 3D models only
-- **DB overload fix**: All admin tab polling loops now have tab-hidden guards; intervals increased (RuntimeTab 5s→10s, OverviewTab 10s→15s, GpuVramLineChart 3s→15s)
-- **Colab keepalive**: Replaced broken `nohup` background curl (killed by Colab idle cleanup) with auto-injected browser JS keepalive + service watchdog
-
-#### Performance Improvements (v4.4.10)
-- **Parallelized health checks**: `backend/app/api/v1/health.py` now runs provider health checks concurrently using `asyncio.gather` instead of sequentially, reducing health endpoint latency from O(n) to O(1)
-- **Thread-safe settings store**: `backend/app/api/v1/settings.py` uses a threading lock to prevent race conditions on concurrent settings reads/writes
-- **Non-blocking background tasks**: Long-running background operations use `asyncio.to_thread` to avoid blocking the event loop
-- **Parallelized models API**: N+1 query pattern in `models_api.py` replaced with `asyncio.gather` for concurrent data fetching
-
-#### Frontend Architecture (v4.1.3)
-- **Single WorkspaceProvider**: Hoisted to root layout (`app/layout.tsx`) for state persistence across navigation
-- **Three.js cleanup**: Proper disposal of geometries/materials on MeshViewer unmount
-- **Camera framing**: Automatic fit-to-screen after model load
-- **Asset persistence**: Fetched from backend on workspace mount
-
-## Real-Time Push Architecture (v4.5.0+)
-
-Replaces slow polling with instant WebSocket push for system status, GPU telemetry, and health updates.
-
-### WebSocket Endpoint
-
-- **Route**: `WS /api/v1/realtime/ws`
-- **Module**: `backend/app/api/v1/realtime.py`
-- **Protocol**: JSON messages over WebSocket
-
-#### Message Types
-
-| Direction | `type` | Purpose |
-|-----------|--------|---------|
-| Server → Client | `initial` | Full state snapshot on connect (health + GPU) |
-| Server → Client | `gpu` | GPU telemetry update (pushed every 10s) |
-| Server → Client | `health` | Health check update |
-| Server → Client | `keepalive` | Sent after 30s of no client activity |
-| Client → Server | `ping` | Client-initiated liveness check |
-| Server → Client | `pong` | Response to client ping |
-
-### Background Pusher
-
-A lifespan-managed asyncio task (`_realtime_pusher`) runs on server startup:
-- Polls `runtime.gpu.get_gpu_info()` every 10 seconds
-- Broadcasts to all connected clients via `push_update()`
-- Automatically cancelled on server shutdown
-
-### Frontend Integration
-
-- **`hooks/useRealtime.ts`**: WebSocket client hook with auto-reconnect (5s backoff)
-  - Returns `{ connected, gpu, health }` state
-  - Consumers fall back to polling when `connected` is false
-- **`hooks/useBackendData.ts`**: `useBackendStatus()` uses WebSocket when connected, falls back to 60s polling
-- **`components/monitoring/GpuVramLineChart.tsx`**: Accepts optional `realtimeGpu` prop; skips polling entirely when provided
-
-### Connection Lifecycle
-
-1. Client connects → server sends `initial` message with full state
-2. Server pushes `gpu` updates every 10s via background task
-3. Client can send `ping` to verify liveness
-4. On disconnect → client auto-reconnects after 5s
-5. On server shutdown → background task cancelled cleanly
-
-### Graceful Degradation
-
-- WebSocket is an **enhancement**, not a replacement
-- All existing REST endpoints remain functional
-- Frontend falls back to polling when WebSocket is unavailable
-- No breaking changes to existing components
-
-## Caching Layer (v4.6.0+)
-
-In-memory caching with TTL reduces redundant computation and improves response times.
-
-### Cache Configuration
-
-| Endpoint | TTL | Purpose |
-|----------|-----|---------|
-| `/api/v1/system/info` | 30s | System information (CPU, RAM, disk) |
-| `/api/v1/system/gpu` | 10s | GPU telemetry data |
-| `/api/v1/runtime/status` | 5s | Runtime status snapshot |
-| `/api/v1/runtime/health` | 10s | Provider health states |
-| `/api/v1/pipelines` | 30s | Pipeline snapshot + feature matrix |
-
-### Implementation
-- Cache entries store serialized response data with expiration timestamps
-- Stale entries are evicted on read and via periodic background cleanup
-- Cache keys include query parameters for endpoint-specific invalidation
-- Manual cache clear via `POST /api/v1/system/cache/clear`
-
-### Cache Eviction Strategy
-
-- **LRU eviction**: Cache is capped at 256 entries (`OrderedDict`-based LRU)
-- **TTL per endpoint**: Each cached value has its own TTL
-- **State-driven invalidation**: Model install/uninstall/repair operations invalidate affected cache keys immediately
-- **Prefix invalidation**: `invalidate_prefix()` removes all keys matching a prefix
-
-### Performance Optimizations (v4.6.1+)
-
-- **GZip compression**: Text-based responses (JSON, GLTF, HTML) are compressed via `GZipMiddleware` (minimum 1000 bytes)
-- **Conditional request logging**: Health/static/realtime endpoints logged at DEBUG level to reduce production log noise
-- **WebSocket pusher optimization**: GPU polling skips when no clients are connected; blocking `nvidia-smi` call runs in executor
-- **WebSocket broadcast**: Concurrent send to all clients with 2s timeout; slow clients don't block others
-- **WebSocket connection limit**: Capped at 50 clients to prevent DoS
-- **GPU info caching**: `get_gpu_info()` cached for 2s to reduce subprocess calls
-- **Shared Redis pool**: Single `ConnectionPool` shared across all modules to avoid connection churn
-- **Worker DB atomicity**: Job state updates committed once at task completion instead of per-progress-update
-- **Database indexes**: Added indexes on `generation_jobs.created_at`, `generation_jobs.updated_at`, and `download_queue.status`
-- **Database pool timeout**: 5s timeout on connection pool acquisition to fail fast under load
-- **Cache invalidation**: Model install/uninstall/repair operations invalidate affected cache keys immediately
-- **Client-side dedup cleanup**: Periodic eviction of expired entries in the frontend request deduplication cache
-- **Non-blocking CPU metrics**: `psutil.cpu_percent(interval=0)` used instead of blocking 0.1s interval
-
-#### Frontend Performance (v4.6.1+)
-- **GPU material disposal**: Shading mode changes now dispose previous materials to prevent GPU memory leaks
-- **Immutable state updates**: Mesh stats use `updateAssetProperties` instead of direct mutation (fixes stale UI)
-- **Event listener fix**: Execution event handlers use ref for `activeTask` to prevent stale closures
-- **AbortSignal propagation**: `apiClient.request()` properly merges external abort signals with internal timeout
-- **Request dedup cleanup**: Periodic eviction of expired entries prevents unbounded cache growth
-
-## Settings Persistence (v4.7.2+)
-
-- **Storage**: PostgreSQL `settings` table (key-value store)
-- **Cache**: Redis used as read-through cache layer
-- **Migration**: `backend/alembic/versions/0005_settings_table.py`
-- **Module**: `backend/app/api/v1/settings.py` — async DB reads/writes
-
-## Rate Limiting (v4.7.2+)
-
-- **Mechanism**: Redis sorted sets for sliding-window rate limiting
-- **Limit**: 10 requests/minute per IP on generation endpoint
-- **Response**: HTTP 429 with `Retry-After` header when exceeded
-- **Module**: `backend/app/api/v1/generation.py` — `_check_rate_limit()` helper
-
-## Celery Install Tasks (v4.7.2+)
-
-- **Tasks**: `install_runtime`, `prepare_runtime`, `download_weights`, `update_repo`, `repair_repo`
-- **Durability**: All install operations survive process restarts
-- **Tracking**: Returns `task_id` for progress monitoring
-- **Module**: `backend/app/workers/installation_workers.py`
-
-## SSE System Stream (v4.6.0+)
-
-- **Route**: `GET /api/v1/system/stream`
-- **Module**: `backend/app/api/v1/system.py`
-- **Protocol**: Server-Sent Events (text/event-stream)
-- **Purpose**: System event streaming for real-time updates
-
-### Frontend Integration
-- **`hooks/useSSE.ts`**: SSE client hook with auto-reconnect
-  - Returns `{ connected, lastEvent }` state
-  - Consumers fall back to polling when `connected` is false
-- **`hooks/useBackendData.ts`**: Uses SSE when connected, falls back to 60s polling for status
-
-## Frontend Studio Modernization (v4.8+)
-
-- **Universal Motion System (`lib/motion.ts`)**: Standardized all UI motion under `motion/react` with spring presets (`stiffness: 450, damping: 32`) for tab highlights, modal entries, and interactive switches.
-- **Dual-Scope Navigation Rail**: Decoupled studio-level pages (`Overview`, `Assets`, `System`) from contextual 3D tool overlays (`Model`, `Poly`, `Texture`, `Animate`, `Segment`), keeping the desktop rail permanently docked at `md:left-[72px]`.
-- **Multi-Modal Generation Interfaces**:
-  - `GeneratePanel.tsx` features single-image drag-and-drop, 4-angle orthogonal multi-view capture (`crop`), direct text-to-3d prompt workshop (`wand`) with "Inspire Me" generation, and an HTML5 2D concept sketchpad (`edit`).
-- **SSR Acceleration & Dynamic Bailout Elimination**: Direct panel imports replace lazy dynamic components with `ssr: false` in `WorkspaceShell.tsx`, avoiding client-side hydration stalls and providing instant HTML markup.
-
-## 3D Generation & Detail Preservation Pipeline (v5.0.81)
-
-The v5.0.81 pipeline resolves facial/micro-feature geometric loss (eyes, ears, nose, teeth) when generating high-poly or raw meshes, dynamically scales voxel octrees, and introduces dual-delivery (master untouched vs game-ready decimated).
-
-### Generation & Detail Preservation Architecture Flowchart
+AI 3D Studio is an end-to-end generative 3D asset pipeline. The system is architected around a clean separation of concerns:
+- **Presentation Layer**: Next.js 16 frontend with interactive Three.js 3D viewport, Tripo-style tooling, and model management.
+- **Product & API Gateway**: FastAPI backend managing database persistence (PostgreSQL 16), client validation, rate limiting, and static file delivery.
+- **Execution Core**: **ComfyUI 0.36.0** as the single authoritative execution engine running in `ENGINE/ComfyUI`.
+- **3D Node Layer**: **ComfyUI-3D-Pack** as the custom-node suite providing native 3D tensor operations, neural shape reconstruction, texture baking, and remeshing.
 
 ```mermaid
-flowchart TD
-    subgraph UI["Studio Frontend (Next.js 15 App Router)"]
-        A["GeneratePanel: Preset Selection<br/>Low (256³) | Medium (384³) | High (512³) | Ultra (640³) | Raw"] --> B["1-Click Mesh Quality Toolbar<br/>auto_optimize, target_faces, octree_res, steps"]
-        B --> C["API Client: POST /api/v1/generation/"]
+graph TB
+    subgraph Client["Frontend Layer (Next.js 16 + React 19)"]
+        VIEW["3D Viewport (Three.js / OrbitControls)"]
+        GEN_UI["Generation & LOD Controls"]
+        EXP_UI["Production Export Modal"]
+        ADMIN_UI["Settings & Model Manager"]
     end
 
-    subgraph Backend["FastAPI & Task Routing"]
-        C --> D["FastAPI /generation Endpoint<br/>Validation & Job Queueing"]
-        D --> E["Celery Worker (tasks.py: generate_3d_model)"]
+    subgraph Gateway["Product API Gateway (FastAPI :8000)"]
+        API_GEN["/api/v1/generation"]
+        API_JOBS["/api/v1/jobs"]
+        API_MODELS["/api/v1/models"]
+        API_RUN["/api/v1/runtime"]
+        API_SYS["/api/v1/system"]
+        STATIC["/static Binary Model Delivery"]
+        COMFY_CLIENT["ComfyUI Client (TCP Pool + WS)"]
+        DB[("PostgreSQL 16 Database")]
     end
 
-    subgraph Engine["Runtime Engine & Providers"]
-        E --> F{"Provider Select"}
-        F -->|Hunyuan3D 2.1 / 2-Mini| G["Dynamic Octree Grid (256 - 640)<br/>Diffusion Steps (20 - 75)<br/>Marching Cubes Surface Extractor"]
-        F -->|TRELLIS / TripoSG| H["TRELLIS Local Provider<br/>Quality Presets & 2048px Textures"]
-        G --> I["Raw Marching Cubes Mesh<br/>(Up to 1.5M - 2.5M Triangles)"]
-        H --> I
+    subgraph Core["Execution Core (ComfyUI 0.36.0 :8188)"]
+        QUEUE["Prompt Execution Queue"]
+        SERVER["HTTP API & WebSocket Server"]
+        MMAP["mmap Torch Tensor Loader"]
+        CACHE["RAM / VRAM Pressure Cache"]
     end
 
-    subgraph DetailPreserve["Texture & Detail Preservation"]
-        I --> J{"is_real_textured_mesh()?<br/>Check UVs & Non-Gray Vertex Colors"}
-        J -->|Raw / Untextured| K["_project_texture()<br/>Occlusion-Aware PBR Projection<br/>Tangent-Space Normal Map Baking"]
-        J -->|Already Textured| L["Preserve Texture Coordinates & Maps"]
-        K --> M["High-Fidelity Master GLB<br/>Preserves micro-features: nose, teeth, eyes, ears"]
-        L --> M
+    subgraph Pack["3D Node Suite (ComfyUI-3D-Pack)"]
+        HY21["Hunyuan3D-2.1 (Shape + Paint)"]
+        TREL["TRELLIS (FlexiCubes PBR)"]
+        TSG["TripoSR / TripoSF (Fast Geometry)"]
+        SV3D["SV3D (Multi-view Synthesis)"]
+        REMESH["Mesh Remeshing & Optimization"]
     end
 
-    subgraph PostProcess["Dual Export & Decimation Flow"]
-        M --> N{"Generation Mode:<br/>auto_optimize == True?"}
-        N -->|Raw Master Mode (auto_optimize: false)| O["Skip All Decimation<br/>active_model_url = master_glb<br/>Full Geometric Fidelity"]
-        N -->|Game-Ready Mode (auto_optimize: true)| P["Meshoptimizer Quadric Decimation<br/>Boundary-Locked & Attribute-Preserving<br/>Clay PostProcessor (LOD0-LOD2)"]
-        P --> Q["Deliver game_ready.glb<br/>active_model_url = game_ready_url<br/>master_model_url = master_glb"]
+    subgraph Storage["Persistent Asset Storage (backend/storage/)"]
+        SRC["source.glb (Untouched Master)"]
+        GAME["game_ready.glb (Decimated)"]
+        LODS["lods/lod0..3.glb (LOD Cascade)"]
+        HULL["collision.glb (Physics Hull)"]
+        ZIP["Structured ZIP Package"]
     end
 
-    subgraph ClientLoad["Frontend Mesh Viewport"]
-        O --> R["Viewport / MeshViewer: Load Active Model<br/>Direct PBR Shading & Orbit Controls"]
-        Q --> R
-    end
+    Client <==>|Next.js Proxy / REST| Gateway
+    Gateway --> DB
+    Gateway <==>|Connection Pool / WS| Core
+    Core --> Pack
+    Pack --> Storage
+    Storage --> Gateway
+    Gateway --> Client
 ```
 
-### Google Colab & Headless Deployment Architecture Flowchart
+---
+
+## 2. Component Layers
+
+### 2.1 Presentation Layer (Next.js 16)
+- **App Router**: Built on Next.js 16 with React 19 and Tailwind CSS.
+- **Reverse Proxy Route (`app/api/v1/[...path]/route.ts`)**: Proxies all frontend client requests to the FastAPI backend running on port 8000.
+- **3D Canvas**: Three.js WebGL viewport supporting orbit controls, wireframe modes, matcap shading, and environment lighting.
+- **Stores**: Lightweight Zustand stores managing generation state, active model selection, and UI panels.
+
+### 2.2 Product API Gateway (FastAPI)
+Located at `backend/app/`:
+- **Lifespan Management (`app/main.py`)**: Automatically creates database tables on startup (`Base.metadata.create_all`), verifies ComfyUI engine connectivity, initializes storage roots, and closes connection pools on shutdown.
+- **Database Engine (`app/database.py`)**: Asynchronous SQLAlchemy 2.0 engine backed by `asyncpg` with synchronous fallbacks for migrations.
+- **Static File Server (`BinaryStaticFiles`)**: Optimized binary streaming for 3D model formats (`.glb`, `.gltf`, `.fbx`, `.obj`, `.stl`, `.zip`) with HTTP 86400s `Cache-Control` and `Accept-Ranges` byte-serving headers.
+- **ComfyUI Client (`app/core/comfy/client.py`)**: High-performance HTTP client interfacing with ComfyUI's REST endpoints (`/prompt`, `/queue`, `/history`, `/free`, `/system_stats`, `/view`) and WebSocket real-time progress stream (`/ws`).
+
+### 2.3 Execution Core (ComfyUI 0.36.0)
+Located at `ENGINE/ComfyUI/`:
+- **Single Execution Engine**: Replaces all legacy Celery task workers, Redis message brokers, and bespoke multi-venv runtimes.
+- **Computational Graph Architecture**: Modular node graph execution with deterministic DAG validation.
+- **Dynamic Model Loader**: Automatically manages model weights in VRAM, caching active checkpoints and offloading inactive layers.
+
+### 2.4 3D Node Layer (ComfyUI-3D-Pack)
+Located at `ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/`:
+- **Supported 3D Models**:
+  - **Hunyuan3D-2.1**: High-fidelity shape generation (`hy3dshape`) and multi-view paint texture baking (`hy3dpaint`).
+  - **TRELLIS**: Structured FlexiCubes PBR generation with 2048x2048 normal/roughness/metallic baking.
+  - **TripoSR / TripoSF**: Fast single-image feedforward mesh reconstruction.
+  - **SV3D**: Stable Video 3D multi-view image diffusion.
+- **Mesh Processing**: Real-time Marching Cubes, remeshing algorithms, vertex attribute extraction, and GLB/OBJ serialization.
+
+---
+
+## 3. High-Performance Client & Engine Configuration
+
+To eliminate latency and maximize throughput, several low-level optimizations are applied:
+
+| Optimization | Target Layer | Mechanism | Impact |
+|---|---|---|---|
+| **Response Body Compression** | ComfyUI Engine | `--enable-compress-response-body` | Reduces network JSON and binary payload transfer size by 60–80%. |
+| **mmap Tensor Loading** | ComfyUI Engine | `--mmap-torch-files` | Memory-maps safetensors directly from disk, preventing double memory allocation during checkpoint loading. |
+| **Split Cross-Attention** | ComfyUI Engine (CPU) | `--use-split-cross-attention` | Optimizes attention calculations when running on CPU or unaccelerated compute. |
+| **Async Weight Offload** | ComfyUI Engine (GPU) | `--async-offload 2` | Overlaps CUDA memory copies with inference compute using 2 dedicated streams. |
+| **Persistent TCP Pooling** | FastAPI Client | `aiohttp.TCPConnector(limit=100, keepalive_timeout=60.0)` | Reuses TCP connections between FastAPI and ComfyUI, dropping HTTP handshake latency to sub-millisecond. |
+| **System Stats Micro-Cache** | FastAPI Client | 3.0-second TTL cache in `health_check()` | Prevents `/system_stats` lock contention during high-frequency frontend polling. |
+| **Object Info Cache** | FastAPI Client | In-memory node specification cache | Prevents repeated parsing of hundreds of node schemas. |
+| **Explicit Memory Purge** | FastAPI Client | `POST /api/v1/runtime/clear-vram` → ComfyUI `/free` | Calls `/free` with `{"unload_models": False, "free_memory": True}` to clear cache without evicting warm model weights. |
+
+---
+
+## 4. End-to-End Generation Request Flow
 
 ```mermaid
-flowchart TD
-    subgraph Colab["Google Colab Runtime (T4, V100, L4, A100)"]
-        NB["colab.ipynb / AI_Studio_Colab.ipynb"]
-        NB --> C1["Cell 1: GPU & RAM Diagnostic (nvidia-smi, CUDA)"]
-        NB --> C2["Cell 2: Git Clone / Sync (--depth 1, pull --rebase)"]
-        NB --> C3["Cell 3: 1-Click Bootstrap Launcher"]
-        NB --> C4["Cell 4: Maintenance & Daemon Supervisor Controls"]
-    end
+sequenceDiagram
+    autonumber
+    actor User
+    participant Frontend as Next.js 16 Frontend
+    participant API as FastAPI Gateway (:8000)
+    participant DB as PostgreSQL 16
+    participant Client as ComfyUIClient
+    participant Engine as ComfyUI Engine (:8188)
+    participant Pack as ComfyUI-3D-Pack Nodes
+    participant Storage as backend/storage/
 
-    subgraph Bootstrap["Bootstrap & Optimization Engine (scripts/colab.sh)"]
-        C3 --> SWAP["setup_swap(): Allocate 8GB Swapfile<br/>(Guards against Linux Kernel OOM Killer)"]
-        SWAP --> VENV["uv Virtualenv Provisioning<br/>Targeted Python 3.12+ Backend"]
-        VENV --> PYBUILD["Next.js Turbopack Build & Alembic Migrations"]
-        PYBUILD --> DAEMONS["Service Orchestrator (--pool=solo)"]
-    end
+    User->>Frontend: Select prompt / image + Platform budget
+    Frontend->>API: POST /api/v1/generation
+    API->>DB: Insert GenerationJob (status="queued")
+    API->>Client: queue_prompt(workflow)
+    Client->>Engine: POST /prompt (payload, client_id)
+    Engine-->>Client: Return prompt_id
+    API-->>Frontend: Return {job_id, status: "queued"}
 
-    subgraph Supervisor["Watchdog & Process Guard (scripts/colab_watch.sh)"]
-        DAEMONS --> FASTAPI["FastAPI Daemon (:8000)"]
-        DAEMONS --> CELERY["Celery Solo Worker (Queue: default, installation)"]
-        DAEMONS --> NEXT["Next.js Production Server (:3000)"]
-        DAEMONS --> CF["Cloudflare Named / Quick Tunnels"]
-        FASTAPI --- WATCH["Watchdog Loop (Health Check + Auto Restart)"]
-        CELERY --- WATCH
-        NEXT --- WATCH
-    end
+    Engine->>Pack: Execute 3D Generation Pipeline
+    Engine-->>Client: WebSocket progress updates (node execution)
+    Client-->>DB: Update job progress & stage
 
-    subgraph Egress["Public Remote Access"]
-        CF --> CARD["Interactive HTML Status Card<br/>Instant Clickable Links: Studio UI & API Docs"]
-        CARD --> CLIENT["Remote Browser Client"]
-    end
+    Pack->>Storage: Write source.glb (Untouched Master)
+    Pack->>Storage: Write game_ready.glb (Decimated)
+    Pack->>Storage: Write lods/lod0..3.glb (LOD Cascade)
+    Pack->>Storage: Write collision.glb (Convex Hull)
+
+    Engine-->>Client: Execution complete event
+    Client->>Storage: Register final asset URLs
+    Client->>DB: Update GenerationJob (status="completed")
+    Frontend->>API: GET /api/v1/generation/status/{job_id}
+    API-->>Frontend: Return {status: "completed", outputs: {...}}
+    Frontend->>User: Render 3D model in Viewport
 ```
 
+---
 
+## 5. Storage Directory Organization
+
+All user assets and generation outputs are stored under `backend/storage/`:
+
+```
+backend/storage/
+├── uploads/                    # User-uploaded reference images (.png, .jpg, .webp)
+├── models/                     # Generated 3D assets organized per-job
+│   └── <job_id>/
+│       ├── source.glb          # Raw neural output (100% untouched master)
+│       ├── game_ready.glb      # Decimated game-ready mesh (conforming to target poly budget)
+│       ├── collision.glb       # Simplified convex hull physics collider
+│       ├── lods/
+│       │   ├── lod0.glb        # 100% triangles
+│       │   ├── lod1.glb        # 50% triangles
+│       │   ├── lod2.glb        # 25% triangles
+│       │   └── lod3.glb        # 12.5% triangles
+│       └── quality_report.json # Objective QA validation score (0-100)
+├── thumbnails/                 # Rendered asset preview thumbnails (.png)
+└── exports/                    # Structured ZIP packages for Unreal / Unity / Godot
+```
+
+---
+
+## 6. Service Lifecycle Management
+
+### 6.1 Installation (`scripts/install_comfyui.sh`)
+- Idempotent script that clones official ComfyUI into `ENGINE/ComfyUI` and ComfyUI-3D-Pack into `ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack`.
+- Installs Python dependencies using `uv pip` inside `backend/.venv`.
+- Automatically applies compatibility patches for PyVista, PyMeshFix, and Torchvision tensor mocks.
+
+### 6.2 Startup (`scripts/start.sh`)
+Executes the native service stack in sequence:
+1. **PostgreSQL**: Verifies database user `ai_studio` and database `ai_studio` on port 5432.
+2. **Redis**: Starts `redis-server` on port 6379.
+3. **Database Schema**: Executes `Base.metadata.create_all` via Python async engine.
+4. **ComfyUI Engine**: Starts ComfyUI on port 8188 with performance flags (`--enable-compress-response-body`, `--mmap-torch-files`, and CPU/GPU attention offloading).
+5. **FastAPI Gateway**: Starts Uvicorn on port 8000.
+6. **Frontend**: Builds (or starts) Next.js on port 3000.
+
+### 6.3 Shutdown (`scripts/stop.sh`)
+- Gracefully sends `SIGTERM` followed by `SIGKILL` to Next.js, Uvicorn, and ComfyUI processes.
+- Releases TCP ports 3000, 8000, and 8188 via `fuser` / `lsof`.
+- Cleans up stale PID files in `.pids/`.
+
+---
+
+## 7. Verification & Automated Self-Checks
+
+All backend capabilities are verified via `backend/tests/test_backend_e2e.py`:
+- **Check 1: Configuration check**: Validates environment variables, paths, and API settings.
+- **Check 2: Database CRUD check**: Creates, reads, updates, and deletes test generation jobs.
+- **Check 3: ComfyUI connection check**: Queries ComfyUI `/system_stats` and verifies engine health.
+- **Check 4: Workflow manager check**: Compiles parameterized workflows for text-to-3D, image-to-3D, texture, and remesh.
+- **Check 5: Model registry check**: Confirms registered 3D models and capability flags.

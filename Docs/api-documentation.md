@@ -967,7 +967,7 @@ GET /api/v1/system/dependencies
     "critical": {
       "torch": { "installed": true, "version": "2.5.1", "satisfied": true },
       "fastapi": { "installed": true, "version": "0.115.6", "satisfied": true },
-      "celery": { "installed": true, "version": "5.4.0", "satisfied": true }
+      "comfyui": { "installed": true, "version": "0.36.0", "satisfied": true }
     },
     "optional": {
       "transformers": { "installed": true, "version": "4.46.0", "satisfied": true }
@@ -1194,14 +1194,14 @@ GET /api/v1/admin/logs?lines=100&level=INFO
 
 ---
 
-### Manage Workers
+### Engine & Memory Controls
 
-Control Celery workers.
+Control ComfyUI memory and inspect runtime execution state.
 
 ```http
-POST /api/v1/admin/workers/restart
-POST /api/v1/admin/workers/scale?count=4
-GET /api/v1/admin/workers/status
+POST /api/v1/runtime/clear-vram
+GET /api/v1/runtime/status
+GET /api/v1/runtime/health
 ```
 
 ---

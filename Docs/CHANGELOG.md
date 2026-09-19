@@ -4,6 +4,39 @@ All notable changes, architectural updates, and feature implementations for AI 3
 
 ---
 
+## [6.0.0] — 2026-09-19
+
+### 🚀 Backend Rebuild: ComfyUI Core & ComfyUI-3D-Pack Engine
+
+Complete architectural rebuild of the AI 3D Studio backend around **ComfyUI 0.36.0** as the single execution engine and **ComfyUI-3D-Pack** as the primary 3D model node layer, while keeping the Next.js frontend intact.
+
+#### 1. Architecture Overhaul
+- **Single Execution Core**: Replaced the legacy bespoke runtime engine, Celery task workers, and per-model virtual environments with an upstream ComfyUI installation (`ENGINE/ComfyUI`).
+- **3D Node Integration**: Integrated `ComfyUI-3D-Pack` (`ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack`) providing native custom nodes for Hunyuan3D-2.1, TRELLIS, TripoSR, TripoSF, SV3D, and 3D Gaussian Splatting.
+- **FastAPI Product Layer**: Built a clean, modern FastAPI service (`backend/app/`) handling authentication, job persistence (PostgreSQL 16), client routing, and static file delivery without heavy worker layers.
+- **Archival**: Safely archived the legacy backend into `LEGACY_BACKEND/` (in `.gitignore`) with zero active imports or references.
+
+#### 2. Performance & Low-Latency Optimizations
+- **ComfyUI Engine Flags**:
+  - `--enable-compress-response-body`: Compresses all HTTP responses from ComfyUI for faster network transmission.
+  - `--mmap-torch-files`: Fast memory-mapped loading for checkpoint files (`.safetensors`, `.pt`) avoiding redundant memory copies.
+  - `--use-split-cross-attention`: Drastically reduces memory consumption and optimizes attention operations on CPU systems.
+  - `--async-offload 2`: Enables multi-stream asynchronous CUDA tensor offloading on GPU systems.
+- **Backend Client Connection Pooling**:
+  - Configured persistent `aiohttp.TCPConnector(limit=100, keepalive_timeout=60.0, enable_cleanup_closed=True)`.
+  - Added 3-second micro-caching for `/system_stats` to eliminate health check polling latency.
+  - In-memory node specification cache (`get_object_info`).
+- **Memory Management**:
+  - Implemented `/api/v1/runtime/clear-vram` routing to ComfyUI `/free` with explicit `unload_models` and `free_memory` flags to purge memory without restarting.
+
+#### 3. System Orchestration & Verification
+- **Automated Idempotent Installer (`scripts/install_comfyui.sh`)**: Clones ComfyUI, clones ComfyUI-3D-Pack, installs dependencies via `uv pip`, and applies compatibility fixes.
+- **Startup Script (`scripts/start.sh`)**: Starts PostgreSQL, Redis, ComfyUI (port 8188), FastAPI (port 8000), and Next.js (port 3000) with automatic CPU/GPU detection.
+- **Stop Script (`scripts/stop.sh`)**: Gracefully shuts down all services and frees ports.
+- **End-to-End Test Suite (`backend/tests/test_backend_e2e.py`)**: 5 automated self-checks (Config, Database CRUD, ComfyUI connection, Workflow manager, and Model registry).
+
+---
+
 ## [5.0.83] — 2026-09-17
 
 ### 🐛 AI Models Duplication & Workspace Mesh Settings Relocation

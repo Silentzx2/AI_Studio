@@ -75,7 +75,11 @@ scripts/.cloudflare_tunnels
 .kilo/
 .agents
 scratch/
+LEGACY_BACKEND/
 
 # Built wheels - stored locally and uploaded to GitHub releases
 .wheels/
 wheel_build.log
+
+# ComfyUI Engine directory (installed via scripts/install_comfyui.sh)
+ENGINE/

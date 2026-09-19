@@ -88,20 +88,23 @@ print_banner
 print_section "Stopping Services"
 kill_by_signature "Frontend"      "next start"
 kill_by_signature "Frontend"      "next-server"
-kill_by_signature "Celery Worker" "celery -A app.workers.celery_app worker"
 kill_by_signature "Backend API"   "uvicorn app.main:app"
+kill_by_signature "ComfyUI"       "ENGINE/ComfyUI/main.py"
 kill_by_signature "Colab Keep-Alive" "colab_keepalive"
 
 # Ensure ports are released even if parent processes were orphaned
 if command -v fuser >/dev/null 2>&1; then
     fuser -k -TERM 3000/tcp 2>/dev/null || true
     fuser -k -TERM 8000/tcp 2>/dev/null || true
+    fuser -k -TERM 8188/tcp 2>/dev/null || true
     sleep 0.5
     fuser -k -KILL 3000/tcp 2>/dev/null || true
     fuser -k -KILL 8000/tcp 2>/dev/null || true
+    fuser -k -KILL 8188/tcp 2>/dev/null || true
 elif command -v lsof >/dev/null 2>&1; then
     lsof -ti :3000 | xargs -r kill -9 2>/dev/null || true
     lsof -ti :8000 | xargs -r kill -9 2>/dev/null || true
+    lsof -ti :8188 | xargs -r kill -9 2>/dev/null || true
 fi
 
 # ── Stop system services ──────────────────────────────────────────

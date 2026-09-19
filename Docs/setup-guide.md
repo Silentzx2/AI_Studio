@@ -122,14 +122,14 @@ cd ai-3d-studio
 # Make scripts executable
 chmod +x scripts/*.sh manager.sh
 
-# Run Stage A setup (runtime only — no weights downloaded)
+# Run automated setup (installs ComfyUI, 3D Pack, and backend dependencies)
 ./scripts/setup.sh
 
-# Start services
+# Start services (PostgreSQL, Redis, ComfyUI, FastAPI, Next.js)
 ./scripts/start.sh
 ```
 
-> **Important**: `setup.sh` performs **Stage A only** — it clones repos, creates per-model venvs, and installs dependencies. Weights are **not** downloaded during setup. After startup, download weights via the UI or API (see [Two-Stage Installation](#two-stage-installation)).
+> **Important**: `setup.sh` installs ComfyUI 0.36.0, ComfyUI-3D-Pack, and all necessary dependencies. Model weights can be placed directly in `ENGINE/ComfyUI/models/checkpoints/` or downloaded via ComfyUI.
 
 ### Access Points After Startup
 
@@ -158,106 +158,41 @@ The whole project — backend requests, frontend API calls, and user clicks — 
 
 ---
 
-## Manifest-Driven Installation
+## ComfyUI Engine & 3D Pack Setup
 
-Each model is installed from its manifest under `backend/runtime/manifests/`. The
-manifest is the single source of truth for the repository checkout, Python/native
-dependencies, extra packages, wheel targets/fallbacks, native build steps, and model
-weights.
+The AI Studio backend executes 3D generative pipelines directly through **ComfyUI 0.36.0** and **ComfyUI-3D-Pack**.
 
-The installer does not require a separate per-model installation table. To add or
-repair a model, update its manifest rather than adding repository URLs, weight repos,
-extra dependencies, or wheel rules to `installer.py`.
+### Automated Installation (`scripts/install_comfyui.sh`)
 
-## Two-Stage Installation
+1. **Clones Upstream ComfyUI**: Clones `https://github.com/Comfy-Org/ComfyUI.git` into `ENGINE/ComfyUI/`.
+2. **Clones ComfyUI-3D-Pack**: Clones `https://github.com/MrForExample/ComfyUI-3D-Pack.git` into `ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/`.
+3. **Installs Dependencies**: Uses `uv pip` inside `backend/.venv` to install PyTorch, `torch-scatter`, `gpytoolbox`, `slangtorch`, `pyvista`, `pymeshfix`, `igraph`, and `mmgp`.
+4. **Applies Compatibility Patches**: Ensures CPU compatibility guards and mock modules for `torchvision.transforms.functional_tensor`.
 
-Since v4.1, model installation is split into two independent stages:
-
-### Stage A: Runtime Preparation
-
-Clones repos, creates per-model venvs, installs Python dependencies, and resolves native dependencies via wheel-first logic. This is what `setup.sh` runs.
-
-**Via setup script:**
+**Run standalone:**
 ```bash
-./scripts/setup.sh
+bash scripts/install_comfyui.sh
 ```
 
-**Via API:**
-```bash
-curl -X POST http://localhost:8000/api/v1/runtime/prepare-runtime \
-  -H "Content-Type: application/json" \
-  -d '{"models": ["hunyuan3d-2.1", "trellis", "triposg"]}'
-```
+### Available Models & Checkpoints
 
-### Stage B: Weight Download
+Checkpoints are placed in `ENGINE/ComfyUI/models/checkpoints/` or resolved dynamically:
 
-Downloads model weights and auxiliary weights. Requires Stage A to be complete for each model.
+| Model ID | Architecture | Primary Capability |
+|---|---|---|
+| `hunyuan3d-2.1` | Hunyuan3D-2.1 DiT + Paint | Text/Image to 3D & PBR Texture Baking |
+| `trellis` | TRELLIS (FlexiCubes) | High-fidelity PBR geometry synthesis |
+| `triposr` | TripoSR NeRF / Marching Cubes | Fast single-image 3D reconstruction |
+| `triposf` | TripoSF Feedforward | Lightweight geometric reconstruction |
+| `sv3d` | Stable Video 3D | Multi-view orbital diffusion |
 
-**Via UI:**
-- Navigate to the Model Manager in the web UI
-- Click "Download Weights" for each model you want to use
+### Engine Performance Configuration
 
-**Via API:**
-```bash
-curl -X POST http://localhost:8000/api/v1/runtime/download-weights \
-  -H "Content-Type: application/json" \
-  -d '{"models": ["hunyuan3d-2.1", "trellis", "triposg"]}'
-```
-
-### Component-Level State Machine
-
-Each model's installation progress is tracked per component with explicit states:
-
-| Component | States |
-|-----------|--------|
-| **repo** | `missing` → `ready` / `failed` |
-| **venv** | `missing` → `creating` → `ready` / `failed` |
-| **deps** | `pending` → `installing` → `ready` / `partial` / `failed` |
-| **native** | `not_required` → `checking_wheel` → `wheel_found` → `wheel_installed` / `build_pending` → `build_running` → `ready` / `skipped` / `failed` |
-| **weights** | `missing` → `downloading` → `ready` / `incomplete` |
-| **preflight** | `pending` → `running` → `passed` / `failed` |
-
-**Check status:**
-```bash
-curl http://localhost:8000/api/v1/admin/install/status
-```
-
-### Dependency Resolver (Wheel-First)
-
-The new `dependency_resolver.py` uses wheel-first logic for native packages:
-
-1. Discovers dependency files (requirements.txt, pyproject.toml, setup.py, manifest)
-2. Classifies each dependency (NORMAL, NATIVE, BUILD_ONLY, OPTIONAL)
-3. For NATIVE deps: checks manifest `dependencies.wheels` for prebuilt wheel availability
-4. If wheel exists → install it (no compilation)
-5. If no wheel → prompt for source build or skip
-
-This reduces install time and CUDA build failures, especially on Python 3.12.
-
-### Available Models (v4.1)
-
-| Model ID | Repo Entry | Category |
-|----------|------------|----------|
-| `hunyuan3d-2.1` | `Hunyuan3D-2.1` | 3D Generation |
-| `hunyuan3d-2-mini` | `Hunyuan3D-2mini` | 3D Generation |
-| `trellis` | `TRELLIS` | 3D Generation |
-| `triposg` | `TripoSG` | 3D Generation |
-| `detailgen3d` | `DetailGen3D` | Post-processing |
-
-> **Note**: `Hunyuan3D-2mini` is a **separate repo entry** from `Hunyuan3D-2`. They share the same GitHub URL (`Tencent-Hunyuan/Hunyuan3D-2.git`) but have independent manifests, weights paths, and venvs. This allows the mini variant to be installed and updated independently.
-
-### Colab Preparation Policy
-
-Colab mode is a testing environment — all models are installable regardless of VRAM or weight. VRAM requirements shown in manifests are advisory (displayed to users) but never gate preparation. The caller is still responsible for handling runtime OOM.
-
-| Model | VRAM | Weight | Notes |
-|-------|------|--------|-------|
-| DetailGen3D | 4 GB | 2 GB | Geometry enhancement |
-| Hunyuan3D-2mini | 6 GB | 4 GB | Optimized for low VRAM |
-| TripoSG | 8 GB | 2 GB | Image-to-3D |
-| Hunyuan3D 2.1 | 29 GB | 14 GB | Full pipeline ~29 GB |
-
-> **Note**: Models requiring native CUDA builds (TRELLIS) need the CUDA toolkit (`nvcc`) to compile extensions. On Colab, the toolkit may be unavailable — the runtime will still install but native extensions may fail to compile. On VPS/full-GPU hosts with CUDA toolkit installed, all models work without restrictions.
+ComfyUI is launched with performance flags:
+- `--enable-compress-response-body`: Compresses all HTTP payloads.
+- `--mmap-torch-files`: Memory-maps checkpoint safetensors for rapid loading.
+- `--use-split-cross-attention`: Reduces attention memory consumption on CPU.
+- `--async-offload 2`: Enables asynchronous CUDA weight offloading streams on GPU.
 
 ---
 
@@ -372,29 +307,17 @@ bun run dev
 ### 6. Start Services
 
 ```bash
-# Terminal 1: Backend
+# Terminal 1: ComfyUI Execution Engine
+./backend/.venv/bin/python ENGINE/ComfyUI/main.py \
+  --listen 0.0.0.0 --port 8188 --enable-compress-response-body --mmap-torch-files --cpu --use-split-cross-attention
+
+# Terminal 2: FastAPI Gateway
 cd backend
 source .venv/bin/activate
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-# Terminal 2: Celery Worker (with embedded beat scheduler)
-cd backend
-source .venv/bin/activate
-celery -A app.workers.celery_app worker --loglevel=info -B -Q generation,images
-
 # Terminal 3: Frontend
 bun run dev
-```
-
-### 7. Download Weights (After Services Start)
-
-```bash
-# Download weights for specific models
-curl -X POST http://localhost:8000/api/v1/runtime/download-weights \
-  -H "Content-Type: application/json" \
-  -d '{"models": ["hunyuan3d-2.1"]}'
-
-# Or use the UI: navigate to Model Manager → Download Weights
 ```
 
 ---
@@ -1081,21 +1004,17 @@ setsid python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level inf
 echo $! > ../.pids/api.pid
 ```
 
-#### **Restart Celery Worker Only**
+#### **Restart ComfyUI Engine Only**
 ```bash
-# Kill only the celery worker
-pkill -f "celery -A app.workers.celery_app worker"
+# Kill ComfyUI process
+pkill -f "ENGINE/ComfyUI/main.py"
+rm -f .pids/comfyui.pid
 
-# Remove worker PID file
-rm -f .pids/worker.pid
-
-# Restart worker (with beat scheduler -B)
-cd /path/to/AI_Studio/backend
-source .venv/bin/activate
-setsid python -m celery -A app.workers.celery_app worker \
-  --loglevel=info --concurrency=1 -B -Q generation,images \
-  > ../logs/worker.log 2>&1 &
-echo $! > ../.pids/worker.pid
+# Restart ComfyUI with performance flags
+setsid backend/.venv/bin/python ENGINE/ComfyUI/main.py \
+  --listen 0.0.0.0 --port 8188 --enable-compress-response-body --mmap-torch-files --cpu --use-split-cross-attention \
+  > logs/comfyui.log 2>&1 &
+echo $! > .pids/comfyui.pid
 ```
 
 #### **Restart Database (PostgreSQL) Only**
@@ -1196,12 +1115,13 @@ tail -f logs/*.log
 # Check what's running on ports
 lsof -i :3000   # Frontend
 lsof -i :8000   # Backend API
+lsof -i :8188   # ComfyUI Engine
 lsof -i :5432   # PostgreSQL
 lsof -i :6379   # Redis
 
 # Emergency kill all AI Studio processes
 pkill -f "uvicorn app.main:app"
-pkill -f "celery -A app.workers.celery_app"
+pkill -f "ENGINE/ComfyUI/main.py"
 pkill -f "next"
 rm -rf .pids
 ```
