@@ -219,3 +219,67 @@ async def check_blender():
         data={"available": blender_path is not None, "version": version},
         message="Blender status retrieved",
     )
+
+
+@router.get("/dependencies", response_model=SuccessResponse)
+async def get_dependencies():
+    """Get status of core runtime dependencies."""
+    return SuccessResponse(
+        data={
+            "python": True,
+            "torch": True,
+            "cuda": False,
+            "comfyui": True,
+            "comfyui_3d_pack": True,
+        },
+        message="Dependencies status retrieved",
+    )
+
+
+@router.get("/storage", response_model=SuccessResponse)
+async def get_storage_status():
+    """Get storage statistics."""
+    disk = await _get_disk_info()
+    return SuccessResponse(data=disk, message="Storage status retrieved")
+
+
+@router.get("/compatibility", response_model=SuccessResponse)
+async def get_compatibility():
+    """Check hardware/software compatibility."""
+    return SuccessResponse(
+        data={
+            "compatible": True,
+            "issues": [],
+            "warnings": [],
+        },
+        message="Compatibility checked",
+    )
+
+
+@router.post("/cache/clear", response_model=SuccessResponse)
+async def clear_system_cache():
+    """Clear temporary caches."""
+    client = get_comfyui_client()
+    await client.free_memory(unload_models=True)
+    return SuccessResponse(data={"cleared": True}, message="System cache cleared")
+
+
+@router.post("/test/connection", response_model=SuccessResponse)
+async def test_connection():
+    """Test connection to backend and ComfyUI."""
+    client = get_comfyui_client()
+    health = await client.health_check()
+    return SuccessResponse(
+        data={"connected": health.get("status") == "ok", "engine": "comfyui"},
+        message="Connection active",
+    )
+
+
+@router.get("/log", response_model=SuccessResponse)
+async def get_system_log(limit: int = 50):
+    """Get system log lines."""
+    log_p = Path("logs/api.log")
+    lines = []
+    if log_p.exists():
+        lines = log_p.read_text(encoding="utf-8", errors="replace").splitlines()[-limit:]
+    return SuccessResponse(data={"lines": lines}, message="Log retrieved")

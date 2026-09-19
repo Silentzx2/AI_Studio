@@ -65,9 +65,9 @@ _status() {
         && echo -e "${GREEN}●${NC} Backend API" \
         || echo -e "${RED}●${NC} Backend API"
 
-    [[ -f "$PID_DIR/worker.pid" ]] && kill -0 "$(cat "$PID_DIR/worker.pid")" 2>/dev/null \
-        && echo -e "${GREEN}●${NC} Celery Worker" \
-        || echo -e "${RED}●${NC} Celery Worker"
+    [[ -f "$PID_DIR/comfyui.pid" ]] && kill -0 "$(cat "$PID_DIR/comfyui.pid")" 2>/dev/null \
+        && echo -e "${GREEN}●${NC} ComfyUI Engine" \
+        || echo -e "${RED}●${NC} ComfyUI Engine"
 
     [[ -f "$PID_DIR/frontend.pid" ]] && kill -0 "$(cat "$PID_DIR/frontend.pid")" 2>/dev/null \
         && echo -e "${GREEN}●${NC} Frontend" \
@@ -130,7 +130,7 @@ cmd_logs() {
     echo ""
     echo "Choose a service:"
     echo "  1) API (backend)"
-    echo "  2) Worker (Celery)"
+    echo "  2) ComfyUI Engine"
     echo "  3) Frontend"
     echo "  4) All logs (follow)"
     echo "  b) Back"
@@ -146,10 +146,10 @@ cmd_logs() {
             fi
             ;;
         2)
-            if [[ -f logs/worker.log ]]; then
-                tail -f logs/worker.log
+            if [[ -f logs/comfyui.log ]]; then
+                tail -f logs/comfyui.log
             else
-                echo -e "${YELLOW}Worker log not found${NC}"
+                echo -e "${YELLOW}ComfyUI log not found${NC}"
             fi
             ;;
         3)

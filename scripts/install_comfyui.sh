@@ -143,6 +143,8 @@ install_3d_pack() {
 # ── Apply compatibility patches for ComfyUI-3D-Pack ───────────────────
 apply_compatibility_patches() {
     info "Verifying ComfyUI-3D-Pack essential libraries..."
+    # Ensure numpy<2.0.0 and scipy<1.14 are enforced for gpytoolbox/slangtorch 3D compatibility
+    pip_install "numpy<2.0.0" "scipy<1.14" 2>/dev/null || true
     # Ensure critical 3D geometry & rendering packages are present
     pip_install \
         pyvista pymeshfix igraph mmgp pyhocon \

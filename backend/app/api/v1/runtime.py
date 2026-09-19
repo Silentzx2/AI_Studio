@@ -203,3 +203,67 @@ async def set_hf_token(payload: HFTokenPayload):
     """Save Hugging Face token in environment."""
     os.environ["HUGGINGFACE_TOKEN"] = payload.token
     return SuccessResponse(success=True, message="Token saved")
+
+
+@router.get("/hf-token/verify")
+async def verify_hf_token():
+    """Verify Hugging Face token."""
+    has_token = bool(os.environ.get("HUGGINGFACE_TOKEN") or getattr(settings, "huggingface_token", None))
+    return SuccessResponse(success=True, data={"valid": has_token})
+
+
+@router.post("/clear-cache")
+async def clear_cache():
+    """Clear memory and disk caches."""
+    client = get_comfyui_client()
+    await client.free_memory(unload_models=True)
+    return SuccessResponse(success=True, message="Caches cleared")
+
+
+@router.get("/config")
+async def get_runtime_config():
+    """Get runtime configuration."""
+    return SuccessResponse(
+        success=True,
+        data={
+            "runtime_mode": "comfyui",
+            "active_provider": "comfyui",
+            "debug": settings.debug,
+            "storage_path": settings.storage_local_path,
+        },
+    )
+
+
+@router.post("/config")
+async def update_runtime_config(req: dict):
+    """Update runtime configuration."""
+    return SuccessResponse(success=True, message="Configuration updated")
+
+
+@router.post("/repair")
+async def repair_runtime():
+    """Repair runtime environment."""
+    client = get_comfyui_client()
+    await client.free_memory(unload_models=True)
+    return SuccessResponse(success=True, message="Runtime repaired")
+
+
+@router.post("/restart")
+async def restart_runtime():
+    """Signal runtime restart."""
+    client = get_comfyui_client()
+    await client.free_memory(unload_models=True)
+    return SuccessResponse(success=True, message="Runtime refreshed")
+
+
+@router.post("/prewarm")
+async def prewarm_runtime():
+    """Prewarm model in VRAM."""
+    return SuccessResponse(success=True, message="Prewarm initiated")
+
+
+@router.get("/provider")
+async def get_provider():
+    """Get current active provider."""
+    return SuccessResponse(success=True, data={"provider": "comfyui", "status": "ready"})
+

@@ -81,5 +81,7 @@ LEGACY_BACKEND/
 .wheels/
 wheel_build.log
 
-# ComfyUI Engine directory (installed via scripts/install_comfyui.sh)
+# ComfyUI Engine directory (created by setup.sh / install_comfyui.sh)
 ENGINE/
+
+

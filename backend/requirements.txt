@@ -16,6 +16,8 @@ aiohttp==3.9.1
 # Storage
 trimesh==4.0.0
 pillow==10.2.0
+numpy<2.0.0
+scipy<1.14
 
 # Utilities
 pyyaml==6.0.1

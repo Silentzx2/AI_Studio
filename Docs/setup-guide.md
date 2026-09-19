@@ -346,10 +346,14 @@ APP_VERSION=4.1.0
 DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@localhost:5432/ai_studio
 SYNC_DATABASE_URL=postgresql://ai_studio:ai_studio_dev@localhost:5432/ai_studio
 
-# ===== REDIS & CELERY =====
+# ===== REDIS =====
 REDIS_URL=redis://localhost:6379/0
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/1
+
+# ===== COMFYUI EXECUTION CORE =====
+COMFYUI_HOST=127.0.0.1
+COMFYUI_PORT=8188
+COMFYUI_BASE_URL=http://127.0.0.1:8188
+COMFYUI_TIMEOUT=300
 
 # ===== API SETTINGS =====
 BACKEND_URL=http://localhost:8000   # Used by the Next.js API proxy at request time
@@ -920,12 +924,12 @@ chmod +x manager.sh
 | Option | Action | Description |
 |--------|--------|-------------|
 | **1** | First-Time Setup | Runs Stage A (runtime preparation only) |
-| **2** | Start All Services | Starts PostgreSQL, Redis, Backend, Celery, Frontend |
+| **2** | Start All Services | Starts PostgreSQL, Redis, Backend, ComfyUI Engine, Frontend |
 | **3** | Stop All Services | Gracefully stops all services (reverse order) |
 | **4** | Restart All Services | Stop → wait 3s → Start |
 | **5** | Service Status | Shows running/stopped status of each service |
-| **6** | View Logs | Tail logs for API, Worker, Frontend, or all |
-| **7** | Health Check | Verifies PostgreSQL, Redis, API, Frontend, GPU |
+| **6** | View Logs | Tail logs for API, ComfyUI, Frontend, or all |
+| **7** | Health Check | Verifies PostgreSQL, Redis, API, ComfyUI, Frontend, GPU |
 | **8** | Database Management | Run migrations or reset database |
 | **9** | View Environment | Shows `.env` variables (secrets filtered) |
 | **10** | Reset PID Files | Clears stale PID files without stopping services |
@@ -952,7 +956,7 @@ The submenu supports:
 | Service | Type | Capabilities |
 |---------|------|--------------|
 | **1) Backend API** | Process-managed | Start, Stop, Restart, Status, Tail logs |
-| **2) Celery Worker** | Process-managed | Start, Stop, Restart, Status, Tail logs |
+| **2) ComfyUI Engine** | Process-managed | Start, Stop, Restart, Status, Tail logs |
 | **3) Frontend** | Process-managed | Start, Stop, Restart, Status, Tail logs |
 | **4) PostgreSQL** | systemd | Start, Stop, Restart, Status, journalctl logs |
 | **5) Redis** | systemd | Start, Stop, Restart, Status, journalctl logs |
@@ -1065,20 +1069,17 @@ redis-cli ping
 │                    START ORDER                              │
 ├─────────────────────────────────────────────────────────────┤
 │  1. PostgreSQL  ──┐                                         │
-│  2. Redis         ├──▶  3. Backend API  ──┐                 │
-│                    │                      ├──▶  4. Celery   │
-│                    └──────────────────────┘      Worker      │
-│                                                │             │
-│                                                ▼             │
-│                                          5. Frontend        │
+│  2. Redis         ├──▶  3. ComfyUI Engine ──▶ 4. Backend API│
+│                   │                                 │       │
+│                   └─────────────────────────────────┴──▶ 5. Frontend
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
 │                    STOP ORDER (REVERSE)                     │
 ├─────────────────────────────────────────────────────────────┤
 │  1. Frontend                                                 │
-│  2. Celery Worker                                            │
-│  3. Backend API                                              │
+│  2. Backend API                                              │
+│  3. ComfyUI Engine                                           │
 │  4. Redis                                                    │
 │  5. PostgreSQL                                               │
 └─────────────────────────────────────────────────────────────┘
@@ -1091,7 +1092,7 @@ redis-cli ping
 | Service | Log File | Tail Command |
 |---------|----------|--------------|
 | Backend API | `logs/api.log` | `tail -f logs/api.log` |
-| Celery Worker | `logs/worker.log` | `tail -f logs/worker.log` |
+| ComfyUI Engine | `logs/comfyui.log` | `tail -f logs/comfyui.log` |
 | Frontend | `logs/frontend.log` | `tail -f logs/frontend.log` |
 | PostgreSQL | `/var/log/postgresql/` | `sudo journalctl -u postgresql -f` |
 | Redis | stdout | `redis-cli monitor` |

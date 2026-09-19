@@ -249,7 +249,7 @@ auto_bootstrap() {
             deactivate 2>/dev/null || true
             exit 1
         }
-        if ! python -c 'import fastapi, sqlalchemy, celery, asyncpg, trimesh, yaml' >/dev/null 2>&1; then
+        if ! python -c 'import fastapi, sqlalchemy, asyncpg, trimesh, yaml' >/dev/null 2>&1; then
             err "Core backend imports failed after dependency installation"
             deactivate 2>/dev/null || true
             exit 1

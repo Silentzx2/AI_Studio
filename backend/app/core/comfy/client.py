@@ -61,6 +61,22 @@ class ComfyUIClient:
             logger.warning(f"ComfyUI health check failed: {e}")
             return {"status": "error", "error": str(e)}
 
+    async def is_alive(self) -> bool:
+        """Check if ComfyUI service is responding."""
+        res = await self.health_check()
+        return res.get("status") == "ok"
+
+    async def get_system_stats(self) -> dict:
+        """Fetch real-time system stats from ComfyUI."""
+        try:
+            session = await self._get_session()
+            async with session.get(f"{self.base_url}/system_stats") as resp:
+                if resp.status == 200:
+                    return await resp.json()
+                return {}
+        except Exception:
+            return {}
+
     async def queue_prompt(self, prompt: dict, client_id: Optional[str] = None) -> dict:
         """Queue a prompt for execution in ComfyUI."""
         client_id = client_id or str(uuid.uuid4())
@@ -150,6 +166,28 @@ class ComfyUIClient:
             logger.error(f"Failed to get image: {e}")
             raise
 
+    async def cancel_job(self, prompt_id: str) -> dict:
+        """Cancel a specific prompt execution without global interruption."""
+        try:
+            session = await self._get_session()
+            # ComfyUI 0.36.0 native job-specific cancel route
+            async with session.post(f"{self.base_url}/api/jobs/{prompt_id}/cancel") as resp:
+                if resp.status in (200, 204):
+                    return {"status": "ok", "cancelled": True}
+        except Exception as e:
+            logger.warning(f"Native job cancel for {prompt_id} failed: {e}")
+
+        # Fallback: Delete from ComfyUI queue
+        try:
+            session = await self._get_session()
+            async with session.post(f"{self.base_url}/queue", json={"delete": [prompt_id]}) as resp:
+                if resp.status == 200:
+                    return {"status": "ok", "cancelled": True}
+        except Exception as e:
+            logger.warning(f"Queue delete for {prompt_id} failed: {e}")
+
+        return {"status": "ok"}
+
     async def interrupt(self) -> dict:
         """Interrupt current execution."""
         try:
@@ -195,195 +233,44 @@ class ComfyUIClient:
 
 
 class WorkflowManager:
-    """Manages ComfyUI workflows for 3D generation."""
+    """Manages ComfyUI workflows for 3D generation using verified ComfyUI-3D-Pack nodes."""
 
     def __init__(self, client: ComfyUIClient):
         self.client = client
-        self._workflow_cache: dict[str, dict] = {}
 
-    def load_workflow(self, workflow_name: str) -> dict:
-        """Load a workflow from file."""
-        if workflow_name in self._workflow_cache:
-            return self._workflow_cache[workflow_name]
-
-        # Look for workflow in ComfyUI workflows directory
-        workflow_dir = Path(settings.third_party_dir) / "ComfyUI" / "workflows"
-        workflow_path = workflow_dir / f"{workflow_name}.json"
-
-        if workflow_path.exists():
-            with open(workflow_path) as f:
-                workflow = json.load(f)
-                self._workflow_cache[workflow_name] = workflow
-                return workflow
-
-        # Check ENGINE/ComfyUI/user/default/workflows
-        engine_workflow_dir = Path("ENGINE/ComfyUI/user/default/workflows")
-        engine_workflow_path = engine_workflow_dir / f"{workflow_name}.json"
-
-        if engine_workflow_path.exists():
-            with open(engine_workflow_path) as f:
-                workflow = json.load(f)
-                self._workflow_cache[workflow_name] = workflow
-                return workflow
-
-        # Return built-in default workflows
-        workflow = self._get_builtin_workflow(workflow_name)
-        self._workflow_cache[workflow_name] = workflow
-        return workflow
-
-    def _get_builtin_workflow(self, workflow_name: str) -> dict:
-        """Get built-in workflow templates."""
-        workflows = {
-            "text_to_3d": self._text_to_3d_workflow(),
-            "image_to_3d": self._image_to_3d_workflow(),
-            "texture": self._texture_workflow(),
-            "remesh": self._remesh_workflow(),
-        }
-        return workflows.get(workflow_name, self._text_to_3d_workflow())
-
-    def _text_to_3d_workflow(self) -> dict:
-        """Basic text-to-3D workflow using ComfyUI-3D-Pack nodes."""
-        return {
-            "1": {
-                "class_type": "CLIPTextEncode",
-                "inputs": {"text": "", "clip": ["4", 1]},
-            },
-            "2": {
-                "class_type": "EmptyLatentImage",
-                "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
-            },
-            "3": {
-                "class_type": "KSampler",
-                "inputs": {
-                    "seed": 0,
-                    "steps": 20,
-                    "cfg": 7.0,
-                    "sampler_name": "euler",
-                    "scheduler": "normal",
-                    "denoise": 1.0,
-                    "model": ["4", 0],
-                    "positive": ["1", 0],
-                    "negative": ["5", 0],
-                    "latent_image": ["2", 0],
-                },
-            },
-            "4": {
-                "class_type": "CheckpointLoaderSimple",
-                "inputs": {"ckpt_name": "hunyuan3d-2.1.safetensors"},
-            },
-            "5": {
-                "class_type": "CLIPTextEncode",
-                "inputs": {"text": "low quality, bad anatomy", "clip": ["4", 1]},
-            },
-            "6": {
-                "class_type": "VAEDecode",
-                "inputs": {"samples": ["3", 0], "vae": ["4", 2]},
-            },
-            "7": {
-                "class_type": "SaveImage",
-                "inputs": {"filename_prefix": "3d_output", "images": ["6", 0]},
-            },
-        }
-
-    def _image_to_3d_workflow(self) -> dict:
-        """Image-to-3D workflow."""
-        workflow = self._text_to_3d_workflow()
-        # Modify for image input
-        workflow["8"] = {
-            "class_type": "LoadImage",
-            "inputs": {"image": "input.png"},
-        }
-        workflow["1"]["inputs"]["text"] = ""
-        return workflow
-
-    def _texture_workflow(self) -> dict:
-        """Texture generation workflow."""
-        return {
-            "1": {
-                "class_type": "LoadMesh",
-                "inputs": {"mesh_path": ""},
-            },
-            "2": {
-                "class_type": "TextureGenerator",
-                "inputs": {"mesh": ["1", 0], "prompt": "", "steps": 20},
-            },
-            "3": {
-                "class_type": "SaveMesh",
-                "inputs": {"mesh": ["2", 0], "filename": "textured_output"},
-            },
-        }
-
-    def _remesh_workflow(self) -> dict:
-        """Remesh workflow."""
-        return {
-            "1": {
-                "class_type": "LoadMesh",
-                "inputs": {"mesh_path": ""},
-            },
-            "2": {
-                "class_type": "Remesh",
-                "inputs": {"mesh": ["1", 0], "target_faces": 10000},
-            },
-            "3": {
-                "class_type": "SaveMesh",
-                "inputs": {"mesh": ["2", 0], "filename": "remeshed_output"},
-            },
-        }
+    def list_available_workflows(self) -> list[dict[str, str]]:
+        """List verified workflow templates."""
+        from app.core.comfy.workflows import list_workflow_templates
+        return list_workflow_templates()
 
     def prepare_workflow(
         self,
         workflow_name: str,
-        prompt: str,
+        prompt: str = "",
         negative_prompt: str = "",
         reference_image: Optional[str] = None,
-        seed: int = 0,
+        mesh_path: Optional[str] = None,
+        save_path: str = "output.glb",
+        seed: int = 1,
         steps: int = 20,
         cfg: float = 7.0,
-        model_name: str = "hunyuan3d-2.1.safetensors",
+        provider: Optional[str] = None,
         **kwargs,
     ) -> dict:
-        """Prepare a workflow with the given parameters."""
-        workflow = self.load_workflow(workflow_name)
+        """Prepare a verified ComfyUI workflow."""
+        from app.core.comfy.workflows import build_workflow_for_job
 
-        # Deep copy to avoid modifying cached workflow
-        import copy
-        workflow = copy.deepcopy(workflow)
-
-        # Apply parameters to workflow nodes
-        for node_id, node in workflow.items():
-            class_type = node.get("class_type", "")
-
-            if class_type == "CLIPTextEncode":
-                if "positive" in node.get("inputs", {}).get("text", "").lower() or "prompt" in str(node.get("inputs", {})):
-                    node["inputs"]["text"] = prompt
-                elif "negative" in str(node.get("inputs", {})).lower():
-                    node["inputs"]["text"] = negative_prompt
-
-            elif class_type == "KSampler":
-                node["inputs"]["seed"] = seed
-                node["inputs"]["steps"] = steps
-                node["inputs"]["cfg"] = cfg
-
-            elif class_type == "CheckpointLoaderSimple":
-                node["inputs"]["ckpt_name"] = model_name
-
-            elif class_type == "LoadImage" and reference_image:
-                node["inputs"]["image"] = reference_image
-
-            elif class_type == "LoadMesh" and "mesh_path" in node.get("inputs", {}):
-                node["inputs"]["mesh_path"] = kwargs.get("mesh_path", "")
-
-            elif class_type == "TextureGenerator":
-                node["inputs"]["prompt"] = prompt
-                node["inputs"]["steps"] = steps
-
-            elif class_type == "Remesh":
-                node["inputs"]["target_faces"] = kwargs.get("target_faces", 10000)
-
-            elif class_type == "SaveImage" or class_type == "SaveMesh":
-                node["inputs"]["filename_prefix"] = kwargs.get("output_prefix", "3d_output")
-
-        return workflow
+        # Pass parameters to build_workflow_for_job
+        return build_workflow_for_job(
+            mode=workflow_name,
+            provider=provider or workflow_name,
+            image_filename=reference_image,
+            mesh_path=mesh_path,
+            save_path=save_path,
+            seed=seed,
+            steps=steps,
+            **kwargs,
+        )
 
 
 # Global client instance

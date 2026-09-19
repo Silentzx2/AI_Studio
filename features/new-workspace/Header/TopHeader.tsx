@@ -14,7 +14,7 @@ import {
   Menu,
   Check
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
 import { AnimatedStatusBadge } from '@/components/animate-ui';
@@ -27,6 +27,7 @@ interface TopHeaderProps {
 
 export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobileNavOpen }) => {
   const router = useRouter();
+  const pathname = usePathname();
   const {
     mainNav,
     navigateToMain,
@@ -209,6 +210,13 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
               label: 'System',
               active: mainNav === 'system',
               onClick: () => navigateToMain('system'),
+            },
+            {
+              id: 'comfyui',
+              domId: 'nav-link-comfyui',
+              label: 'ComfyUI',
+              active: pathname === '/comfyui',
+              onClick: () => router.push('/comfyui'),
             },
           ].map((item) => (
             <button

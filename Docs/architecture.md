@@ -72,6 +72,7 @@ graph TB
 
 ### 2.1 Presentation Layer (Next.js 16)
 - **App Router**: Built on Next.js 16 with React 19 and Tailwind CSS.
+- **Dedicated ComfyUI Studio Interface (`app/comfyui/page.tsx`)**: An embedded visual interface for interacting with the live ComfyUI instance, complete with dynamic hostname resolution, status indicators, memory purge triggers, and reload/fullscreen controls. Integrated directly into top and left workspace navigation.
 - **Reverse Proxy Route (`app/api/v1/[...path]/route.ts`)**: Proxies all frontend client requests to the FastAPI backend running on port 8000.
 - **3D Canvas**: Three.js WebGL viewport supporting orbit controls, wireframe modes, matcap shading, and environment lighting.
 - **Stores**: Lightweight Zustand stores managing generation state, active model selection, and UI panels.
@@ -79,9 +80,16 @@ graph TB
 ### 2.2 Product API Gateway (FastAPI)
 Located at `backend/app/`:
 - **Lifespan Management (`app/main.py`)**: Automatically creates database tables on startup (`Base.metadata.create_all`), verifies ComfyUI engine connectivity, initializes storage roots, and closes connection pools on shutdown.
+- **Comprehensive API Surface (`app/api/v1/`)**:
+  - `/admin/*`: System overview, hardware telemetry, deep health, stream logs, model management, repair actions, and installation status.
+  - `/settings/*`: Workspace settings, viewport configurations, generation defaults, and workspace clear history.
+  - `/download/*`: Model download queues, start, pause, resume, and cancel operations.
+  - `/upload/*`: Direct image, model, and asset multipart uploads.
+  - `/generation/*`: Parameterized workflow preparation, prompt enhancement (`/enhance-prompt`), workflow templates (`/workflows`), history, and real-time status.
+  - `/system/*`: Hardware telemetry, dependency checks, storage usage, cache clearing, and connection tests.
 - **Database Engine (`app/database.py`)**: Asynchronous SQLAlchemy 2.0 engine backed by `asyncpg` with synchronous fallbacks for migrations.
 - **Static File Server (`BinaryStaticFiles`)**: Optimized binary streaming for 3D model formats (`.glb`, `.gltf`, `.fbx`, `.obj`, `.stl`, `.zip`) with HTTP 86400s `Cache-Control` and `Accept-Ranges` byte-serving headers.
-- **ComfyUI Client (`app/core/comfy/client.py`)**: High-performance HTTP client interfacing with ComfyUI's REST endpoints (`/prompt`, `/queue`, `/history`, `/free`, `/system_stats`, `/view`) and WebSocket real-time progress stream (`/ws`).
+- **ComfyUI Client (`app/core/comfy/client.py`)**: High-performance HTTP client interfacing with ComfyUI's REST endpoints (`/prompt`, `/queue`, `/history`, `/free`, `/system_stats`, `/view`), native job cancellation (`POST /api/jobs/{prompt_id}/cancel`), and WebSocket real-time progress stream (`/ws`).
 
 ### 2.3 Execution Core (ComfyUI 0.36.0)
 Located at `ENGINE/ComfyUI/`:

@@ -10,8 +10,9 @@ import {
   Film,
   FolderOpen,
   Activity,
+  Cpu,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ToolType } from '../types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
@@ -43,10 +44,12 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
     onToolSelect?.();
   };
 
+  const pathname = usePathname();
   const isActive = (tool: ToolType) => mainNav === 'workspace' && activeTool === tool;
   const isOverviewActive = mainNav === 'dashboard';
   const isAssetsActive = mainNav === 'assets';
   const isSystemActive = mainNav === 'system';
+  const isComfyActive = pathname === '/comfyui';
 
   // Mobile drawer: wide list with full labels
   if (isMobileDrawer) {
@@ -80,6 +83,13 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
             label="System & Telemetry"
             active={isSystemActive}
             onClick={() => handleMainNavClick('system')}
+          />
+          <MobileNavItem
+            id="tool-btn-comfyui"
+            icon={<Cpu className="w-4 h-4" />}
+            label="ComfyUI Engine"
+            active={isComfyActive}
+            onClick={() => { router.push('/comfyui'); onToolSelect?.(); }}
           />
           <div className="h-px bg-white/[0.08] my-2" />
           <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
@@ -209,6 +219,29 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
             )}
             <Activity className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isSystemActive ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
             <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isSystemActive ? 'text-white font-bold' : 'font-medium'}`}>System</span>
+          </button>
+        </SimpleTooltip>
+
+        {/* ComfyUI Studio */}
+        <SimpleTooltip side="right" label="ComfyUI Node Graph Studio">
+          <button
+            id="tool-btn-comfyui"
+            onClick={() => router.push('/comfyui')}
+            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
+              isComfyActive
+                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
+                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
+            }`}
+          >
+            {isComfyActive && (
+              <motion.div
+                layoutId="leftNavIndicator"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
+              />
+            )}
+            <Cpu className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isComfyActive ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
+            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isComfyActive ? 'text-white font-bold' : 'font-medium'}`}>ComfyUI</span>
           </button>
         </SimpleTooltip>
 

@@ -38,7 +38,7 @@ for arg in "$@"; do
             echo "  --models=A,B,C      Download specific models (comma-separated)"
             echo "  --hf-token=TOKEN    HuggingFace token for gated models"
             echo ""
-            echo "Available models: hunyuan3d-2.1, hunyuan3d-2-mini, trellis, detailgen3d, triposg"
+            echo "Available models: triposr, trellis, hunyuan3d"
             exit 0
             ;;
     esac
@@ -58,7 +58,7 @@ echo ""
 
 cd "$BACKEND_DIR"
 
-# Ensure the project venv exists (per-model weights live under third_party/<Repo>/weights)
+# Ensure the project venv exists
 VENV_PYTHON="$BACKEND_DIR/.venv/bin/python"
 if [[ ! -x "$VENV_PYTHON" ]]; then
     echo "[ERROR] Python venv not found at $VENV_PYTHON. Run: sudo bash scripts/setup.sh"
@@ -74,9 +74,8 @@ export HUGGINGFACE_HUB_CACHE="$HF_HOME/hub"
 export TORCH_HOME="$HF_HOME/torch"
 
 echo "Storage configuration:"
-echo "  Repos:   $BACKEND_DIR/third_party/<Repo>/"
-echo "  Weights: $BACKEND_DIR/third_party/<Repo>/weights/"
-echo "  HF Cache: $HF_HOME"
+echo "  Comfy3D Checkpoints: ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/Checkpoints/"
+echo "  HF Cache:            $HF_HOME"
 echo ""
 
 # Export env-vars for the embedded Python script
@@ -89,66 +88,104 @@ export HF_TOKEN="$HF_TOKEN"
 "$VENV_PYTHON" << 'PYTHON_SCRIPT'
 import sys
 import os
+from pathlib import Path
 
-repos_only    = os.environ.get('INSTALL_REPOS_ONLY',  'false').lower() == 'true'
-weights_only  = os.environ.get('INSTALL_WEIGHTS_ONLY','false').lower() == 'true'
-verify        = os.environ.get('INSTALL_VERIFY',      'false').lower() == 'true'
 models_str    = os.environ.get('INSTALL_MODELS', '')
-models        = [m.strip() for m in models_str.split() if m.strip()]
+raw_models    = [m.strip().lower() for m in models_str.split() if m.strip()]
+verify        = os.environ.get('INSTALL_VERIFY',      'false').lower() == 'true'
+weights_only  = os.environ.get('INSTALL_WEIGHTS_ONLY','false').lower() == 'true'
 hf_token      = os.environ.get('HF_TOKEN', '') or None
 
+# Locate ComfyUI-3D-Pack Checkpoints root
+workspace_root = Path(__file__).resolve().parent.parent if "__file__" in locals() else Path(os.getcwd()).parent
+ckpt_root = workspace_root / "ENGINE" / "ComfyUI" / "custom_nodes" / "ComfyUI-3D-Pack" / "Checkpoints"
+ckpt_root.mkdir(parents=True, exist_ok=True)
+
+MODEL_CONFIGS = {
+    "triposr": {
+        "repo_id": "stabilityai/TripoSR",
+        "filename": "model.ckpt",
+        "dest_dir": ckpt_root / "TripoSR",
+        "type": "file",
+    },
+    "trellis": {
+        "repo_id": "jetx/TRELLIS-image-large",
+        "filename": None,
+        "dest_dir": None,
+        "type": "snapshot",
+    },
+    "hunyuan3d": {
+        "repo_id": "tencent/Hunyuan3D-2.1",
+        "filename": None,
+        "dest_dir": None,
+        "type": "snapshot",
+    },
+}
+
+targets = raw_models if (raw_models and "__all__" not in raw_models and "all" not in raw_models) else ["triposr", "trellis", "hunyuan3d"]
+
 try:
-    from runtime.installer import RuntimeInstaller
-    from runtime.storage import get_storage_config
+    from huggingface_hub import hf_hub_download, snapshot_download
 
-    storage = get_storage_config()
+    print(f"Target models: {', '.join(targets)}")
+    for target in targets:
+        matched_key = None
+        for k in MODEL_CONFIGS:
+            if k in target or target in k:
+                matched_key = k
+                break
 
-    installer = RuntimeInstaller(
-        progress_cb=lambda msg: print(f"  {msg}"),
-        hf_token=hf_token,
-    )
+        if not matched_key:
+            print(f"[WARN] Unknown model target: {target}")
+            continue
 
-    # Ensure storage dirs exist
-    installer.create_folders()
-
-    # resolve_install_targets() requires an explicit list or the ['__all__'] sentinel;
-    # it raises on None, so we never pass None implicitly.
-    install_models = models if models else ["__all__"]
-
-    if repos_only:
-        print("\n--- Cloning Repositories ---")
-        installer.clone_repos_for_models(install_models)
-        installer.install_repo_deps_for_models(install_models)
-        print("\n[OK] Repositories ready.")
-
-    elif weights_only:
-        print("\n--- Downloading Model Weights ---")
-        installer.download_weights(install_models)
-        installer.register_providers()
-        print("\n[OK] Weights ready.")
-
-    else:
-        print("\n--- Running Full Installation ---")
-        installer.full_install(
-            skip_weights=False,
-            models=install_models,
-        )
+        cfg = MODEL_CONFIGS[matched_key]
+        repo = cfg["repo_id"]
+        print(f"\n--- {matched_key.upper()} ({repo}) ---")
 
         if verify:
-            print("\n--- Verification ---")
-            result = installer.verify_installation()
-            avail  = result.get('providers_available', 0)
-            total  = result.get('providers_total', 0)
-            can_gen = result.get('can_generate', False)
-            print(f"Providers available: {avail}/{total}")
-            print(f"Can generate: {'YES' if can_gen else 'NO'}")
+            if cfg["type"] == "file":
+                dest_file = cfg["dest_dir"] / cfg["filename"]
+                if dest_file.exists() and dest_file.stat().st_size > 1000:
+                    mb = dest_file.stat().st_size // (1024 * 1024)
+                    print(f"  [OK] Verified: {dest_file} ({mb} MB)")
+                else:
+                    print(f"  [MISSING] Not found at: {dest_file}")
+            else:
+                print(f"  [OK] Model managed via HuggingFace Hub snapshot ({repo})")
+            continue
+
+        if cfg["type"] == "file":
+            cfg["dest_dir"].mkdir(parents=True, exist_ok=True)
+            target_path = cfg["dest_dir"] / cfg["filename"]
+            if target_path.exists() and target_path.stat().st_size > 1000:
+                mb = target_path.stat().st_size // (1024 * 1024)
+                print(f"  [EXISTS] {target_path} ({mb} MB), skipping download.")
+            else:
+                print(f"  Downloading {cfg['filename']} from {repo}...")
+                dl = hf_hub_download(
+                    repo_id=repo,
+                    filename=cfg["filename"],
+                    token=hf_token,
+                    local_dir=str(cfg["dest_dir"]),
+                )
+                print(f"  [OK] Saved to {dl}")
+        else:
+            print(f"  Downloading snapshot for {repo}...")
+            snapshot_download(
+                repo_id=repo,
+                token=hf_token,
+            )
+            print(f"  [OK] Snapshot downloaded for {repo}")
+
+    print("\n[OK] Model processing complete.")
 
 except ImportError as exc:
     print(f"\n[ERROR] Missing dependency: {exc}")
-    print("Install requirements: uv pip install -r requirements.txt")
+    print("Install requirements: uv pip install huggingface_hub")
     sys.exit(1)
 except Exception as exc:
-    print(f"\n[ERROR] Installation failed: {exc}")
+    print(f"\n[ERROR] Operation failed: {exc}")
     import traceback
     traceback.print_exc()
     sys.exit(1)

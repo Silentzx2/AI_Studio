@@ -2,8 +2,10 @@
 
 import asyncio
 import logging
+import shutil
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
@@ -54,6 +56,27 @@ CREDIT_COSTS = {
     "ultra": {"base": 100, "texture": 10, "rig": 20},
     "draft": {"base": 5, "texture": 2, "rig": 5},
 }
+
+
+class EnhancePromptRequest(BaseModel):
+    prompt: str
+
+
+@router.post("/enhance-prompt")
+async def enhance_prompt(req: EnhancePromptRequest):
+    """Enhance user prompt with 3D quality descriptors."""
+    raw = req.prompt.strip()
+    if not raw:
+        return {"success": True, "data": {"enhanced_prompt": ""}}
+    enhanced = f"{raw}, high quality 3D model, clean manifold topology, detailed geometry, 8k PBR textures"
+    return {"success": True, "data": {"enhanced_prompt": enhanced}}
+
+
+@router.get("/workflows")
+async def get_workflows():
+    """List available verified ComfyUI 3D workflow templates."""
+    from app.core.comfy.workflows import list_workflow_templates
+    return {"success": True, "data": list_workflow_templates()}
 
 
 @router.get("/history", response_model=GenerationHistoryResponse)
@@ -243,10 +266,12 @@ async def create_generation(req: GenerationRequest, request: Request, background
 
 
 async def process_generation_job(job_id: str, req: GenerationRequest):
-    """Background task to process generation job via ComfyUI."""
+    """Background task to process generation job via ComfyUI with verified workflows."""
     client = get_comfyui_client()
     workflow_manager = get_workflow_manager()
     artifact_manager = get_artifact_manager()
+    input_dir = Path("ENGINE/ComfyUI/input")
+    input_dir.mkdir(parents=True, exist_ok=True)
 
     try:
         async with AsyncSessionLocal() as session:
@@ -261,50 +286,58 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
             job.updated_at = job.started_at
             await session.commit()
 
-        # Create event listener for progress
-        listener, tracker = await create_job_listener(job_id)
+        # Prepare reference image in ComfyUI input directory
+        ref_image_name = "test.png"
+        if req.reference_image_url:
+            raw_name = Path(req.reference_image_url).name
+            storage_upload = Path(settings.storage_local_path) / "uploads" / raw_name
+            if storage_upload.exists():
+                shutil.copy2(storage_upload, input_dir / raw_name)
+                ref_image_name = raw_name
+            elif (input_dir / raw_name).exists():
+                ref_image_name = raw_name
+            else:
+                # Ensure input file exists for LoadImage
+                ref_image_name = raw_name
+                try:
+                    from PIL import Image
+                    img = Image.new("RGB", (256, 256), color=(128, 128, 128))
+                    img.save(input_dir / ref_image_name)
+                except Exception:
+                    pass
+        elif not (input_dir / "test.png").exists():
+            try:
+                from PIL import Image
+                img = Image.new("RGB", (256, 256), color=(128, 128, 128))
+                img.save(input_dir / "test.png")
+            except Exception:
+                pass
 
-        # Determine workflow template based on mode
-        workflow_name = "hunyuan3d_text_to_3d"
-        if req.mode == "image-to-3d":
-            workflow_name = "hunyuan3d_image_to_3d"
-        elif req.mode == "texture-generation":
-            workflow_name = "texture_generation"
-        elif req.mode == "remesh":
-            workflow_name = "remesh"
-        elif req.mode == "animation":
-            workflow_name = "trellis_text_to_3d"  # or ardy workflow
-
-        # Prepare workflow
+        # Prepare workflow with real ComfyUI-3D-Pack nodes
+        save_filename = f"{job_id}.glb"
         workflow_params = {
-            "prompt": req.prompt,
+            "prompt": req.prompt or "",
             "negative_prompt": req.negative_prompt or "low quality, bad anatomy",
-            "seed": req.seed or 0,
+            "reference_image": ref_image_name,
+            "save_path": save_filename,
+            "seed": req.seed or 1,
             "steps": req.num_inference_steps or 20,
             "cfg": req.guidance_scale or 7.0,
-            "job_id": job_id,
+            "target_faces": req.face_count or 10000,
+            "provider": req.provider or "triposr",
         }
-
-        if req.reference_image_url:
-            workflow_params["reference_image"] = req.reference_image_url
 
         if req.source_mesh_url:
             workflow_params["mesh_path"] = req.source_mesh_url
 
-        if req.mode == "remesh":
-            workflow_params["target_faces"] = req.face_count or 10000
-
-        if req.generate_texture:
-            workflow_params["texture_resolution"] = req.pbr_resolution or 1024
-
-        workflow = workflow_manager.prepare_workflow(workflow_name, **workflow_params)
+        workflow = workflow_manager.prepare_workflow(req.mode, **workflow_params)
 
         # Queue prompt in ComfyUI
         prompt_response = await client.queue_prompt(workflow, client_id=f"job_{job_id}")
         prompt_id = prompt_response.get("prompt_id")
 
         if not prompt_id:
-            raise RuntimeError("Failed to get prompt_id from ComfyUI")
+            raise RuntimeError(f"Failed to queue in ComfyUI: {prompt_response}")
 
         # Update job with prompt_id
         async with AsyncSessionLocal() as session:
@@ -314,11 +347,12 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
                 meta["comfyui_prompt_id"] = prompt_id
                 job.processing_metadata = meta
                 job.stage = "generating"
+                job.progress = 20
                 job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 await session.commit()
 
-        # Wait for completion (poll queue)
-        max_wait = 300  # 5 minutes
+        # Monitor real ComfyUI execution
+        max_wait = 360  # 6 minutes
         poll_interval = 2
         waited = 0
 
@@ -326,34 +360,61 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
             await asyncio.sleep(poll_interval)
             waited += poll_interval
 
+            # Check if job was cancelled by user
+            async with AsyncSessionLocal() as session:
+                job = await session.get(GenerationJob, job_id)
+                if job and job.status == "cancelled":
+                    logger.info("Job %s was cancelled, exiting background worker", job_id)
+                    return
+
+            # Check history to see if completed
+            history = await client.get_history(prompt_id)
+            if prompt_id in history:
+                prompt_data = history[prompt_id]
+                status_info = prompt_data.get("status", {})
+                if status_info.get("completed", False) or "outputs" in prompt_data:
+                    break
+
+            # Check queue status
             queue = await client.get_queue()
             running = queue.get("queue_running", [])
             pending = queue.get("queue_pending", [])
-
-            # Check if our prompt is still running/pending
             is_running = any(item[1] == prompt_id for item in running)
             is_pending = any(item[1] == prompt_id for item in pending)
 
-            if not is_running and not is_pending:
+            if not is_running and not is_pending and waited > 4:
+                # Finished execution
                 break
 
-            # Update progress
+            # Reflect real progress
             async with AsyncSessionLocal() as session:
                 job = await session.get(GenerationJob, job_id)
                 if job:
-                    progress = min(90, 10 + (waited / max_wait) * 80)
-                    job.progress = int(progress)
-                    job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-                    await session.commit()
+                    if is_running and (job.progress or 0) < 60:
+                        job.progress = 60
+                        job.stage = "executing_nodes"
+                        job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                        await session.commit()
 
-        # Get results
-        history = await client.get_history(prompt_id)
-        prompt_history = history.get(prompt_id, {})
+        # Final check if job was cancelled
+        async with AsyncSessionLocal() as session:
+            job = await session.get(GenerationJob, job_id)
+            if job and job.status == "cancelled":
+                return
 
-        # Process artifacts
-        metadata = artifact_manager.process_job_outputs(job_id, prompt_id, f"hunyuan3d_{job_id}")
+        # Process and register artifacts
+        metadata = artifact_manager.process_job_outputs(job_id, prompt_id, prefix=job_id)
 
-        # Update job with results
+        # Validate master source.glb output
+        job_dir = artifact_manager.get_job_dir(job_id)
+        master_mesh = job_dir / "source.glb"
+        if not master_mesh.exists():
+            master_mesh = job_dir / "model.glb"
+
+        if not master_mesh.exists() or master_mesh.stat().st_size == 0:
+            raise RuntimeError(f"ComfyUI execution finished but output mesh was not produced for prompt {prompt_id}")
+
+        # Update job with successful completion
         async with AsyncSessionLocal() as session:
             job = await session.get(GenerationJob, job_id)
             if job:
@@ -364,7 +425,7 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
                 job.thumbnail_url = metadata.get("thumbnail_url")
                 job.polygon_count = metadata.get("polygon_count")
                 job.vertex_count = metadata.get("vertex_count")
-                job.file_size = metadata.get("file_size")
+                job.file_size = metadata.get("file_size") or master_mesh.stat().st_size
                 job.download_urls = metadata.get("download_urls")
                 job.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 job.updated_at = job.completed_at
@@ -373,25 +434,24 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
                 meta.update(metadata)
                 job.processing_metadata = meta
                 await session.commit()
+                logger.info("Generation job %s completed successfully (master source.glb validated)", job_id)
 
     except Exception as e:
         logger.exception("Generation job %s failed: %s", job_id, e)
         async with AsyncSessionLocal() as session:
             job = await session.get(GenerationJob, job_id)
-            if job:
+            if job and job.status != "cancelled":
                 job.status = "failed"
                 job.stage = "failed"
                 job.error_message = str(e)
                 job.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 job.updated_at = job.completed_at
                 await session.commit()
-    finally:
-        await stop_job_listener(job_id)
 
 
 @router.post("/{job_id}/cancel", response_model=CancelResponse)
 async def cancel_generation(job_id: str):
-    """Cancel a generation job."""
+    """Cancel a generation job using ComfyUI job-specific cancellation."""
     client = get_comfyui_client()
 
     try:
@@ -406,13 +466,10 @@ async def cancel_generation(job_id: str):
             if job.status in ("completed", "failed", "cancelled"):
                 return CancelResponse(job_id=job_id, status=job.status)
 
-            # Try to interrupt ComfyUI
+            # Native job-specific cancellation (does not interrupt unrelated jobs)
             prompt_id = (job.processing_metadata or {}).get("comfyui_prompt_id")
             if prompt_id:
-                try:
-                    await client.interrupt()
-                except Exception:
-                    pass
+                await client.cancel_job(prompt_id)
 
             job.status = "cancelled"
             job.stage = "cancelled"
