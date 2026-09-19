@@ -1,7 +1,9 @@
 """Model management endpoints."""
 
 import logging
+import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -115,23 +117,133 @@ AVAILABLE_MODELS = [
 ]
 
 
+REQUIRED_NODES = {
+    "tripo_sr": ["[Comfy3D] Load TripoSR Model", "[Comfy3D] TripoSR"],
+    "hunyuan3d": ["[Comfy3D] Load Hunyuan3D 21 ShapeGen Pipeline", "[Comfy3D] Hunyuan3D 21 ShapeGen"],
+    "hunyuan3d_image": ["[Comfy3D] Load Hunyuan3D 21 ShapeGen Pipeline", "[Comfy3D] Hunyuan3D 21 ShapeGen"],
+    "trellis": ["[Comfy3D] Load Trellis Structured 3D Latents Models", "[Comfy3D] Trellis Structured 3D Latents Models"],
+    "texture_pbr": ["[Comfy3D] Load Hunyuan3D 21 TexGen Pipeline", "[Comfy3D] Hunyuan3D 21 TexGen"],
+}
+
+
+def _workspace_root() -> Path:
+    """Resolve the repository root regardless of the backend CWD.
+
+    backend/app/api/v1/models.py -> repo root (five parents up from api/v1).
+    """
+    return Path(__file__).resolve().parent.parent.parent.parent.parent
+
+
+_WS_ROOT = _workspace_root()
+
+CHECKPOINT_LOCATIONS = {
+    "tripo_sr": [
+        _WS_ROOT / "ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/Checkpoints/TripoSR/model.ckpt",
+        _WS_ROOT / "ENGINE/ComfyUI/models/checkpoints/model.ckpt",
+    ],
+    "hunyuan3d": [
+        _WS_ROOT / "ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/Checkpoints/hunyuan3d",
+        _WS_ROOT / "ENGINE/ComfyUI/models/diffusers/hunyuan3d-dit-v2-1",
+        Path.home() / ".cache/huggingface/hub/models--tencent--Hunyuan3D-2",
+    ],
+    "hunyuan3d_image": [
+        _WS_ROOT / "ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/Checkpoints/hunyuan3d",
+        _WS_ROOT / "ENGINE/ComfyUI/models/diffusers/hunyuan3d-dit-v2-1",
+        Path.home() / ".cache/huggingface/hub/models--tencent--Hunyuan3D-2",
+    ],
+    "trellis": [
+        _WS_ROOT / "ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/Checkpoints/trellis",
+        Path.home() / ".cache/huggingface/hub/models--JeffreyXiang--TRELLIS-image-large",
+    ],
+    "texture_pbr": [
+        _WS_ROOT / "ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/Checkpoints/hunyuan3d_tex",
+    ],
+}
+
+_MODELS_CACHE: Optional[list[ModelInfo]] = None
+_MODELS_CACHE_TIME: float = 0.0
+_MODELS_CACHE_TTL: float = 5.0
+
+
+async def get_evaluated_models(force: bool = False) -> list[ModelInfo]:
+    """Dynamically evaluate model readiness from ComfyUI engine reachability, nodes, and weights."""
+    global _MODELS_CACHE, _MODELS_CACHE_TIME
+    now = time.time()
+    if not force and _MODELS_CACHE is not None and (now - _MODELS_CACHE_TIME < _MODELS_CACHE_TTL):
+        return _MODELS_CACHE
+
+    client = get_comfyui_client()
+    comfy_ok = await client.is_alive()
+    loaded_nodes = {}
+    if comfy_ok:
+        try:
+            loaded_nodes = await client.get_object_info()
+        except Exception:
+            pass
+
+    evaluated = []
+    for raw in AVAILABLE_MODELS:
+        m = dict(raw)
+        mid = m["id"]
+        req_nodes = REQUIRED_NODES.get(mid, [])
+        nodes_ok = all(n in loaded_nodes for n in req_nodes) if (comfy_ok and req_nodes) else False
+
+        # Check weights on disk
+        candidates = CHECKPOINT_LOCATIONS.get(mid, [])
+        weights_ok = False
+        for p in candidates:
+            try:
+                if p.is_file() and p.stat().st_size > 1024 * 1024:
+                    weights_ok = True
+                    break
+                elif p.is_dir() and (any(p.rglob("*.safetensors")) or any(p.rglob("*.bin")) or any(p.rglob("*.ckpt"))):
+                    weights_ok = True
+                    break
+            except Exception:
+                pass
+
+        if not comfy_ok:
+            m["installed"] = False
+            m["available"] = False
+            m["loaded"] = False
+            m["active"] = False
+            m["status"] = "offline"
+        elif nodes_ok and weights_ok:
+            m["installed"] = True
+            m["available"] = True
+            m["loaded"] = True
+            m["active"] = True
+            m["status"] = "ready"
+        elif nodes_ok and not weights_ok:
+            m["installed"] = False
+            m["available"] = False
+            m["loaded"] = False
+            m["active"] = False
+            m["status"] = "not_downloaded"
+        else:
+            m["installed"] = False
+            m["available"] = False
+            m["loaded"] = False
+            m["active"] = False
+            m["status"] = "node_missing"
+
+        evaluated.append(ModelInfo(**m))
+
+    _MODELS_CACHE = evaluated
+    _MODELS_CACHE_TIME = now
+    return evaluated
+
+
 @router.get("", response_model=ModelsListResponse)
 async def list_all_models():
-    """Return all available + installed models."""
+    """Return all available + installed models evaluated dynamically."""
     try:
-        models = [ModelInfo(**m) for m in AVAILABLE_MODELS]
+        models = await get_evaluated_models()
         installed = [m for m in models if m.installed]
         available = [m for m in models if m.available]
-        seen = set()
-        all_models = []
-        for m in installed + available:
-            if m.id not in seen:
-                seen.add(m.id)
-                all_models.append(m)
-
         return ModelsListResponse(
-            models=all_models,
-            count=len(all_models),
+            models=models,
+            count=len(models),
             installed_count=len(installed),
             available_count=len(available),
         )
@@ -144,21 +256,10 @@ async def list_all_models():
 async def list_installed_models(
     include_health: bool = Query(False, description="Include health status for each model"),
 ):
-    """List all installed models."""
+    """List all verified installed models."""
     try:
-        models = [ModelInfo(**m) for m in AVAILABLE_MODELS]
+        models = await get_evaluated_models(force=include_health)
         installed = [m for m in models if m.installed]
-
-        if include_health:
-            # Check health for each model
-            for model in installed:
-                try:
-                    client = get_comfyui_client()
-                    health = await client.health_check()
-                    model.status = "installed" if health.get("status") == "ok" else "error"
-                except Exception:
-                    model.status = "error"
-
         return installed
     except Exception as e:
         logger.error(f"Failed to list installed models: {e}")
@@ -167,29 +268,30 @@ async def list_installed_models(
 
 @router.get("/health/all")
 async def get_all_models_health():
-    """Get health summary for all models."""
+    """Get dynamic health summary for all models."""
     client = get_comfyui_client()
-    comfy_health = await client.health_check()
-    is_ok = comfy_health.get("status") == "ok"
-    status_str = "healthy" if is_ok else "unhealthy"
+    comfy_ok = await client.is_alive()
 
+    models = await get_evaluated_models(force=True)
     report = {}
-    for m in AVAILABLE_MODELS:
-        mid = m["id"]
+    for m in models:
+        mid = m.id
+        is_ready = m.installed and m.available
         report[mid] = {
             "model_id": mid,
-            "model_name": m["name"],
-            "status": status_str,
+            "model_name": m.name,
+            "status": "ready" if is_ready else ("not_downloaded" if comfy_ok else "offline"),
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "summary": {
-                "total_checks": 2,
-                "passed": 2 if is_ok else 1,
+                "total_checks": 3,
+                "passed": 3 if is_ready else (2 if comfy_ok else 0),
                 "warnings": 0,
-                "errors": 0 if is_ok else 1,
+                "errors": 0 if is_ready else 1,
             },
             "checks": {
-                "comfyui": {"status": "passed" if is_ok else "failed", "message": "ComfyUI execution engine connected"},
-                "workflow": {"status": "passed", "message": "Workflow template registered"},
+                "comfyui": {"status": "passed" if comfy_ok else "failed", "message": "ComfyUI execution engine connected"},
+                "nodes": {"status": "passed" if m.status != "node_missing" else "failed", "message": "Required 3D-Pack nodes loaded"},
+                "weights": {"status": "passed" if is_ready else "pending", "message": f"Weights on disk ({m.status})"},
             },
         }
     return {"success": True, "data": report}

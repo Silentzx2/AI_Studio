@@ -566,33 +566,87 @@ async def repair_provider(provider_name: str):
 
 @router.get("/install/status")
 async def get_install_status():
-    """Return model install status."""
-    return {"success": True, "data": {"status": "idle", "active_downloads": []}}
+    """Return model install status.
+
+    Weights are downloaded by the 3D-Pack's own HuggingFace loaders via
+    scripts/update-models.sh. This endpoint reports the real on-disk state
+    rather than a fake progress percentage.
+    """
+    from app.api.v1.models import CHECKPOINT_LOCATIONS
+    models = []
+    for model_id, candidates in CHECKPOINT_LOCATIONS.items():
+        present = False
+        for p in candidates:
+            try:
+                if p.is_file() and p.stat().st_size > 1024 * 1024:
+                    present = True
+                    break
+                if p.is_dir() and (any(p.rglob("*.safetensors")) or any(p.rglob("*.bin")) or any(p.rglob("*.ckpt"))):
+                    present = True
+                    break
+            except Exception:
+                pass
+        models.append({
+            "model_id": model_id,
+            "installed": present,
+            "phase": "ready" if present else "not_downloaded",
+            "progress": 100 if present else 0,
+            "percent": 100 if present else 0,
+        })
+    return {"success": True, "data": {"status": "idle", "models": models, "active_downloads": []}}
 
 
 @router.get("/install/progress/{model_id}")
 async def get_install_progress(model_id: str):
-    """Return installation progress for a model."""
+    """Return installation progress for a model from real on-disk state."""
+    from app.api.v1.models import CHECKPOINT_LOCATIONS
+    candidates = CHECKPOINT_LOCATIONS.get(model_id, [])
+    present = False
+    for p in candidates:
+        try:
+            if p.is_file() and p.stat().st_size > 1024 * 1024:
+                present = True
+                break
+            if p.is_dir() and (any(p.rglob("*.safetensors")) or any(p.rglob("*.bin")) or any(p.rglob("*.ckpt"))):
+                present = True
+                break
+        except Exception:
+            pass
     return {
         "success": True,
         "data": {
             "model_id": model_id,
-            "phase": "ready",
-            "progress": 100,
-            "percent": 100,
+            "phase": "ready" if present else "not_downloaded",
+            "progress": 100 if present else 0,
+            "percent": 100 if present else 0,
         },
     }
 
 
 @router.get("/install/stream/{model_id}")
 async def stream_install_progress(model_id: str):
-    """SSE stream for install progress."""
+    """SSE stream for install progress — reports real on-disk state, not fake progress."""
+    from app.api.v1.models import CHECKPOINT_LOCATIONS
+    from fastapi.responses import StreamingResponse
+
     async def event_generator():
+        candidates = CHECKPOINT_LOCATIONS.get(model_id, [])
+        present = False
+        for p in candidates:
+            try:
+                if p.is_file() and p.stat().st_size > 1024 * 1024:
+                    present = True
+                    break
+                if p.is_dir() and (any(p.rglob("*.safetensors")) or any(p.rglob("*.bin")) or any(p.rglob("*.ckpt"))):
+                    present = True
+                    break
+            except Exception:
+                pass
         payload = {
             "model_id": model_id,
-            "phase": "complete",
-            "progress": 100,
-            "percent": 100,
+            "phase": "complete" if present else "not_downloaded",
+            "progress": 100 if present else 0,
+            "percent": 100 if present else 0,
         }
         yield f"data: {json.dumps(payload)}\n\n"
 

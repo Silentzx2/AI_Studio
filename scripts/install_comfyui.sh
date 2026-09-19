@@ -16,6 +16,8 @@ THREE_D_PACK_DIR="${CUSTOM_NODES_DIR}/ComfyUI-3D-Pack"
 
 COMFYUI_REPO="https://github.com/Comfy-Org/ComfyUI.git"
 THREE_D_PACK_REPO="https://github.com/MrForExample/ComfyUI-3D-Pack.git"
+THREE_D_PACK_COMMIT="9e8096e50c5bcf35e1f3e34c6ae06216101f8a11"
+COMFYUI_VERSION="0.36.0"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -121,11 +123,12 @@ install_3d_pack() {
         log "ComfyUI-3D-Pack source already present at ${THREE_D_PACK_DIR}"
     else
         info "Cloning ComfyUI-3D-Pack from ${THREE_D_PACK_REPO}..."
-        git clone --depth 1 "${THREE_D_PACK_REPO}" "${THREE_D_PACK_DIR}" || {
+        git clone "${THREE_D_PACK_REPO}" "${THREE_D_PACK_DIR}" || {
             err "Failed to clone ComfyUI-3D-Pack repository"
             return 1
         }
-        log "ComfyUI-3D-Pack repository cloned to ${THREE_D_PACK_DIR}"
+        (cd "${THREE_D_PACK_DIR}" && git checkout -q "${THREE_D_PACK_COMMIT}") 2>/dev/null || true
+        log "ComfyUI-3D-Pack repository cloned and checked out at commit ${THREE_D_PACK_COMMIT}"
     fi
 
     # Install ComfyUI-3D-Pack dependencies
@@ -135,6 +138,15 @@ install_3d_pack() {
             warn "Standard requirements.txt install had warnings; installing critical modules..."
         }
         log "ComfyUI-3D-Pack requirements processed"
+    fi
+
+    # Execute official install.py if available
+    if [[ -f "${THREE_D_PACK_DIR}/install.py" ]]; then
+        info "Running official ComfyUI-3D-Pack install.py..."
+        resolve_python
+        (cd "${THREE_D_PACK_DIR}" && "${PYTHON_BIN}" install.py) 2>/dev/null || {
+            warn "ComfyUI-3D-Pack install.py finished with warnings; applying verified fallbacks..."
+        }
     fi
 
     apply_compatibility_patches

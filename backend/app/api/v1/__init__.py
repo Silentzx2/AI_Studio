@@ -13,6 +13,8 @@ from app.api.v1.admin import router as admin_router
 from app.api.v1.settings import router as settings_router
 from app.api.v1.download import router as download_router
 from app.api.v1.upload import router as upload_router
+from app.api.v1.workflows import router as workflows_router
+from app.api.v1.realtime import router as realtime_router
 
 router = APIRouter()
 
@@ -27,3 +29,5 @@ router.include_router(admin_router, prefix="/admin", tags=["Admin"])
 router.include_router(settings_router, prefix="/settings", tags=["Settings"])
 router.include_router(download_router, prefix="/download", tags=["Download"])
 router.include_router(upload_router, prefix="/upload", tags=["Upload"])
+router.include_router(workflows_router, prefix="/workflows", tags=["Workflows"])
+router.include_router(realtime_router, prefix="/realtime", tags=["Realtime"])

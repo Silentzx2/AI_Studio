@@ -37,15 +37,20 @@ async def _check_database() -> dict:
 
 
 async def _check_redis() -> dict:
-    """Check Redis connectivity."""
+    """Check Redis connectivity.
+
+    Redis is not used for any active functionality (no Celery, no cache).
+    Report 'unavailable' rather than 'error' so it doesn't degrade overall health.
+    """
+    # ponytail: Redis is vestigial — remove entirely when deps are cleaned up
     try:
         import redis.asyncio as aioredis
         r = aioredis.from_url(settings.redis_url, socket_connect_timeout=0.25)
         await asyncio.wait_for(r.ping(), timeout=0.3)
         await r.aclose()
         return {"status": "ok"}
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
+    except Exception:
+        return {"status": "unavailable", "note": "Redis is not required by current stack"}
 
 
 async def _check_storage() -> dict:

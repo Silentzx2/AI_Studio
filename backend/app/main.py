@@ -36,15 +36,23 @@ async def lifespan(app: FastAPI):
     logger.info("AI Studio API v%s - Starting", settings.app_version)
     logger.info("=" * 70)
 
-    # Ensure database tables exist
+    # Ensure database schema is current via Alembic migrations.
+    # Fail loudly — the API must not report READY when the DB is unusable.
     try:
-        from app.database import engine, Base
-        import app.models  # register models
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database tables verified")
+        from alembic.config import Config
+        from alembic import command
+        from app.database import _process_db_url
+        import app.models  # register models  # noqa: F401
+        _cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
+        _url, _connect_args = _process_db_url(settings.database_url, "psycopg2")
+        if "+psycopg2" not in _url:
+            _url = _url.replace("postgresql://", "postgresql+psycopg2://")
+        _cfg.set_main_option("sqlalchemy.url", _url)
+        command.upgrade(_cfg, "head")
+        logger.info("Database migrations applied")
     except Exception as exc:
-        logger.warning("Database initialization failed: %s", exc)
+        logger.error("Database migration failed: %s", exc)
+        raise RuntimeError(f"Database migration failed: {exc}") from exc
 
     # Ensure storage directories exist
     try:
@@ -53,6 +61,15 @@ async def lifespan(app: FastAPI):
         logger.info("Storage initialized at %s", storage.storage_root)
     except Exception as exc:
         logger.warning("Storage initialization failed: %s", exc)
+
+    # Seed verified default workflows for models that have none
+    try:
+        from app.core.comfy.workflow_registry import seed_default_workflows
+        seeded = await seed_default_workflows()
+        if seeded:
+            logger.info("Seeded default workflows for models: %s", seeded)
+    except Exception as exc:
+        logger.warning("Workflow seeding failed: %s", exc)
 
     # Check ComfyUI
     try:

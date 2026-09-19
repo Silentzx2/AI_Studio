@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # App
     app_name: str = "AI Studio"
-    app_version: str = "4.0.0"
+    app_version: str = "6.0.0"
     debug: bool = Field(default=False, alias="DEBUG")
     environment: str = Field(default="development", alias="ENVIRONMENT")
 

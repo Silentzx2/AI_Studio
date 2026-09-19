@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 from app.config import get_settings
+from app.core.paths import engine_dir
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -24,8 +25,8 @@ class ArtifactManager:
         self.outputs_dir = self.storage_root / "models"
         self.outputs_dir.mkdir(parents=True, exist_ok=True)
 
-        # Single canonical ComfyUI output directory
-        self.engine_output_dir = Path("ENGINE/ComfyUI/output")
+        # Single canonical ComfyUI output directory (repo-root relative).
+        self.engine_output_dir = engine_dir("ComfyUI", "output")
         self.engine_output_dir.mkdir(parents=True, exist_ok=True)
 
     def get_job_dir(self, job_id: str) -> Path:
@@ -34,35 +35,55 @@ class ArtifactManager:
         job_dir.mkdir(parents=True, exist_ok=True)
         return job_dir
 
-    def find_comfyui_outputs(self, prompt_id: str, prefix: str = "") -> List[Path]:
-        """Find ComfyUI output files for a given prompt ID or file prefix."""
+    def find_comfyui_outputs(
+        self, prompt_id: str, prefix: str = "", history_outputs: Optional[dict] = None
+    ) -> List[Path]:
+        """Find ComfyUI output files for a given prompt ID or file prefix.
+        
+        Strictly matches exact history outputs, job ID prefix, or prompt ID.
+        Never falls back to arbitrary newest files.
+        """
         outputs = []
+        seen = set()
 
+        # 1. Direct resolution from ComfyUI history outputs metadata
+        if history_outputs and isinstance(history_outputs, dict):
+            for node_id, node_out in history_outputs.items():
+                if isinstance(node_out, dict):
+                    for key in ("mesh", "images", "files", "gifs", "3d"):
+                        items = node_out.get(key, [])
+                        if isinstance(items, list):
+                            for item in items:
+                                if isinstance(item, dict) and "filename" in item:
+                                    subfolder = item.get("subfolder", "")
+                                    target_p = self.engine_output_dir / subfolder / item["filename"]
+                                    if target_p.exists() and str(target_p) not in seen:
+                                        outputs.append(target_p)
+                                        seen.add(str(target_p))
+
+        # 2. Strict search by job ID prefix or prompt ID
         if self.engine_output_dir.exists():
             if prefix:
                 for file_path in self.engine_output_dir.rglob(f"*{prefix}*"):
-                    if file_path.is_file() and not file_path.name.startswith("."):
+                    if file_path.is_file() and not file_path.name.startswith(".") and str(file_path) not in seen:
                         outputs.append(file_path)
+                        seen.add(str(file_path))
             if not outputs and prompt_id:
                 for file_path in self.engine_output_dir.rglob(f"*{prompt_id}*"):
-                    if file_path.is_file() and not file_path.name.startswith("."):
+                    if file_path.is_file() and not file_path.name.startswith(".") and str(file_path) not in seen:
                         outputs.append(file_path)
-
-        # Also check root of output dir for recently modified GLBs
-        if not outputs and self.engine_output_dir.exists():
-            for file_path in sorted(self.engine_output_dir.glob("*.glb"), key=os.path.getmtime, reverse=True):
-                if file_path.is_file():
-                    outputs.append(file_path)
-                    break
+                        seen.add(str(file_path))
 
         return outputs
 
-    def copy_outputs_to_job(self, job_id: str, prompt_id: str, prefix: str = "") -> List[Path]:
+    def copy_outputs_to_job(
+        self, job_id: str, prompt_id: str, prefix: str = "", history_outputs: Optional[dict] = None
+    ) -> List[Path]:
         """Copy ComfyUI outputs to job directory, preserving immutable source.glb."""
         job_dir = self.get_job_dir(job_id)
         copied_files = []
 
-        outputs = self.find_comfyui_outputs(prompt_id, prefix)
+        outputs = self.find_comfyui_outputs(prompt_id, prefix, history_outputs=history_outputs)
         for src_file in outputs:
             if src_file.suffix in [".png", ".jpg", ".jpeg", ".webp"]:
                 target_path = job_dir / "thumbnail.png"
@@ -139,9 +160,11 @@ class ArtifactManager:
 
         return metadata
 
-    def process_job_outputs(self, job_id: str, prompt_id: str, prefix: str = "") -> dict[str, Any]:
+    def process_job_outputs(
+        self, job_id: str, prompt_id: str, prefix: str = "", history_outputs: Optional[dict] = None
+    ) -> dict[str, Any]:
         """Process all outputs for a job and ensure master exists."""
-        copied_files = self.copy_outputs_to_job(job_id, prompt_id, prefix)
+        copied_files = self.copy_outputs_to_job(job_id, prompt_id, prefix, history_outputs=history_outputs)
         metadata = self.register_artifacts(job_id, copied_files)
 
         # Extract mesh metadata if master source.glb or model.glb exists

@@ -260,8 +260,10 @@ def build_workflow_for_job(
     if "hunyuan" in p:
         return create_hunyuan3d_shapegen_workflow(img, save_path=save_path, seed=seed, steps=steps)
 
-    # Default to TripoSR (fast, robust, verified)
-    return create_triposr_workflow(img, save_path=save_path)
+    if "triposr" in p or "tripo_sr" in p or "tripo" in p or p in ("comfyui", ""):
+        return create_triposr_workflow(img, save_path=save_path)
+
+    raise ValueError(f"Unsupported model provider '{provider}'. Must be one of: triposr, hunyuan3d, trellis, comfyui.")
 
 
 def list_workflow_templates() -> list[dict[str, str]]:
@@ -298,7 +300,9 @@ def get_workflow_template(template_name: str) -> Optional[Dict[str, Any]]:
 
 def render_workflow(template_name: str, **params) -> Dict[str, Any]:
     """Render workflow template with provided parameters."""
-    fn = WORKFLOW_TEMPLATES.get(template_name.lower(), create_triposr_workflow)
+    fn = WORKFLOW_TEMPLATES.get(template_name.lower())
+    if not fn:
+        raise ValueError(f"Unknown workflow template: '{template_name}'. Supported: {list(WORKFLOW_TEMPLATES.keys())}")
     return fn(**params)
 
 

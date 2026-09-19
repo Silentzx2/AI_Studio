@@ -19,6 +19,7 @@ from app.core.comfy import (
     ArtifactManager,
     get_artifact_manager,
 )
+from app.core.comfy.workflow_registry import WorkflowRegistry, get_workflow_registry
 from app.core.storage import StorageManager, get_storage_manager
 from app.core.security import RateLimiter, get_rate_limiter, get_current_user, require_auth
 

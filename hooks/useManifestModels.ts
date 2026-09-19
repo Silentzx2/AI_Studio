@@ -39,7 +39,7 @@ export interface ManifestModel {
 }
 
 /**
- * Pre-seeded manifest model catalog loaded directly from backend/runtime/manifests/*.yaml.
+ * Model catalog sourced from the runtime options API (backed by ComfyUI 3D-Pack).
  * Ensures models are always known and listed in selectors immediately, even before
  * backend options finish loading or when offline.
  */

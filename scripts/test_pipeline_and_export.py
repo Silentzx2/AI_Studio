@@ -2,7 +2,7 @@
 
 Strict adherence to AGENTS.md: assert-based self-check, no external test fixtures.
 Run with:
-    PYTHONPATH=backend:backend/runtime python scripts/test_pipeline_and_export.py
+    PYTHONPATH=backend python scripts/test_pipeline_and_export.py
 """
 import asyncio
 import json
@@ -15,7 +15,6 @@ from pathlib import Path
 
 # Add backend to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend" / "runtime"))
 
 from app.core.mesh_optimizer import (
     generate_collision_mesh,
@@ -28,7 +27,8 @@ from app.core.mesh_processor import (
     validate_glb,
     write_placeholder_mesh,
 )
-from app.api.v1.project import _resolve_model_path, ExportRequest, export_project
+from app.api.v1.projects import _resolve_model_path, export_project
+from app.schemas import ProjectExportRequest as ExportRequest
 
 
 def test_mesh_diagnostics_and_qa():

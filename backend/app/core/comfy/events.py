@@ -42,6 +42,17 @@ class ComfyUIEventListener:
             except Exception as e:
                 logger.error(f"Error in event callback for {event_type}: {e}")
 
+        # Dispatch to wildcard listeners
+        wildcard_callbacks = self._callbacks.get("*", [])
+        for callback in wildcard_callbacks:
+            try:
+                if asyncio.iscoroutinefunction(callback):
+                    await callback(event_type, data)
+                else:
+                    callback(event_type, data)
+            except Exception as e:
+                logger.error(f"Error in wildcard callback for {event_type}: {e}")
+
     async def _handle_message(self, message: str):
         """Handle incoming WebSocket message."""
         try:

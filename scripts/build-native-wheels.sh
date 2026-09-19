@@ -113,7 +113,7 @@ ensure_python_env() {
     local py_version=$(python3 -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
     log "Using Python: $py_version"
 
-    # Ensure uv is available (required for per-model venvs)
+    # Ensure uv is available (required for backend venv)
     if ! command -v uv &>/dev/null; then
         log "Installing uv..."
         curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -266,7 +266,7 @@ main() {
     step "Wheels build process completed"
     echo ""
     echo -e "  ${GREEN}Next steps:${NC}"
-    echo "    - On GPU host (Colab/VPS): wheels built above can be installed into per-model venvs"
+    echo "    - On GPU host (Colab/VPS): wheels built above can be installed into ENGINE/ComfyUI"
     echo "    - Update manifest 'wheels' sections with built wheel URLs from .wheels/ directory"
     echo "    - Re-run installer to pick up prebuilt wheels"
     echo "    - On CPU-only: wheels directory is pre-configured; build on GPU host for actual CUDA support"

@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# update-models.sh — Clone/update repos and download weights
+# update-models.sh — Download model weights into the ComfyUI-3D-Pack
+# Checkpoints directory that the installed 3D-Pack nodes actually use.
+#
+# The 3D-Pack nodes load weights through their own HuggingFace loaders
+# (resume_or_download_model_from_hf). This script mirrors that mechanism:
+# it downloads into ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/Checkpoints/
+# so the running ComfyUI can resolve them without a second download.
 #
 # Usage:
-#   ./scripts/update-models.sh                        # Full install (all models)
-#   ./scripts/update-models.sh --repos-only           # Only clone repos
-#   ./scripts/update-models.sh --weights-only         # Only download weights
-#   ./scripts/update-models.sh --verify               # Verify after install
-#   ./scripts/update-models.sh --model=trellis        # Specific model
-#   ./scripts/update-models.sh --models=hunyuan3d-2,trellis  # Multiple models
+#   ./scripts/update-models.sh                       # All models
+#   ./scripts/update-models.sh --model=triposr       # Specific model
+#   ./scripts/update-models.sh --models=triposr,trellis
+#   ./scripts/update-models.sh --verify              # Verify weights on disk
 #
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -32,8 +36,8 @@ for arg in "$@"; do
             echo ""
             echo "Options:"
             echo "  --repos-only        Only clone/update repositories"
-            echo "  --weights-only      Only download model weights"
-            echo "  --verify            Run verification after installation"
+            echo "  --weights-only      Only download weights"
+            echo "  --verify            Verify weights after install"
             echo "  --model=NAME        Download specific model (repeatable)"
             echo "  --models=A,B,C      Download specific models (comma-separated)"
             echo "  --hf-token=TOKEN    HuggingFace token for gated models"
@@ -56,26 +60,20 @@ else
 fi
 echo ""
 
-cd "$BACKEND_DIR"
+# Single canonical weights location used by the running 3D-Pack nodes.
+CKPT_ROOT="${PWD}/ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/Checkpoints"
+mkdir -p "${CKPT_ROOT}"
 
-# Ensure the project venv exists
-VENV_PYTHON="$BACKEND_DIR/.venv/bin/python"
-if [[ ! -x "$VENV_PYTHON" ]]; then
-    echo "[ERROR] Python venv not found at $VENV_PYTHON. Run: sudo bash scripts/setup.sh"
-    exit 1
-fi
-
-# Create necessary directories
-mkdir -p third_party/.hf_cache/hub
-
-# Set HuggingFace cache environment
-export HF_HOME="$BACKEND_DIR/third_party/.hf_cache"
-export HUGGINGFACE_HUB_CACHE="$HF_HOME/hub"
-export TORCH_HOME="$HF_HOME/torch"
+# HF cache is shared with the 3D-Pack loader; never duplicate into backend/third_party.
+HF_HOME="${BACKEND_DIR}/.hf_cache"
+mkdir -p "${HF_HOME}/hub"
+export HF_HOME
+export HUGGINGFACE_HUB_CACHE="${HF_HOME}/hub"
+export TORCH_HOME="${HF_HOME}/torch"
 
 echo "Storage configuration:"
-echo "  Comfy3D Checkpoints: ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/Checkpoints/"
-echo "  HF Cache:            $HF_HOME"
+echo "  Comfy3D Checkpoints (authoritative): ${CKPT_ROOT}"
+echo "  HF Cache:                           ${HF_HOME}"
 echo ""
 
 # Export env-vars for the embedded Python script
@@ -84,8 +82,9 @@ export INSTALL_WEIGHTS_ONLY=$WEIGHTS_ONLY
 export INSTALL_VERIFY=$VERIFY
 export INSTALL_MODELS="${MODELS[*]:-}"
 export HF_TOKEN="$HF_TOKEN"
+export CKPT_ROOT="$CKPT_ROOT"
 
-"$VENV_PYTHON" << 'PYTHON_SCRIPT'
+"$BACKEND_DIR/.venv/bin/python" << 'PYTHON_SCRIPT'
 import sys
 import os
 from pathlib import Path
@@ -95,12 +94,11 @@ raw_models    = [m.strip().lower() for m in models_str.split() if m.strip()]
 verify        = os.environ.get('INSTALL_VERIFY',      'false').lower() == 'true'
 weights_only  = os.environ.get('INSTALL_WEIGHTS_ONLY','false').lower() == 'true'
 hf_token      = os.environ.get('HF_TOKEN', '') or None
+ckpt_root     = Path(os.environ['CKPT_ROOT'])
 
-# Locate ComfyUI-3D-Pack Checkpoints root
-workspace_root = Path(__file__).resolve().parent.parent if "__file__" in locals() else Path(os.getcwd()).parent
-ckpt_root = workspace_root / "ENGINE" / "ComfyUI" / "custom_nodes" / "ComfyUI-3D-Pack" / "Checkpoints"
-ckpt_root.mkdir(parents=True, exist_ok=True)
-
+# Models are loaded by the 3D-Pack nodes via their own HF loaders.
+# This script mirrors that mechanism: download into the Checkpoints dir the
+# nodes actually read. No duplicate downloads into backend/third_party.
 MODEL_CONFIGS = {
     "triposr": {
         "repo_id": "stabilityai/TripoSR",
@@ -109,7 +107,7 @@ MODEL_CONFIGS = {
         "type": "file",
     },
     "trellis": {
-        "repo_id": "jetx/TRELLIS-image-large",
+        "repo_id": "JeffreyXiang/TRELLIS-image-large",
         "filename": None,
         "dest_dir": None,
         "type": "snapshot",
@@ -122,7 +120,7 @@ MODEL_CONFIGS = {
     },
 }
 
-targets = raw_models if (raw_models and "__all__" not in raw_models and "all" not in raw_models) else ["triposr", "trellis", "hunyuan3d"]
+targets = raw_models if (raw_models and "all" not in raw_models) else ["triposr", "trellis", "hunyuan3d"]
 
 try:
     from huggingface_hub import hf_hub_download, snapshot_download
@@ -151,6 +149,7 @@ try:
                     print(f"  [OK] Verified: {dest_file} ({mb} MB)")
                 else:
                     print(f"  [MISSING] Not found at: {dest_file}")
+                    sys.exit(1)
             else:
                 print(f"  [OK] Model managed via HuggingFace Hub snapshot ({repo})")
             continue

@@ -1,14 +1,18 @@
 """System endpoints."""
 
+import asyncio
+import json
 import logging
 import platform
 import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.config import get_settings
 from app.core import get_comfyui_client, get_workflow_manager
@@ -62,6 +66,24 @@ async def get_system_info():
     except Exception as e:
         logger.error(f"Failed to get system info: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get system info: {e}")
+
+
+@router.get("/stream")
+async def system_stream():
+    """SSE stream of system stats for frontend EventSource."""
+    async def _generate():
+        while True:
+            try:
+                gpu = await _get_gpu_info()
+                mem = await _get_memory_info()
+                disk = await _get_disk_info()
+                comfy = await _get_comfyui_info()
+                payload = json.dumps({"gpu": gpu, "memory": mem, "disk": disk, "comfyui": comfy})
+                yield f"data: {payload}\n\n"
+            except Exception:
+                yield f"data: {{}}\n\n"
+            await asyncio.sleep(5.0)
+    return StreamingResponse(_generate(), media_type="text/event-stream")
 
 
 async def _get_gpu_info() -> dict[str, Any]:
@@ -223,15 +245,26 @@ async def check_blender():
 
 @router.get("/dependencies", response_model=SuccessResponse)
 async def get_dependencies():
-    """Get status of core runtime dependencies."""
+    """Get status of core runtime dependencies — verified against the real importable modules."""
+    deps = {}
+    for name in ("torch", "trimesh", "PIL", "numpy", "aiohttp", "psutil"):
+        try:
+            __import__(name)
+            deps[name] = True
+        except ImportError:
+            deps[name] = False
+    # ComfyUI engine reachable?
+    comfy_ok = False
+    try:
+        client = get_comfyui_client()
+        health = await client.health_check()
+        comfy_ok = health.get("status") == "ok"
+    except Exception:
+        pass
+    deps["comfyui"] = comfy_ok
+    deps["comfyui_3d_pack"] = comfy_ok
     return SuccessResponse(
-        data={
-            "python": True,
-            "torch": True,
-            "cuda": False,
-            "comfyui": True,
-            "comfyui_3d_pack": True,
-        },
+        data=deps,
         message="Dependencies status retrieved",
     )
 

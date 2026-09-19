@@ -51,6 +51,14 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        source: '/comfyui-frame/:path*',
+        destination: 'http://127.0.0.1:8188/:path*',
+      },
+    ];
+  },
   // ponytail: standalone output is ONLY enabled for the Docker packaging path
   // (scripts/package-production.sh, which runs `node .next/standalone/server.js`
   // inside its entrypoint). For the normal runtime — Colab, local start.sh,

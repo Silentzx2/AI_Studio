@@ -1,12 +1,13 @@
 """Generation endpoints for the new FastAPI backend."""
 
 import asyncio
+import copy
 import logging
 import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 from pydantic import BaseModel
@@ -27,12 +28,12 @@ from app.schemas import (
 )
 from app.core import (
     get_comfyui_client,
-    get_workflow_manager,
     get_artifact_manager,
     create_job_listener,
     stop_job_listener,
     get_progress_tracker,
     get_rate_limiter,
+    get_workflow_registry,
 )
 
 router = APIRouter()
@@ -176,12 +177,25 @@ async def create_generation(req: GenerationRequest, request: Request, background
     job_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
+    # §9: selected model/provider maps to a verified workflow. No silent fallback
+    # to a different model. If no workflow is registered for the selection, the
+    # generation path returns an explicit error (see process_generation_job).
+    _SUPPORTED_PROVIDERS = {"triposr", "tripo_sr", "hunyuan3d", "hunyuan3d_21", "trellis", "comfyui", ""}
+
     # Map workspace to mode
     if req.workspace and req.mode == "text-to-3d" and req.workspace in _WORKSPACE_MODE_MAP:
         req.mode = _WORKSPACE_MODE_MAP[req.workspace]
 
-    # Determine provider
+    # Determine and strictly validate provider (no silent fallback)
     provider = req.provider or "comfyui"
+    if req.provider and req.provider.lower().strip() not in _SUPPORTED_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported generation provider '{req.provider}'. Supported: triposr, hunyuan3d, trellis, comfyui.",
+        )
+
+    # Canonical model ID used by the workflow registry (tripo_sr, trellis, hunyuan3d).
+    model_id = _resolve_model_id(provider)
 
     # Create job in database
     try:
@@ -265,15 +279,75 @@ async def create_generation(req: GenerationRequest, request: Request, background
     )
 
 
+def _resolve_model_id(provider: str) -> str:
+    """Map a generation provider to the canonical model ID used by the workflow registry.
+
+    The registry keys are tripo_sr / trellis / hunyuan3d. Aliases such as
+    'tripo', 'triposr', 'hunyuan3d_21' and the legacy 'comfyui' default all
+    resolve to the same canonical ID.
+    """
+    return {
+        "tripo_sr": "tripo_sr",
+        "tripo": "tripo_sr",
+        "triposr": "tripo_sr",
+        "trellis": "trellis",
+        "hunyuan3d": "hunyuan3d",
+        "hunyuan3d_21": "hunyuan3d",
+        "comfyui": "tripo_sr",
+        "": "tripo_sr",
+    }.get(provider, "tripo_sr")
+
+
+def _job_scoped_prompt(workflow: dict[str, Any], job_id: str) -> dict[str, Any]:
+    """Return a deep copy of the persisted workflow with a job-unique save path.
+
+    The persisted workflow is immutable; this only mutates the in-memory copy
+    queued to ComfyUI so concurrent jobs never overwrite each other's outputs.
+    """
+    scoped = copy.deepcopy(workflow)
+    save_filename = f"{job_id}.glb"
+    for node in scoped.values():
+        if not isinstance(node, dict):
+            continue
+        if node.get("class_type") == "[Comfy3D] Save 3D Mesh":
+            inputs = node.get("inputs", {})
+            if "save_path" in inputs:
+                inputs["save_path"] = save_filename
+    return scoped
+
+
+def _workspace_root() -> Path:
+    """Resolve the repository root regardless of the backend CWD.
+
+    backend/app/api/v1/generation.py -> repo root (five parents up).
+    """
+    return Path(__file__).resolve().parent.parent.parent.parent.parent
+
+
+_WS_ROOT = _workspace_root()
+_INPUT_DIR = _WS_ROOT / "ENGINE" / "ComfyUI" / "input"
+
+
 async def process_generation_job(job_id: str, req: GenerationRequest):
     """Background task to process generation job via ComfyUI with verified workflows."""
     client = get_comfyui_client()
-    workflow_manager = get_workflow_manager()
     artifact_manager = get_artifact_manager()
-    input_dir = Path("ENGINE/ComfyUI/input")
+    workflow_registry = get_workflow_registry()
+    input_dir = _INPUT_DIR
     input_dir.mkdir(parents=True, exist_ok=True)
 
+    listener = None
+    tracker = None
+    prompt_id = None
+    prompt_data = None
+    workflow_version = None
+
     try:
+        try:
+            listener, tracker = await create_job_listener(job_id)
+        except Exception as l_err:
+            logger.warning("Failed to start event listener for %s: %s", job_id, l_err)
+
         async with AsyncSessionLocal() as session:
             job = await session.get(GenerationJob, job_id)
             if not job:
@@ -286,11 +360,22 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
             job.updated_at = job.started_at
             await session.commit()
 
+        # Resolve the exact workflow version for the selected model.
+        # §9: never silently fall back to a different model's workflow.
+        workflow_version = await workflow_registry.get_active_version(model_id)
+        if workflow_version is None:
+            raise RuntimeError(
+                f"No verified workflow registered for model '{model_id}'. "
+                f"Save a workflow in native ComfyUI first."
+            )
+        workflow = workflow_version.prompt
+        save_filename = f"{job_id}.glb"
+
         # Prepare reference image in ComfyUI input directory
         ref_image_name = "test.png"
         if req.reference_image_url:
             raw_name = Path(req.reference_image_url).name
-            storage_upload = Path(settings.storage_local_path) / "uploads" / raw_name
+            storage_upload = Path(settings.storage_local_path).resolve() / "uploads" / raw_name
             if storage_upload.exists():
                 shutil.copy2(storage_upload, input_dir / raw_name)
                 ref_image_name = raw_name
@@ -313,39 +398,27 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
             except Exception:
                 pass
 
-        # Prepare workflow with real ComfyUI-3D-Pack nodes
-        save_filename = f"{job_id}.glb"
-        workflow_params = {
-            "prompt": req.prompt or "",
-            "negative_prompt": req.negative_prompt or "low quality, bad anatomy",
-            "reference_image": ref_image_name,
-            "save_path": save_filename,
-            "seed": req.seed or 1,
-            "steps": req.num_inference_steps or 20,
-            "cfg": req.guidance_scale or 7.0,
-            "target_faces": req.face_count or 10000,
-            "provider": req.provider or "triposr",
-        }
-
-        if req.source_mesh_url:
-            workflow_params["mesh_path"] = req.source_mesh_url
-
-        workflow = workflow_manager.prepare_workflow(req.mode, **workflow_params)
-
-        # Queue prompt in ComfyUI
-        prompt_response = await client.queue_prompt(workflow, client_id=f"job_{job_id}")
+        # Queue the exact persisted workflow snapshot in ComfyUI, scoped to this
+        # job so concurrent jobs never write the same output file.
+        prompt_response = await client.queue_prompt(
+            _job_scoped_prompt(workflow, job_id), client_id=f"job_{job_id}"
+        )
         prompt_id = prompt_response.get("prompt_id")
 
         if not prompt_id:
             raise RuntimeError(f"Failed to queue in ComfyUI: {prompt_response}")
 
-        # Update job with prompt_id
+        # Update job with prompt_id and the exact workflow version it used
         async with AsyncSessionLocal() as session:
             job = await session.get(GenerationJob, job_id)
             if job:
                 meta = dict(job.processing_metadata or {})
                 meta["comfyui_prompt_id"] = prompt_id
+                meta["workflow_version_id"] = workflow_version.id
+                meta["workflow_id"] = workflow_version.workflow_id
                 job.processing_metadata = meta
+                job.workflow_id = workflow_version.workflow_id
+                job.workflow_version_id = workflow_version.id
                 job.stage = "generating"
                 job.progress = 20
                 job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -367,11 +440,30 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
                     logger.info("Job %s was cancelled, exiting background worker", job_id)
                     return
 
-            # Check history to see if completed
+            # Real-time WebSocket progress tracker reflection
+            if tracker:
+                status_dict = tracker.get_status()
+                current_prog = status_dict.get("progress", 0)
+                current_node = status_dict.get("current_node", "")
+                if current_prog > 0 or current_node:
+                    async with AsyncSessionLocal() as session:
+                        job = await session.get(GenerationJob, job_id)
+                        if job and job.status not in ("completed", "failed", "cancelled"):
+                            if current_prog > (job.progress or 0):
+                                job.progress = min(current_prog, 95)
+                            if current_node:
+                                job.stage = f"node:{current_node}"
+                            job.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                            await session.commit()
+
+            # Check history to see if completed or failed
             history = await client.get_history(prompt_id)
             if prompt_id in history:
                 prompt_data = history[prompt_id]
                 status_info = prompt_data.get("status", {})
+                if status_info.get("status_str") == "error":
+                    messages = status_info.get("messages", [])
+                    raise RuntimeError(f"ComfyUI execution failed for prompt {prompt_id}: {messages}")
                 if status_info.get("completed", False) or "outputs" in prompt_data:
                     break
 
@@ -383,10 +475,16 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
             is_pending = any(item[1] == prompt_id for item in pending)
 
             if not is_running and not is_pending and waited > 4:
-                # Finished execution
+                # Finished execution - re-check history to verify success or error
+                history = await client.get_history(prompt_id)
+                if prompt_id in history:
+                    prompt_data = history[prompt_id]
+                    status_info = prompt_data.get("status", {})
+                    if status_info.get("status_str") == "error":
+                        raise RuntimeError(f"ComfyUI execution failed for prompt {prompt_id}: {status_info.get('messages')}")
                 break
 
-            # Reflect real progress
+            # Reflect execution state if still running
             async with AsyncSessionLocal() as session:
                 job = await session.get(GenerationJob, job_id)
                 if job:
@@ -402,8 +500,11 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
             if job and job.status == "cancelled":
                 return
 
-        # Process and register artifacts
-        metadata = artifact_manager.process_job_outputs(job_id, prompt_id, prefix=job_id)
+        # Process and register artifacts safely with exact history outputs
+        history_outputs = prompt_data.get("outputs") if (prompt_data and isinstance(prompt_data, dict)) else None
+        metadata = artifact_manager.process_job_outputs(
+            job_id, prompt_id, prefix=job_id, history_outputs=history_outputs
+        )
 
         # Validate master source.glb output
         job_dir = artifact_manager.get_job_dir(job_id)
@@ -413,6 +514,54 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
 
         if not master_mesh.exists() or master_mesh.stat().st_size == 0:
             raise RuntimeError(f"ComfyUI execution finished but output mesh was not produced for prompt {prompt_id}")
+
+        # Real post-processing pipeline
+        if req.repair_uvs:
+            try:
+                from app.core.mesh_optimizer import generate_uvs_with_xatlas
+                import trimesh
+                m = trimesh.load(str(master_mesh))
+                unwrapped, fixed = generate_uvs_with_xatlas(m)
+                if fixed:
+                    unwrapped.export(str(job_dir / "repaired.glb"))
+            except Exception as e:
+                logger.warning("UV repair failed: %s", e)
+
+        if req.game_ready or req.auto_optimize:
+            try:
+                from app.core.mesh_optimizer import optimize_mesh_headless
+                target_budget = req.face_count or 15000
+                gr_path = str(job_dir / "game_ready.glb")
+                optimize_mesh_headless(
+                    input_mesh=str(master_mesh),
+                    output_mesh=gr_path,
+                    target_polycount=target_budget,
+                )
+            except Exception as e:
+                logger.warning("Game-ready optimization failed: %s", e)
+
+        if req.generate_lod:
+            try:
+                from app.core.mesh_optimizer import generate_lods
+                generate_lods(
+                    input_path=str(master_mesh),
+                    output_dir=str(job_dir / "lods"),
+                    lod_count=req.lod_count or 3,
+                    lod_preset=req.lod_preset or "medium",
+                    preserve_details=req.preserve_details or 75.0,
+                )
+            except Exception as e:
+                logger.warning("LOD generation failed: %s", e)
+
+        if req.generate_collision:
+            try:
+                from app.core.mesh_optimizer import generate_collision_mesh
+                generate_collision_mesh(
+                    input_path=str(master_mesh),
+                    output_path=str(job_dir / "collision.glb"),
+                )
+            except Exception as e:
+                logger.warning("Collision mesh generation failed: %s", e)
 
         # Update job with successful completion
         async with AsyncSessionLocal() as session:
@@ -447,6 +596,11 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
                 job.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 job.updated_at = job.completed_at
                 await session.commit()
+    finally:
+        try:
+            await stop_job_listener(job_id)
+        except Exception:
+            pass
 
 
 @router.post("/{job_id}/cancel", response_model=CancelResponse)

@@ -29,12 +29,16 @@ export default function ComfyUIPage() {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
-  // Dynamically resolve ComfyUI URL (same host, port 8188, or local fallback)
+  // Dynamically resolve ComfyUI URL (same-origin proxy for HTTPS, local fallback for HTTP)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname || '127.0.0.1';
-      const protocol = window.location.protocol === 'https:' ? 'http:' : window.location.protocol;
-      setComfyUrl(`${protocol}//${hostname}:8188`);
+      if (window.location.protocol === 'https:') {
+        // Same-origin reverse proxy avoids mixed content on HTTPS deployments
+        setComfyUrl('/comfyui-frame');
+      } else {
+        const hostname = window.location.hostname || '127.0.0.1';
+        setComfyUrl(`http://${hostname}:8188`);
+      }
     }
   }, []);
 

@@ -351,8 +351,6 @@ cmd_clean() {
     echo -e "${CYAN}Clean Environments & Dependencies${NC}"
     echo ""
     echo "This will remove:"
-    echo -e "  ${RED}•${NC} All per-model venvs (backend/third_party/*/.venv)"
-    echo -e "  ${RED}•${NC} All cloned model repos (backend/third_party/*)"
     echo -e "  ${RED}•${NC} Backend venv (backend/.venv)"
     echo -e "  ${RED}•${NC} Frontend node_modules"
     echo -e "  ${RED}•${NC} Frontend build (.next)"
@@ -374,19 +372,6 @@ cmd_clean() {
             echo -e "  ${CYAN}Stopping services...${NC}"
             bash scripts/stop.sh 2>/dev/null || true
 
-            # Remove per-model venvs
-            echo -e "  ${CYAN}Removing per-model venvs...${NC}"
-            if [[ -d backend/third_party ]]; then
-                find backend/third_party -maxdepth 2 -type d -name ".venv" -exec rm -rf {} + 2>/dev/null || true
-                echo -e "    ${GREEN}✔${NC} Per-model venvs removed"
-            fi
-
-            # Remove cloned model repos
-            echo -e "  ${CYAN}Removing model repositories...${NC}"
-            if [[ -d backend/third_party ]]; then
-                find backend/third_party -maxdepth 1 -mindepth 1 -type d ! -name '.hf_cache' -exec rm -rf {} + 2>/dev/null || true
-                echo -e "    ${GREEN}✔${NC} Model repositories removed"
-            fi
 
             # Remove backend venv
             echo -e "  ${CYAN}Removing backend venv...${NC}"

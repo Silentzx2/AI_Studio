@@ -1,6 +1,9 @@
 """Project export endpoints."""
 
+import json
 import logging
+import shutil
+import subprocess
 import uuid
 import zipfile
 from datetime import datetime, timezone
@@ -25,28 +28,30 @@ def _resolve_model_path(model_url: str) -> Path | None:
     if not model_url or ".." in model_url:
         return None
 
-    storage = get_storage_manager()
     parsed = urlparse(model_url)
     path_str = unquote(parsed.path if parsed.scheme else model_url)
+    rel = path_str.split("/static/", 1)[-1].lstrip("/") if "/static/" in path_str else path_str.lstrip("/")
 
-    if "/static/" in path_str:
-        rel = path_str.split("/static/", 1)[-1].lstrip("/")
-        candidate = (Path(settings.storage_local_path) / rel).resolve()
-        if candidate.is_relative_to(Path(settings.storage_local_path)) and candidate.exists():
+    storage_candidates = [
+        Path(settings.storage_local_path).resolve(),
+        (Path(__file__).resolve().parent.parent.parent / "storage").resolve(),
+        (Path.cwd() / "backend" / "storage").resolve(),
+        (Path.cwd() / "storage").resolve(),
+    ]
+
+    for storage_root in storage_candidates:
+        candidate = (storage_root / rel).resolve()
+        if candidate.is_relative_to(storage_root) and candidate.exists():
             return candidate
 
-    candidate = (Path(settings.storage_local_path) / path_str.lstrip("/")).resolve()
-    if candidate.is_relative_to(Path(settings.storage_local_path)) and candidate.exists():
-        return candidate
-
-    # Search known storage subdirectories
-    for folder in ("models", "exports", "uploads"):
-        candidate = (Path(settings.storage_local_path) / folder / Path(path_str).name).resolve()
-        if candidate.is_relative_to(Path(settings.storage_local_path)) and candidate.exists():
-            return candidate
-        matches = list((Path(settings.storage_local_path) / folder).glob(f"*/{Path(path_str).name}"))
-        if matches and matches[0].resolve().is_relative_to(Path(settings.storage_local_path)):
-            return matches[0].resolve()
+        # Search known storage subdirectories
+        for folder in ("models", "exports", "uploads"):
+            candidate = (storage_root / folder / Path(path_str).name).resolve()
+            if candidate.is_relative_to(storage_root) and candidate.exists():
+                return candidate
+            matches = list((storage_root / folder).glob(f"*/{Path(path_str).name}"))
+            if matches and matches[0].resolve().is_relative_to(storage_root):
+                return matches[0].resolve()
 
     return None
 
@@ -137,8 +142,34 @@ async def export_project(req: ProjectExportRequest):
 
         if fmt == "glb":
             exported_file = out_dir / f"{clean_name}.glb"
-            import shutil
             shutil.copy(target_model, exported_file)
+        elif fmt == "fbx":
+            blender_bin = shutil.which(settings.blender_executable)
+            if not blender_bin:
+                raise HTTPException(status_code=500, detail="Headless Blender required for FBX export but not installed")
+            from app.core.mesh_optimizer import _get_blender_env
+            env = _get_blender_env(blender_bin)
+            exported_file = out_dir / f"{clean_name}.fbx"
+            script = f"""
+import bpy, sys
+try:
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.ops.import_scene.gltf(filepath={repr(str(target_model))})
+    bpy.ops.export_scene.fbx(filepath={repr(str(exported_file))}, add_leaf_bones=False)
+except Exception as e:
+    print(f"FBX_EXPORT_ERROR: {{e}}", file=sys.stderr)
+    sys.exit(1)
+"""
+            proc = subprocess.run(
+                [blender_bin, "-b", "--python-expr", script],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if proc.returncode != 0 or not exported_file.exists() or exported_file.stat().st_size == 0:
+                logger.error("Blender FBX export failed (code %d): %s", proc.returncode, proc.stderr)
+                raise HTTPException(status_code=500, detail="FBX export conversion failed")
         elif fmt == "gltf":
             exported_file = out_dir / f"{clean_name}.gltf"
             glb_bytes = target_model.read_bytes()
@@ -154,7 +185,7 @@ async def export_project(req: ProjectExportRequest):
                 logger.warning(f"Trimesh format conversion to {fmt} failed: {conv_err}")
                 raise HTTPException(status_code=500, detail=f"Failed to convert asset to {fmt.upper()}: {conv_err}")
         else:
-            raise HTTPException(status_code=400, detail=f"Unsupported format: {fmt}")
+            raise HTTPException(status_code=400, detail=f"Unsupported export format: {fmt}")
 
         if not exported_file or not exported_file.exists():
             raise HTTPException(status_code=500, detail="Export failed: target file could not be generated")
@@ -168,14 +199,68 @@ async def export_project(req: ProjectExportRequest):
                 source_file = job_dir / "source.glb"
                 if source_file.exists():
                     zf.write(source_file, arcname=f"{clean_name}/Source/{clean_name}_source.glb")
+                elif req.includeOriginals and model_path.exists():
+                    zf.write(model_path, arcname=f"{clean_name}/Source/{model_path.name}")
 
                 gr_file = job_dir / "game_ready.glb"
                 if gr_file.exists():
                     zf.write(gr_file, arcname=f"{clean_name}/GameReady/{clean_name}_game_ready.glb")
 
+                lods_dir = job_dir / "lods"
+                if req.includeLODs or req.variant == "lod_package":
+                    if not lods_dir.exists():
+                        try:
+                            from app.core.mesh_optimizer import generate_lods
+                            generate_lods(
+                                input_path=str(target_model),
+                                output_dir=str(lods_dir),
+                                lod_count=req.lodCount or 3,
+                            )
+                        except Exception as lod_err:
+                            logger.warning(f"LOD generation in export failed: {lod_err}")
+                    if lods_dir.exists():
+                        for lod_f in sorted(lods_dir.glob("*.glb")):
+                            zf.write(lod_f, arcname=f"{clean_name}/LODs/{lod_f.name}")
+
+                if req.includeCollision:
+                    coll_file = job_dir / "collision.glb"
+                    if not coll_file.exists():
+                        try:
+                            from app.core.mesh_optimizer import generate_collision_mesh
+                            generate_collision_mesh(
+                                input_path=str(target_model),
+                                output_path=str(coll_file),
+                            )
+                        except Exception as col_err:
+                            logger.warning(f"Collision mesh generation in export failed: {col_err}")
+                    if coll_file.exists():
+                        zf.write(coll_file, arcname=f"{clean_name}/Collision/{clean_name}_collision.glb")
+
                 thumb_file = job_dir / "thumbnail.png"
                 if thumb_file.exists():
                     zf.write(thumb_file, arcname=f"{clean_name}/Preview/thumbnail.png")
+
+                if req.includeQAReport:
+                    try:
+                        from app.core.mesh_processor import run_mesh_diagnostics
+                        report = run_mesh_diagnostics(str(target_model), target_platform=req.targetPlatform or "generic")
+                        qa_json = out_dir / "quality_report.json"
+                        qa_json.write_text(json.dumps(report, indent=2), encoding="utf-8")
+                        zf.write(qa_json, arcname=f"{clean_name}/QA/quality_report.json")
+                    except Exception as qa_err:
+                        logger.warning(f"QA report generation in export failed: {qa_err}")
+
+                metadata_manifest = {
+                    "asset_name": clean_name,
+                    "exported_format": fmt,
+                    "variant": req.variant,
+                    "target_platform": req.targetPlatform or "generic",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "generator": "AI 3D Studio Production Export Engine",
+                }
+                meta_json = out_dir / "export_metadata.json"
+                meta_json.write_text(json.dumps(metadata_manifest, indent=2), encoding="utf-8")
+                zf.write(meta_json, arcname=f"{clean_name}/Metadata/export_metadata.json")
 
             return FileResponse(
                 path=str(zip_path),

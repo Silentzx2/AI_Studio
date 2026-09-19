@@ -59,7 +59,7 @@ _async_engine_kwargs = {
     "connect_args": async_connect_args,
 }
 
-# Sync engine for celery workers
+# ponytail: sync engine kept for Alembic migrations & get_sync_db()
 _sync_engine_kwargs = {
     "echo": settings.debug,
     "pool_pre_ping": True,

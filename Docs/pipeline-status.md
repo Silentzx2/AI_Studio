@@ -1,12 +1,76 @@
 # AI 3D Studio - Pipeline Implementation Status
 
-> **Version**: 6.0.0 (ComfyUI Core Engine & ComfyUI-3D-Pack Integration)
-> **Status**: Verified and operational; 5/5 backend self-checks pass, Next.js frontend intact.
+> **Version**: 6.0.0 (ComfyUI 0.36.0 Execution Core & ComfyUI-3D-Pack Integration)
+> **Status**: Verified and operational; backend e2e self-check passes, Next.js frontend intact.
 > **Last Updated**: September 19, 2026
 
 ---
 
-## v6.0.0 — ComfyUI 0.36.0 Execution Core & ComfyUI-3D-Pack Integration (2026-09-19)
+## v4.0.0 — ComfyUI 0.36.0 Execution Core & ComfyUI-3D-Pack Integration (2026-09-19)
+
+### Architectural Transformation & Resolutions
+1. **Single Execution Core (ComfyUI 0.36.0)**:
+   - Eliminated the bespoke multi-venv runtime engine, Celery task workers, and Redis task broker.
+   - Installed upstream ComfyUI (`ENGINE/ComfyUI`) and ComfyUI-3D-Pack (`ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack`).
+   - Integrated native support for Hunyuan3D-2.1 (`hy3dshape`, `hy3dpaint`), TRELLIS, TripoSR, TripoSF, and SV3D.
+2. **Performance & Low-Latency Optimizations**:
+   - ComfyUI launched with `--enable-compress-response-body`, `--mmap-torch-files`, `--use-split-cross-attention` (CPU), and `--async-offload 2` (GPU).
+   - Client implemented with persistent TCP connection pooling (`aiohttp.TCPConnector(limit=100, keepalive_timeout=60.0)`).
+   - Micro-caching (3.0s) for `/system_stats` to ensure sub-millisecond response for frontend telemetry queries.
+   - In-memory object info caching (`get_object_info`) to avoid repetitive node schema deserialization.
+   - Added `POST /api/v1/runtime/clear-vram` calling ComfyUI `/free` with `{"unload_models": False, "free_memory": True}`.
+3. **Automated Verification**:
+   - `python backend/tests/test_backend_e2e.py` validates all critical subsystems: Config, PostgreSQL DB CRUD, ComfyUI connection + 3D-Pack node registration, Workflow Registry, Workflow Resolution, Model Registry, and No-Silent-Fallback.
+   - `python scripts/test_latency.py` validates latency optimizations for critical endpoints.
+
+### v4.0.0 — Workflow/Version Persistence Model (§20)
+1. **Persistent ComfyUI Workflow Registry** (`backend/app/core/comfy/workflow_registry.py`):
+   - `comfy_workflows`: named, per-model workflow registry with an active pointer.
+   - `comfy_workflow_versions`: immutable per-save snapshots (prompt JSON).
+   - New saves append a version; the active pointer moves to the newest. Historical versions are never destroyed.
+   - Every AI Studio generation records the exact workflow version it used (`generation_jobs.workflow_id`, `generation_jobs.workflow_version_id`).
+2. **Workflow API** (`backend/app/api/v1/workflows.py`):
+   - `POST /api/v1/workflows/save` — persist a new workflow version.
+   - `GET /api/v1/workflows/active/{model_id}` — get the active workflow + newest version.
+   - `GET /api/v1/workflows/version/{version_id}` — get a single immutable version (reproducibility).
+   - `GET /api/v1/workflows/list` — list all registered workflows.
+   - `POST /api/v1/workflows/set-active/{workflow_id}` — mark a workflow as the active default.
+3. **Bundled Verified Defaults**: `seed_default_workflows()` registers verified default workflows for `tripo_sr`, `trellis`, and `hunyuan3d` so the API never reports "no workflow registered" on a fresh install.
+4. **Alembic Migration**: `0006_comfy_workflow_versions.py` creates the tables. `backend/alembic.ini` + `backend/alembic/env.py` replace the previous silent `Base.metadata.create_all()` startup strategy; the API fails loudly if migrations cannot apply.
+
+### v4.0.0 — Path Resolution Hardening
+- Added `backend/app/core/paths.py` (`workspace_root()`, `engine_dir()`). All `ENGINE/` paths resolve against the repo root regardless of the backend CWD, so uvicorn launched from `backend/` and scripts launched from the repo root behave identically.
+
+### v4.0.0 — Fake/Stub API Cleanup (§24)
+- `runtime/install/status` and `runtime/install/progress/{model_id}` now report real on-disk weights state from `CHECKPOINT_LOCATIONS` instead of a fake 100% progress.
+- `runtime/install/stream/{model_id}` streams real on-disk state via SSE.
+- `runtime/restart` returns an explicit supervisor instruction (`scripts/restart.sh`) instead of silently reloading ComfyUI.
+- `runtime/prewarm` is workflow-specific and no longer a silent no-op.
+- `runtime/hf-token/verify` performs a real `huggingface.co/api/whoami-v2` call.
+- `system/dependencies` probes real importable modules instead of hardcoding `True`.
+
+### v4.0.0 — Model Install Path Unification (§23)
+- `scripts/update-models.sh` downloads weights into the single authoritative location the running 3D-Pack nodes actually read: `ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/Checkpoints/`. No duplicate downloads into `backend/third_party`.
+
+### v4.0.0 — DB / Redis (§25, §26)
+- PostgreSQL user `ai_studio` password set to `ai_studio_dev`.
+- Redis confirmed healthy (`PONG`).
+- Alembic migrations apply cleanly at startup.
+
+### v4.0.0 — Docs (§29)
+- This file updated to reflect the current architecture.
+- Stale `backend/runtime/` references removed from `Docs/setup-guide.md` and `Docs/pipeline-status.md`.
+- `scripts/test_pipeline_and_export.py` docstring corrected (`PYTHONPATH=backend`).
+
+### v4.0.0 — Migration Prompt (§30)
+- `AI_Studio_Final_ComfyUI_Integration_Audit_and_Fix_Prompt.md` removed; superseded by this changelog.
+
+---
+
+## v3.x — Legacy (pre-ComfyUI integration)
+- Multi-venv runtime engine, Celery workers, Redis broker. Superseded by v4.0.0.
+
+---
 
 ### Architectural Transformation & Resolutions
 1. **Single Execution Core (ComfyUI 0.36.0)**:

@@ -1,6 +1,6 @@
 # AI 3D Studio - Setup & Installation Guide
 
-> **Version**: 6.0.0 (ComfyUI Core + ComfyUI-3D-Pack Engine)  
+> **Version**: 4.0.0 (ComfyUI Core + ComfyUI-3D-Pack Engine)  
 > **Difficulty**: Intermediate  
 > **Estimated Time**: 15-30 minutes (runtime only; weights are on-demand; 1-click on Colab)
 

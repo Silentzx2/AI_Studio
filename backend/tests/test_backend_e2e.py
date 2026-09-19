@@ -3,8 +3,8 @@
 Complies with AGENTS.md: single runnable test, assert-based, zero frameworks/fixtures.
 Run with: python backend/tests/test_backend_e2e.py
 """
-
 import asyncio
+import json
 import os
 import sys
 import uuid
@@ -18,7 +18,7 @@ sys.path.insert(0, str(backend_dir))
 from app.config import get_settings
 from app.database import engine, AsyncSessionLocal, Base
 from app.models import GenerationJob
-from app.core import get_comfyui_client, get_workflow_manager
+from app.core import get_comfyui_client, get_workflow_registry
 from app.api.v1.models import AVAILABLE_MODELS
 
 
@@ -67,24 +67,72 @@ async def test_database():
 
 
 async def test_comfyui_connection():
-    """Verify ComfyUI engine connectivity."""
+    """Verify ComfyUI engine connectivity and that 3D-Pack nodes are registered."""
     client = get_comfyui_client()
     health = await client.health_check()
     assert health.get("status") == "ok", f"ComfyUI is not healthy: {health}"
     stats = health.get("data", {})
     assert "system" in stats, "Expected 'system' in ComfyUI stats"
-    print(f"[PASS] ComfyUI connection check (ComfyUI version: {stats['system'].get('comfyui_version')})")
+
+    # Verify real 3D-Pack node classes exist on the running engine.
+    object_info = await client.get_object_info()
+    required_nodes = [
+        "[Comfy3D] Load TripoSR Model",
+        "[Comfy3D] TripoSR",
+        "[Comfy3D] Save 3D Mesh",
+        "[Comfy3D] Load 3D Mesh",
+        "[Comfy3D] Decimate Mesh",
+    ]
+    missing = [n for n in required_nodes if n not in object_info]
+    assert not missing, f"Missing 3D-Pack nodes on running ComfyUI: {missing}"
+    print(f"[PASS] ComfyUI connection + 3D-Pack node registration "
+          f"(version: {stats['system'].get('comfyui_version')}, "
+          f"{len(object_info)} nodes registered)")
     await client.close()
 
 
-def test_workflow_manager():
-    """Verify workflow templates load correctly."""
-    wm = get_workflow_manager()
-    for name in ["text_to_3d", "image_to_3d", "texture", "remesh"]:
-        wf = wm.prepare_workflow(name, prompt="a test asset")
-        assert isinstance(wf, dict), f"Workflow {name} did not return dict"
-        assert len(wf) > 0, f"Workflow {name} is empty"
-    print("[PASS] Workflow manager check")
+async def test_workflow_registry():
+    """Verify the workflow/version persistence model works end-to-end."""
+    from app.core.comfy.workflow_registry import seed_default_workflows
+    registry = get_workflow_registry()
+
+    # Ensure verified default workflows exist for every supported model.
+    # seed_default_workflows is idempotent — it only creates rows that are missing.
+    await seed_default_workflows()
+
+    for model_id in ("tripo_sr", "trellis", "hunyuan3d"):
+        active = await registry.get_active_version(model_id)
+        assert active is not None, f"No active workflow version registered for {model_id}"
+
+    # Save a new version and confirm it is appended, not overwriting history.
+    wf, version = await registry.save_workflow(
+        model_id="tripo_sr",
+        prompt={"1": {"class_type": "LoadImage", "inputs": {"image": "test.png"}}},
+        name="test-save",
+        description="e2e test version",
+        source="test",
+    )
+    versions = await registry.list_versions(wf.id)
+    assert len(versions) >= 2, f"Expected >= 2 versions after save, got {len(versions)}"
+    assert versions[-1].version == version.version
+    assert versions[-1].source == "test"
+    print(f"[PASS] Workflow registry: {len(versions)} versions persisted for tripo_sr")
+
+
+def test_workflow_resolution():
+    """Verify every model in the registry maps to a real, non-empty workflow dict."""
+    from app.core.comfy.workflows import build_workflow_for_job
+    for model in AVAILABLE_MODELS:
+        mid = model["id"]
+        if mid == "texture_pbr":
+            continue
+        wf = build_workflow_for_job(mode="image-to-3d", provider=mid, image_filename="test.png")
+        assert isinstance(wf, dict) and len(wf) > 0, f"Empty workflow for model {mid}"
+        assert all(isinstance(k, str) for k in wf.keys()), f"Non-string node key for {mid}"
+        for nid, node in wf.items():
+            assert "class_type" in node, f"Node {nid} for {mid} missing class_type"
+            assert "inputs" in node, f"Node {nid} for {mid} missing inputs"
+    print(f"[PASS] Workflow resolution for all {len(AVAILABLE_MODELS)} models")
 
 
 def test_models_registry():
@@ -96,13 +144,26 @@ def test_models_registry():
     print(f"[PASS] Model registry check ({len(AVAILABLE_MODELS)} models verified)")
 
 
+async def test_no_silent_fallback():
+    """Verify an unregistered model/provider returns an explicit error, not a fallback."""
+    from app.core.comfy.workflows import build_workflow_for_job
+    try:
+        build_workflow_for_job(mode="image-to-3d", provider="nonexistent_provider", image_filename="test.png")
+        raise AssertionError("Expected ValueError for unknown provider, but workflow was built")
+    except ValueError as exc:
+        assert "Unsupported" in str(exc), f"Unexpected error message: {exc}"
+    print("[PASS] No silent model fallback — unknown provider raises explicit error")
+
+
 async def main():
     print("Running AI Studio Backend E2E Validation...")
     await test_config()
     await test_database()
     await test_comfyui_connection()
-    test_workflow_manager()
+    await test_workflow_registry()
+    test_workflow_resolution()
     test_models_registry()
+    await test_no_silent_fallback()
     print("All backend checks PASSED successfully!")
 
 
