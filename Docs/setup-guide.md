@@ -1,6 +1,6 @@
 # AI 3D Studio - Setup & Installation Guide
 
-> **Version**: 5.0.81 (One-Click Colab Notebook & 3D Detail Pipeline)  
+> **Version**: 6.0.0 (ComfyUI Core + ComfyUI-3D-Pack Engine)  
 > **Difficulty**: Intermediate  
 > **Estimated Time**: 15-30 minutes (runtime only; weights are on-demand; 1-click on Colab)
 
@@ -137,6 +137,7 @@ chmod +x scripts/*.sh manager.sh
 |---------|-----|-------------|
 | **Frontend** | http://localhost:3000 | Web application |
 | **Backend API** | http://localhost:8000 | REST API |
+| **ComfyUI Engine** | http://localhost:8188 | Execution engine & node UI |
 | **API Docs** | http://localhost:8000/docs | Swagger UI |
 | **Static Files** | http://localhost:3000/static/* | Proxied to backend (models, thumbnails) |
 | **Prompt Assistant** | built-in | Optional AI prompt enhancement |

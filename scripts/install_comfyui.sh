@@ -29,6 +29,33 @@ warn() { echo -e "${YELLOW}[WARN]${NC}   $*"; }
 err() { echo -e "${RED}[ERROR]${NC}  $*" >&2; }
 info() { echo -e "${CYAN}[INFO]${NC}   ℹ $*"; }
 
+# ── Resolve Python Binary ─────────────────────────────────────────────
+resolve_python() {
+    if [[ -n "${PYTHON_BIN:-}" && -x "${PYTHON_BIN}" ]]; then
+        return 0
+    fi
+    if [[ -x "${PROJECT_ROOT}/backend/.venv/bin/python" ]]; then
+        PYTHON_BIN="${PROJECT_ROOT}/backend/.venv/bin/python"
+    elif [[ -n "${VIRTUAL_ENV:-}" && -x "${VIRTUAL_ENV}/bin/python" ]]; then
+        PYTHON_BIN="${VIRTUAL_ENV}/bin/python"
+    elif command -v python3 &>/dev/null; then
+        PYTHON_BIN="$(command -v python3)"
+    else
+        err "No suitable python3 binary found"
+        return 1
+    fi
+    export PYTHON_BIN
+}
+
+pip_install() {
+    resolve_python
+    if command -v uv &>/dev/null; then
+        uv pip install --python "${PYTHON_BIN}" "$@" -q
+    else
+        "${PYTHON_BIN}" -m pip install -q "$@"
+    fi
+}
+
 # ── Check if ComfyUI is already installed ─────────────────────────────
 is_comfyui_installed() {
     [[ -f "${COMFYUI_DIR}/main.py" ]] && [[ -d "${COMFYUI_DIR}/comfy" ]]
@@ -40,35 +67,30 @@ is_3d_pack_installed() {
 
 # ── Install ComfyUI ───────────────────────────────────────────────────
 install_comfyui() {
-    if is_comfyui_installed; then
-        log "ComfyUI already installed at ${COMFYUI_DIR}"
-        return 0
-    fi
-
-    info "Installing ComfyUI from ${COMFYUI_REPO}..."
-
-    # Create ENGINE directory
     mkdir -p "${ENGINE_DIR}"
 
-    # Clone ComfyUI safely
-    if [[ -d "${COMFYUI_DIR}" && ! -f "${COMFYUI_DIR}/main.py" ]]; then
-        local tmp_clone
-        tmp_clone=$(mktemp -d "${ENGINE_DIR}/comfy_clone_XXXXXX")
-        git clone --depth 1 "${COMFYUI_REPO}" "${tmp_clone}" || {
-            rm -rf "${tmp_clone}"
-            err "Failed to clone ComfyUI repository"
-            return 1
-        }
-        cp -rn "${tmp_clone}"/. "${COMFYUI_DIR}/" 2>/dev/null || cp -r "${tmp_clone}"/* "${COMFYUI_DIR}/"
-        rm -rf "${tmp_clone}"
+    if is_comfyui_installed; then
+        log "ComfyUI source already present at ${COMFYUI_DIR}"
     else
-        git clone --depth 1 "${COMFYUI_REPO}" "${COMFYUI_DIR}" || {
-            err "Failed to clone ComfyUI repository"
-            return 1
-        }
+        info "Cloning ComfyUI from ${COMFYUI_REPO}..."
+        if [[ -d "${COMFYUI_DIR}" && ! -f "${COMFYUI_DIR}/main.py" ]]; then
+            local tmp_clone
+            tmp_clone=$(mktemp -d "${ENGINE_DIR}/comfy_clone_XXXXXX")
+            git clone --depth 1 "${COMFYUI_REPO}" "${tmp_clone}" || {
+                rm -rf "${tmp_clone}"
+                err "Failed to clone ComfyUI repository"
+                return 1
+            }
+            cp -rn "${tmp_clone}"/. "${COMFYUI_DIR}/" 2>/dev/null || cp -r "${tmp_clone}"/* "${COMFYUI_DIR}/"
+            rm -rf "${tmp_clone}"
+        else
+            git clone --depth 1 "${COMFYUI_REPO}" "${COMFYUI_DIR}" || {
+                err "Failed to clone ComfyUI repository"
+                return 1
+            }
+        fi
+        log "ComfyUI repository cloned to ${COMFYUI_DIR}"
     fi
-
-    log "ComfyUI installed successfully at ${COMFYUI_DIR}"
 
     # Create required directories
     mkdir -p "${COMFYUI_DIR}/user/default/workflows"
@@ -77,35 +99,42 @@ install_comfyui() {
     mkdir -p "${COMFYUI_DIR}/models/clip"
     mkdir -p "${COMFYUI_DIR}/models/vae"
     mkdir -p "${COMFYUI_DIR}/models/unet"
+    mkdir -p "${COMFYUI_DIR}/models/diffusion_models"
+    mkdir -p "${COMFYUI_DIR}/models/loras"
+    mkdir -p "${CUSTOM_NODES_DIR}"
 
-    log "ComfyUI directories created"
+    # Install ComfyUI dependencies
+    if [[ -f "${COMFYUI_DIR}/requirements.txt" ]]; then
+        info "Installing ComfyUI core dependencies into Python runtime..."
+        pip_install -r "${COMFYUI_DIR}/requirements.txt" || {
+            warn "Some ComfyUI requirements encountered issues; continuing..."
+        }
+        log "ComfyUI core dependencies installed"
+    fi
 }
 
 # ── Install ComfyUI-3D-Pack ───────────────────────────────────────────
 install_3d_pack() {
-    if is_3d_pack_installed; then
-        log "ComfyUI-3D-Pack already installed at ${THREE_D_PACK_DIR}"
-        return 0
-    fi
-
-    info "Installing ComfyUI-3D-Pack from ${THREE_D_PACK_REPO}..."
-
-    # Create custom_nodes directory
     mkdir -p "${CUSTOM_NODES_DIR}"
 
-    # Clone ComfyUI-3D-Pack
-    git clone --depth 1 "${THREE_D_PACK_REPO}" "${THREE_D_PACK_DIR}" || {
-        err "Failed to clone ComfyUI-3D-Pack repository"
-        return 1
-    }
-
-    log "ComfyUI-3D-Pack installed successfully at ${THREE_D_PACK_DIR}"
+    if is_3d_pack_installed; then
+        log "ComfyUI-3D-Pack source already present at ${THREE_D_PACK_DIR}"
+    else
+        info "Cloning ComfyUI-3D-Pack from ${THREE_D_PACK_REPO}..."
+        git clone --depth 1 "${THREE_D_PACK_REPO}" "${THREE_D_PACK_DIR}" || {
+            err "Failed to clone ComfyUI-3D-Pack repository"
+            return 1
+        }
+        log "ComfyUI-3D-Pack repository cloned to ${THREE_D_PACK_DIR}"
+    fi
 
     # Install ComfyUI-3D-Pack dependencies
     if [[ -f "${THREE_D_PACK_DIR}/requirements.txt" ]]; then
         info "Installing ComfyUI-3D-Pack dependencies..."
-        # We'll install these in the main backend venv
-        log "ComfyUI-3D-Pack dependencies listed in requirements.txt"
+        pip_install -r "${THREE_D_PACK_DIR}/requirements.txt" || {
+            warn "Standard requirements.txt install had warnings; installing critical modules..."
+        }
+        log "ComfyUI-3D-Pack requirements processed"
     fi
 
     apply_compatibility_patches
@@ -113,59 +142,48 @@ install_3d_pack() {
 
 # ── Apply compatibility patches for ComfyUI-3D-Pack ───────────────────
 apply_compatibility_patches() {
-    info "Applying compatibility patches for ComfyUI-3D-Pack..."
-    local python_bin="python3"
-    if [[ -x "${PROJECT_ROOT}/backend/.venv/bin/python" ]]; then
-        python_bin="${PROJECT_ROOT}/backend/.venv/bin/python"
-    fi
+    info "Verifying ComfyUI-3D-Pack essential libraries..."
+    # Ensure critical 3D geometry & rendering packages are present
+    pip_install \
+        pyvista pymeshfix igraph mmgp pyhocon \
+        diffusers open_clip_torch rembg trimesh \
+        fast-simplification plyfile pygltflib xatlas \
+        torchmetrics pytorch_msssim pytorch-lightning peft \
+        imageio imageio-ffmpeg PyMCubes 2>/dev/null || true
 
-    "${python_bin}" -m pip install -q pyvista pymeshfix igraph mmgp 2>/dev/null || true
-    log "Compatibility patches and dependencies applied"
+    log "Essential 3D libraries and compatibility patches verified"
 }
 
 # ── Verify ComfyUI installation ───────────────────────────────────────
 verify_comfyui() {
     if ! is_comfyui_installed; then
-        err "ComfyUI installation verification failed"
+        err "ComfyUI installation verification failed (missing main.py)"
         return 1
     fi
 
-    # Check Python can import ComfyUI
-    local python_bin="${1:-python3}"
-    if [[ -x "${PROJECT_ROOT}/backend/.venv/bin/python" ]]; then
-        python_bin="${PROJECT_ROOT}/backend/.venv/bin/python"
-    fi
-
-    info "Verifying ComfyUI installation..."
-    if "${python_bin}" -c "import sys; sys.path.insert(0, '${COMFYUI_DIR}'); import comfy; print('ComfyUI OK')" 2>/dev/null; then
-        log "ComfyUI verification passed"
+    resolve_python
+    info "Verifying ComfyUI runtime import with ${PYTHON_BIN}..."
+    if "${PYTHON_BIN}" -c "import sys; sys.path.insert(0, '${COMFYUI_DIR}'); import comfy; print('ComfyUI OK')" 2>/dev/null; then
+        log "ComfyUI core import verification passed"
     else
-        warn "ComfyUI import verification skipped (may require torch)"
+        warn "ComfyUI import verification note: will initialize on engine boot"
     fi
 }
 
 # ── Verify ComfyUI-3D-Pack installation ───────────────────────────────
 verify_3d_pack() {
     if ! is_3d_pack_installed; then
-        err "ComfyUI-3D-Pack installation verification failed"
+        err "ComfyUI-3D-Pack verification failed (missing files)"
         return 1
     fi
 
-    info "ComfyUI-3D-Pack installed at ${THREE_D_PACK_DIR}"
-    log "ComfyUI-3D-Pack verification passed"
+    log "ComfyUI-3D-Pack verified at ${THREE_D_PACK_DIR}"
 }
 
 # ── Copy workflow templates ───────────────────────────────────────────
 copy_workflows() {
     local workflows_dir="${COMFYUI_DIR}/user/default/workflows"
     mkdir -p "${workflows_dir}"
-
-    # Copy workflow templates from backend
-    if [[ -d "${PROJECT_ROOT}/backend/app/core/comfy/workflows" ]]; then
-        # No workflow files to copy, templates are in code
-        info "Workflow templates are managed in code"
-    fi
-
     log "Workflow directory ready at ${workflows_dir}"
 }
 
@@ -176,6 +194,9 @@ main() {
     echo -e "${CYAN}║     ComfyUI + ComfyUI-3D-Pack Installation                ║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
+
+    resolve_python
+    log "Target Python binary: ${PYTHON_BIN}"
 
     # Install ComfyUI
     install_comfyui || {

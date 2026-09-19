@@ -635,20 +635,17 @@ setup_folders() {
     backend/storage/thumbnails \
     backend/storage/exports \
     backend/storage/images \
-    backend/third_party/.hf_cache \
     backend/.runtime_cache \
+    ENGINE/ComfyUI/models/checkpoints \
+    ENGINE/ComfyUI/models/clip \
+    ENGINE/ComfyUI/models/vae \
+    ENGINE/ComfyUI/models/unet \
+    ENGINE/ComfyUI/output \
     logs; do
     mkdir -p "$dir"
   done
   # Runtime-owned dirs: 755 is fine (created and written by one user).
-  chmod -R 755 backend/storage backend/.runtime_cache logs
-  # third_party holds per-model venvs/weights that may be written by a
-  # different user than the API/Celery processes that load them — use
-  # 766 (files) / 775 (dirs) so every owner can read AND write.
-  if [[ -d backend/third_party ]]; then
-    find backend/third_party -type d -exec chmod 775 {} + 2>/dev/null || true
-    find backend/third_party -type f -exec chmod 766 {} + 2>/dev/null || true
-  fi
+  chmod -R 755 backend/storage backend/.runtime_cache logs 2>/dev/null || true
   log "Project directories created"
 }
 
@@ -667,10 +664,16 @@ setup_env() {
 DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio?sslmode=disable
 DATABASE_SYNC_URL=postgresql://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio
 
-# ── Redis / Celery (localhost) ────────────────────────────
+# ── Redis (localhost) ─────────────────────────────────────
 REDIS_URL=redis://localhost:6379/0
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/1
+
+# ── ComfyUI Execution Engine ──────────────────────────────
+COMFYUI_HOST=127.0.0.1
+COMFYUI_PORT=8188
+COMFYUI_BASE_URL=http://127.0.0.1:8188
+COMFYUI_TIMEOUT=300
+AI_PROVIDER=comfyui
+RUNTIME_MODE=comfyui
 
 # ── API ───────────────────────────────────────────────────
 BACKEND_URL=http://localhost:8000
@@ -678,11 +681,6 @@ BACKEND_URL=http://localhost:8000
 # ── Storage ────────────────────────────────────────────────
 STORAGE_LOCAL_PATH=./backend/storage
 RUNTIME_CACHE_DIR=./backend/.runtime_cache
-HF_HOME=./backend/third_party/.hf_cache
-HUGGINGFACE_HUB_CACHE=./backend/third_party/.hf_cache/hub
-TRANSFORMERS_CACHE=./backend/third_party/.hf_cache/transformers
-TORCH_HOME=./backend/third_party/.hf_cache/torch
-WEIGHTS_DIR=./backend/third_party/<REPO_NAME>/weights/  # Replace <REPO_NAME> with the actual repository name
 
 # ── GPU ───────────────────────────────────────────────────
 CUDA_VISIBLE_DEVICES=0
@@ -803,7 +801,7 @@ install_python_deps() {
 
 prepare_comfyui_engine() {
   head_ "Installing ComfyUI + ComfyUI-3D-Pack Execution Engine"
-  bash "${SCRIPT_DIR}/install_comfyui.sh"
+  PYTHON_BIN="${PROJECT_ROOT}/backend/.venv/bin/python" bash "${SCRIPT_DIR}/install_comfyui.sh"
 }
 
 install_frontend_deps() {
@@ -864,11 +862,12 @@ echo -e "  ${BOLD}Building Next.js (this takes 2-5 minutes)${NC}"
 print_summary() {
   head_ "Setup Complete"
   echo -e "  ${GREEN}${BOLD}╔════════════════════════════════════════════════════════════╗${NC}"
-  echo -e "  ${GREEN}${BOLD}║  ✅ AI 3D Studio v3.9.4 is ready!                        ║${NC}"
+  echo -e "  ${GREEN}${BOLD}║  ✅ AI 3D Studio v6.0.0 is ready!                        ║${NC}"
   echo -e "  ${GREEN}${BOLD}╚════════════════════════════════════════════════════════════╝${NC}"
   echo
   echo -e "  ${CYAN}Database :${NC}  PostgreSQL on localhost:5432"
   echo -e "  ${CYAN}Cache    :${NC}  Redis on localhost:6379"
+  echo -e "  ${CYAN}Engine   :${NC}  ComfyUI + ComfyUI-3D-Pack on localhost:8188"
   echo
   echo -e "  ${CYAN}Setup complete!${NC} Services auto-start by default."
   echo -e "    Re-run with ${GREEN}--no-start${NC} to skip and start manually:"
@@ -877,6 +876,7 @@ print_summary() {
   echo -e "  Services will start at:"
   echo -e "    Frontend :  ${CYAN}http://localhost:3000${NC}"
   echo -e "    Backend  :  ${CYAN}http://localhost:8000${NC}"
+  echo -e "    ComfyUI  :  ${CYAN}http://localhost:8188${NC}"
   echo -e "    API Docs :  ${CYAN}http://localhost:8000/docs${NC}"
   echo
   if [[ "$GPU_AVAILABLE" == "true" ]]; then
@@ -886,7 +886,7 @@ print_summary() {
   fi
   echo
   echo -e "  ${CYAN}Storage  :${NC}  backend/storage/"
-  echo -e "  ${CYAN}3rd-party:${NC}  backend/third_party/"
+  echo -e "  ${CYAN}Engine   :${NC}  ENGINE/ComfyUI/"
   echo -e "  ${CYAN}Config   :${NC}  .env"
   echo
   echo -e "  ${BOLD}Command reference:${NC}"
@@ -924,7 +924,7 @@ main() {
 ╚═╝  ╚═╝╚═╝   ╚═════╝  ╚═════╝      ╚══════╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝ ╚═════╝
 
 BANNER
-  echo -e "${NC}  ${BOLD}Automatic Installer v3.9.4${NC}\n"
+  echo -e "${NC}  ${BOLD}Automatic Installer v6.0.0${NC}\n"
 
   # Check for sudo - required for .next permissions and system services
   if ! command -v sudo &>/dev/null; then

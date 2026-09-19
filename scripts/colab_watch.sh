@@ -4,7 +4,7 @@
 #
 # Purpose:
 #   Keep the application service supervisor attached to the Colab terminal
-#   while independently recovering FastAPI, Celery, and Next.js failures.
+#   while independently recovering ComfyUI, FastAPI, and Next.js failures.
 #
 # IMPORTANT:
 #   This script does NOT attempt to defeat Colab's platform-level runtime
@@ -36,8 +36,6 @@ if [[ -f "${PROJECT_ROOT}/.env" ]]; then
     set +a
 fi
 
-# Colab/local runtime should keep the API bound on all interfaces for the
-# existing tunnel/port-forwarding workflow.
 API_HOST="${AI_STUDIO_API_HOST:-0.0.0.0}"
 FRONTEND_HOST="${AI_STUDIO_FRONTEND_HOST:-0.0.0.0}"
 
@@ -60,14 +58,6 @@ pid_of() {
 pid_alive() {
     local pid="${1:-}"
     [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null
-}
-
-pid_matches() {
-    local pid="${1:-}"
-    local expected="$2"
-    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
-    pid_alive "$pid" || return 1
-    ps -p "$pid" -o args= 2>/dev/null | grep -F -- "$expected" >/dev/null 2>&1
 }
 
 write_pid() {
@@ -129,8 +119,9 @@ stop_pid() {
             pkill -TERM -f "uvicorn app.main:app" 2>/dev/null || true
             free_port 8000
             ;;
-        worker)
-            pkill -TERM -f "celery.*app.workers.celery_app" 2>/dev/null || true
+        comfyui)
+            pkill -TERM -f "ENGINE/ComfyUI/main.py" 2>/dev/null || true
+            free_port 8188
             ;;
     esac
 }
@@ -149,6 +140,32 @@ wait_http() {
         fi
         sleep 2
     done
+}
+
+start_comfyui() {
+    stop_pid comfyui
+    free_port 8188
+    : > "${LOG_DIR}/comfyui.log"
+    info "Starting ComfyUI Execution Engine..."
+    local COMFY_ARGS="--listen 0.0.0.0 --port 8188 --enable-compress-response-body --mmap-torch-files"
+    if ! command -v nvidia-smi &>/dev/null || ! nvidia-smi &>/dev/null; then
+        COMFY_ARGS="$COMFY_ARGS --cpu --use-split-cross-attention"
+    else
+        COMFY_ARGS="$COMFY_ARGS --async-offload 2"
+    fi
+    (
+        cd "${PROJECT_ROOT}" || exit 1
+        exec "$PYTHON_BIN" ENGINE/ComfyUI/main.py $COMFY_ARGS
+    ) >> "${LOG_DIR}/comfyui.log" 2>&1 &
+    write_pid comfyui "$!"
+
+    if wait_http "http://127.0.0.1:8188/system_stats" 60; then
+        log "ComfyUI healthy (PID $(pid_of comfyui))"
+        return 0
+    fi
+
+    err "ComfyUI did not become healthy. Check logs/comfyui.log"
+    return 1
 }
 
 start_api() {
@@ -177,76 +194,40 @@ start_api() {
     return 1
 }
 
-start_worker() {
-    stop_pid worker
-    : > "${LOG_DIR}/worker.log"
-    info "Starting Celery worker..."
-    (
-        cd "${PROJECT_ROOT}/backend" || exit 1
-        set -a
-        [[ -f ../.env ]] && source ../.env
-        set +a
-        exec "$PYTHON_BIN" -m celery -A app.workers.celery_app worker \
-            --loglevel=info \
-            --pool=solo \
-            --concurrency=1 \
-            -Q generation,images
-    ) >> "${LOG_DIR}/worker.log" 2>&1 &
-    write_pid worker "$!"
-
-    # Celery has no application HTTP endpoint. Require the expected worker
-    # process to remain alive through an initialization window.
-    for _ in {1..30}; do
-        local pid
-        pid="$(pid_of worker)"
-        if [[ "$pid" =~ ^[0-9]+$ ]] && pid_alive "$pid"; then
-            local cmd
-            cmd="$(ps -p "$pid" -o args= 2>/dev/null || true)"
-            if [[ "$cmd" == *"celery"* || "$cmd" == *"python"* || "$cmd" == *"[celeryd"* ]]; then
-                log "Celery worker alive (PID ${pid})"
-                return 0
-            fi
-        fi
-        sleep 1
-    done
-
-    err "Celery worker failed to remain alive. Check logs/worker.log"
-    return 1
+run_bun_or_npm() {
+    local bun_cmd="$1"
+    local npm_cmd="$2"
+    if command -v bun &>/dev/null; then
+        eval "$bun_cmd"
+    else
+        eval "$npm_cmd"
+    fi
 }
 
 start_frontend() {
     stop_pid frontend
     free_port 3000
 
-    # Normal Next.js production workflow: `bun run build` then `bun start`.
     local needs_build=false
     if [[ ! -d "${PROJECT_ROOT}/.next" ]] || [[ ! -f "${PROJECT_ROOT}/.next/BUILD_ID" ]]; then
-        needs_build=true
-    elif [[ -n $(find "${PROJECT_ROOT}/app" "${PROJECT_ROOT}/services" "${PROJECT_ROOT}/features" "${PROJECT_ROOT}/components" "${PROJECT_ROOT}/hooks" "${PROJECT_ROOT}/lib" -newer "${PROJECT_ROOT}/.next/BUILD_ID" -type f 2>/dev/null | head -1) ]]; then
         needs_build=true
     fi
 
     if [[ "$needs_build" == "true" ]]; then
-        info "Frontend build missing or source changed; building..."
-        if ! run_bun_or_npm "bun run build > \${LOG_DIR}/frontend_build.log 2>&1" "npm run build > \${LOG_DIR}/frontend_build.log 2>&1"; then
+        info "Frontend build missing; building..."
+        if ! run_bun_or_npm "bun run build > '${LOG_DIR}/frontend_build.log' 2>&1" "npm run build > '${LOG_DIR}/frontend_build.log' 2>&1"; then
             err "Frontend build failed. Check logs/frontend_build.log"
             return 1
         fi
     fi
 
-    : > "\${LOG_DIR}/frontend.log"
-    info "Starting Next.js production server ($(command -v bun &>/dev/null && echo "bun start" || echo "npm start"))..."
+    : > "${LOG_DIR}/frontend.log"
+    info "Starting Next.js production server..."
     (
-        cd "\${PROJECT_ROOT}" || exit 1
-        export HOSTNAME="\$FRONTEND_HOST"
+        cd "${PROJECT_ROOT}" || exit 1
+        export HOSTNAME="$FRONTEND_HOST"
         export PORT=3000
-        # In Colab/native environments, Docker hostname 'api' is not resolvable
-        local effective_backend_url="${BACKEND_URL:-http://127.0.0.1:8000}"
-        if [[ "$effective_backend_url" == *"api:8000"* ]]; then
-            effective_backend_url="http://127.0.0.1:8000"
-        fi
-        export BACKEND_URL="$effective_backend_url"
-        export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-}"
+        export BACKEND_URL="${BACKEND_URL:-http://127.0.0.1:8000}"
         exec run_bun_or_npm "bun start" "npm start"
     ) >> "${LOG_DIR}/frontend.log" 2>&1 &
     write_pid frontend "$!"
@@ -258,6 +239,13 @@ start_frontend() {
 
     err "Frontend did not become healthy. Check logs/frontend.log"
     return 1
+}
+
+comfyui_healthy() {
+    local pid
+    pid="$(pid_of comfyui)"
+    [[ "$pid" =~ ^[0-9]+$ ]] && pid_alive "$pid" || return 1
+    curl -fsS --max-time 10 "http://127.0.0.1:8188/system_stats" >/dev/null 2>&1
 }
 
 api_healthy() {
@@ -272,16 +260,6 @@ frontend_healthy() {
     pid="$(pid_of frontend)"
     [[ "$pid" =~ ^[0-9]+$ ]] && pid_alive "$pid" || return 1
     curl -fsS --max-time 10 "http://127.0.0.1:3000/" >/dev/null 2>&1
-}
-
-worker_healthy() {
-    local pid
-    pid="$(pid_of worker)"
-    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
-    pid_alive "$pid" || return 1
-    local cmd
-    cmd="$(ps -p "$pid" -o args= 2>/dev/null || true)"
-    [[ "$cmd" == *"celery"* || "$cmd" == *"python"* || "$cmd" == *"[celeryd"* ]]
 }
 
 restart_with_backoff() {
@@ -299,8 +277,8 @@ restart_with_backoff() {
     sleep "$delay"
 
     case "$service" in
+        comfyui) start_comfyui ;;
         api) start_api ;;
-        worker) start_worker ;;
         frontend) start_frontend ;;
     esac
 }
@@ -311,8 +289,6 @@ reset_restart_count_when_healthy() {
     [[ -f "$f" ]] || return 0
     local count
     count="$(cat "$f" 2>/dev/null || echo 0)"
-    # Keep a small diagnostic count but reset after sustained recovery so a
-    # transient restart does not cause permanently increasing backoff.
     if [[ "$count" -gt 0 ]]; then
         rm -f "$f"
     fi
@@ -327,8 +303,6 @@ cleanup() {
 
 trap cleanup INT TERM
 
-# If a stale foreground supervisor is already running, don't silently create a
-# second one. PID file records this supervisor's PID.
 SUPERVISOR_PID_FILE="${PID_DIR}/supervisor.pid"
 if [[ -f "$SUPERVISOR_PID_FILE" ]]; then
     old_pid="$(cat "$SUPERVISOR_PID_FILE" 2>/dev/null || true)"
@@ -351,8 +325,6 @@ fi
 printf '%s\n' "$$" > "$SUPERVISOR_PID_FILE"
 trap 'rm -f "$SUPERVISOR_PID_FILE"' EXIT
 
-# Command line mode. Only --foreground is a valid long-running mode; retaining
-# a plain invocation keeps backwards compatibility for manual use.
 if [[ "${1:-}" != "--foreground" && "${1:-}" != "" ]]; then
     echo "Usage: bash scripts/colab_watch.sh [--foreground]"
     exit 2
@@ -361,19 +333,17 @@ fi
 log "Foreground Colab supervisor started (PID $$, interval ${CHECK_INTERVAL}s)."
 log "The Colab terminal remains attached while the application is running."
 
-# Ensure any pre-existing service processes are usable before entering the loop.
-# Only start a service if it is not already healthy; this avoids unnecessary
-# restarts during a normal `colab.sh` bootstrap.
+# Ensure services are healthy
+if ! comfyui_healthy; then
+    start_comfyui || warn "ComfyUI start failed; supervisor will retry."
+else
+    log "ComfyUI already healthy (PID $(pid_of comfyui))"
+fi
+
 if ! api_healthy; then
     start_api || warn "API start failed; supervisor will retry."
 else
     log "FastAPI already healthy (PID $(pid_of api))"
-fi
-
-if ! worker_healthy; then
-    start_worker || warn "Celery start failed; supervisor will retry."
-else
-    log "Celery worker already healthy (PID $(pid_of worker))"
 fi
 
 if ! frontend_healthy; then
@@ -382,17 +352,36 @@ else
     log "Frontend already healthy (PID $(pid_of frontend))"
 fi
 
-# Continuous foreground supervision with consecutive failure cushion.
+comfyui_fails=0
 api_fails=0
-worker_fails=0
 frontend_fails=0
 MAX_CONSECUTIVE_FAILS=36
 
 while true; do
+    comfyui_ok=false
     api_ok=false
-    worker_ok=false
     frontend_ok=false
 
+    # Check ComfyUI
+    cpid="$(pid_of comfyui)"
+    if [[ "$cpid" =~ ^[0-9]+$ ]] && ! pid_alive "$cpid"; then
+        warn "ComfyUI process exited unexpectedly (PID ${cpid}) — restarting immediately."
+        comfyui_fails=0
+        restart_with_backoff comfyui || true
+    elif comfyui_healthy; then
+        comfyui_ok=true
+        comfyui_fails=0
+        reset_restart_count_when_healthy comfyui
+    else
+        comfyui_fails=$((comfyui_fails + 1))
+        if (( comfyui_fails >= MAX_CONSECUTIVE_FAILS )); then
+            warn "ComfyUI unresponsive for ${comfyui_fails} consecutive checks — triggering restart."
+            comfyui_fails=0
+            restart_with_backoff comfyui || true
+        fi
+    fi
+
+    # Check API
     apid="$(pid_of api)"
     if [[ "$apid" =~ ^[0-9]+$ ]] && ! pid_alive "$apid"; then
         warn "FastAPI process exited unexpectedly (PID ${apid}) — restarting immediately."
@@ -408,31 +397,10 @@ while true; do
             warn "FastAPI unresponsive for ${api_fails} consecutive checks — triggering restart."
             api_fails=0
             restart_with_backoff api || true
-        else
-            warn "FastAPI health check delayed under load (${api_fails}/${MAX_CONSECUTIVE_FAILS}); process alive (PID ${apid:-none})."
         fi
     fi
 
-    wpid="$(pid_of worker)"
-    if [[ "$wpid" =~ ^[0-9]+$ ]] && ! pid_alive "$wpid"; then
-        warn "Celery worker process exited unexpectedly (PID ${wpid}) — restarting immediately."
-        worker_fails=0
-        restart_with_backoff worker || true
-    elif worker_healthy; then
-        worker_ok=true
-        worker_fails=0
-        reset_restart_count_when_healthy worker
-    else
-        worker_fails=$((worker_fails + 1))
-        if (( worker_fails >= MAX_CONSECUTIVE_FAILS )); then
-            warn "Celery worker unresponsive for ${worker_fails} consecutive checks — triggering restart."
-            worker_fails=0
-            restart_with_backoff worker || true
-        else
-            warn "Celery worker check missed under load (${worker_fails}/${MAX_CONSECUTIVE_FAILS}); process alive (PID ${wpid:-none})."
-        fi
-    fi
-
+    # Check Frontend
     fpid="$(pid_of frontend)"
     if [[ "$fpid" =~ ^[0-9]+$ ]] && ! pid_alive "$fpid"; then
         warn "Frontend process exited unexpectedly (PID ${fpid}) — restarting immediately."
@@ -448,13 +416,11 @@ while true; do
             warn "Frontend unresponsive for ${frontend_fails} consecutive checks — triggering restart."
             frontend_fails=0
             restart_with_backoff frontend || true
-        else
-            warn "Frontend health check delayed under load (${frontend_fails}/${MAX_CONSECUTIVE_FAILS}); process alive (PID ${fpid:-none})."
         fi
     fi
 
-    if [[ "$api_ok" == "true" && "$worker_ok" == "true" && "$frontend_ok" == "true" ]]; then
-        printf '[SUPERVISOR] %s — API:OK  Celery:OK  Frontend:OK\n' "$(date '+%H:%M:%S')"
+    if [[ "$comfyui_ok" == "true" && "$api_ok" == "true" && "$frontend_ok" == "true" ]]; then
+        printf '[SUPERVISOR] %s — ComfyUI:OK  API:OK  Frontend:OK\n' "$(date '+%H:%M:%S')"
     fi
 
     sleep "$CHECK_INTERVAL"

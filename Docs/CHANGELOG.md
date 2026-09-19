@@ -30,7 +30,10 @@ Complete architectural rebuild of the AI 3D Studio backend around **ComfyUI 0.36
   - Implemented `/api/v1/runtime/clear-vram` routing to ComfyUI `/free` with explicit `unload_models` and `free_memory` flags to purge memory without restarting.
 
 #### 3. System Orchestration & Verification
-- **Automated Idempotent Installer (`scripts/install_comfyui.sh`)**: Clones ComfyUI, clones ComfyUI-3D-Pack, installs dependencies via `uv pip`, and applies compatibility fixes.
+- **Automated Idempotent Installer (`scripts/install_comfyui.sh`)**: Clones ComfyUI, clones ComfyUI-3D-Pack, installs full requirements and essential 3D packages (`diffusers`, `open_clip_torch`, `rembg`, `trimesh`, `fast-simplification`, `plyfile`, `pygltflib`, `xatlas`, `pyhocon`, `pyvista`, `pymeshfix`, `igraph`, `mmgp`) via `uv pip`, and verifies import health.
+- **Native Setup Script (`scripts/setup.sh`)**: Updated directory initialization and fallback `.env` for ComfyUI architecture, and invokes `install_comfyui.sh` targeting the virtualenv Python interpreter.
+- **Google Colab Automation (`scripts/colab.sh` & `scripts/colab_watch.sh`)**: Complete overhaul eliminating Celery and legacy third-party model cloning; automates swap allocation (8GB), PyTorch CUDA 12.4, ComfyUI, FastAPI, Next.js, and Cloudflare tunnels with resilient foreground process supervision.
+- **Colab Notebooks (`colab.ipynb` & `AI_Studio_Colab.ipynb`)**: Synchronized one-click bootstrap launcher and service management cells to monitor ComfyUI on port 8188 and remove legacy repository flags.
 - **Startup Script (`scripts/start.sh`)**: Starts PostgreSQL, Redis, ComfyUI (port 8188), FastAPI (port 8000), and Next.js (port 3000) with automatic CPU/GPU detection.
 - **Stop Script (`scripts/stop.sh`)**: Gracefully shuts down all services and frees ports.
 - **End-to-End Test Suite (`backend/tests/test_backend_e2e.py`)**: 5 automated self-checks (Config, Database CRUD, ComfyUI connection, Workflow manager, and Model registry).
