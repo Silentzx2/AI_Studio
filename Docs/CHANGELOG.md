@@ -4,6 +4,23 @@ All notable changes, architectural updates, and feature implementations for AI 3
 
 ---
 
+## [6.1.1] — 2026-09-20
+
+### 🔧 ComfyUI-3D-Pack Indentation Repair & Startup Synchronization
+
+- **ComfyUI-3D-Pack Import Patching (`scripts/colab.sh`, `scripts/colab_watch.sh`, `scripts/install_comfyui.sh`)**:
+  - Identified and permanently fixed root cause of `IndentationError: expected an indented block after 'try' statement on line 61` in `ComfyUI-3D-Pack/nodes.py`.
+  - Replaced naive string replacements with idempotent regex pattern blocks (`# TRIPLANE_GAUSSIAN_GUARD_PATCHED` and `# UNIQUE3D_GUARD_PATCHED`) that enforce uniform 4-space indentation across all imported lines inside `try:` blocks.
+  - Added automated git-state checkout recovery to restore pristine `nodes.py` before applying patches, eliminating cumulative double-nesting on repeated service restarts.
+- **FastAPI / ComfyUI Startup Synchronization (`scripts/colab.sh`)**:
+  - Added startup readiness polling (waiting up to 20s for `http://127.0.0.1:8188/system_stats` to respond) before launching FastAPI, preventing `ComfyUI health check failed: Connect call failed ('127.0.0.1', 8188)` during backend startup.
+- **Pydantic Settings Compatibility (`backend/requirements.txt`, `backend/pyproject.toml`)**:
+  - Upgraded `pydantic-settings` to `>=2.2.1` to support `TomlConfigSettingsSource`, resolving the ComfyUI pyproject parsing warning on startup.
+- **Cross-Script CORS Configuration (`scripts/colab_watch.sh`)**:
+  - Added `--enable-cors-header *` to ComfyUI launch parameters in `colab_watch.sh` to prevent CORS issues when restarting the engine from the interactive watcher.
+
+---
+
 ## [6.1.0] — 2026-09-20
 
 ### 🛡️ Production Readiness, Tripo AI Parity & High-Poly Optimization

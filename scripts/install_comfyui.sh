@@ -364,25 +364,40 @@ with open(p, 'w') as f:
     local nodes_file="${pack_dir}/nodes.py"
     if [[ -f "$nodes_file" ]]; then
         python3 -c "
+import os, subprocess, re
 p = '${nodes_file}'
+pack_dir = os.path.dirname(p)
+try:
+    subprocess.run(['git', 'checkout', 'nodes.py'], cwd=pack_dir, capture_output=True, check=False)
+except Exception:
+    pass
+
 with open(p, 'r') as f:
     c = f.read()
-if 'from TriplaneGaussian.triplane_gaussian_transformers import TGS' in c:
-    c = c.replace(
-        'from TriplaneGaussian.triplane_gaussian_transformers import TGS',
-        'try:\n    from TriplaneGaussian.triplane_gaussian_transformers import TGS'
-    ).replace(
-        'from TriplaneGaussian.utils.misc import todevice, get_device',
-        'from TriplaneGaussian.utils.misc import todevice, get_device\nexcept Exception:\n    TGS = None; ExperimentConfigTGS = None; load_config_tgs = None; CustomImageOrbitDataset = None; todevice = None; get_device = None'
-    )
-if 'from Unique3D.custum_3d_diffusion.custum_pipeline.unifield_pipeline_img2mvimg import StableDiffusionImage2MVCustomPipeline' in c:
-    c = c.replace(
-        'from Unique3D.custum_3d_diffusion.custum_pipeline.unifield_pipeline_img2mvimg import StableDiffusionImage2MVCustomPipeline',
-        'try:\n    from Unique3D.custum_3d_diffusion.custum_pipeline.unifield_pipeline_img2mvimg import StableDiffusionImage2MVCustomPipeline'
-    ).replace(
-        'from Unique3D.mesh_reconstruction.refine import run_mesh_refine',
-        'from Unique3D.mesh_reconstruction.refine import run_mesh_refine\nexcept Exception:\n    StableDiffusionImage2MVCustomPipeline = None'
-    )
+
+if '# TRIPLANE_GAUSSIAN_GUARD_PATCHED' not in c:
+    tgs_block_regex = r'(?:[ \t]*try:\s*\n)*(?:[ \t]*from TriplaneGaussian\.triplane_gaussian_transformers import TGS[\s\S]*?from TriplaneGaussian\.utils\.misc import todevice, get_device(?:\s*\n[ \t]*except Exception:[\s\S]*?get_device = None)?)'
+    tgs_replacement = '''# TRIPLANE_GAUSSIAN_GUARD_PATCHED
+try:
+    from TriplaneGaussian.triplane_gaussian_transformers import TGS
+    from TriplaneGaussian.utils.config import ExperimentConfig as ExperimentConfigTGS, load_config as load_config_tgs
+    from TriplaneGaussian.data import CustomImageOrbitDataset
+    from TriplaneGaussian.utils.misc import todevice, get_device
+except Exception:
+    TGS = None; ExperimentConfigTGS = None; load_config_tgs = None; CustomImageOrbitDataset = None; todevice = None; get_device = None'''
+    c = re.sub(tgs_block_regex, tgs_replacement, c, count=1)
+
+if '# UNIQUE3D_GUARD_PATCHED' not in c:
+    u3d_block_regex = r'(?:[ \t]*try:\s*\n)*(?:[ \t]*from Unique3D\.custum_3d_diffusion\.custum_pipeline\.unifield_pipeline_img2mvimg import StableDiffusionImage2MVCustomPipeline[\s\S]*?from Unique3D\.mesh_reconstruction\.refine import run_mesh_refine(?:\s*\n[ \t]*except Exception:[\s\S]*?StableDiffusionImage2MVCustomPipeline = None)?)'
+    u3d_replacement = '''# UNIQUE3D_GUARD_PATCHED
+try:
+    from Unique3D.custum_3d_diffusion.custum_pipeline.unifield_pipeline_img2mvimg import StableDiffusionImage2MVCustomPipeline
+    from Unique3D.mesh_reconstruction.refine import run_mesh_refine
+except Exception:
+    StableDiffusionImage2MVCustomPipeline = None
+    run_mesh_refine = None'''
+    c = re.sub(u3d_block_regex, u3d_replacement, c, count=1)
+
 with open(p, 'w') as f:
     f.write(c)
 " 2>/dev/null || true
