@@ -83,5 +83,6 @@ wheel_build.log
 
 # ComfyUI Engine directory (created by setup.sh / install_comfyui.sh)
 ENGINE/
+REFRENCE
 
 
