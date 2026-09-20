@@ -24,7 +24,7 @@ flowchart TD
 
     subgraph ColabSystem["System & Memory Hardening"]
         C --> S1["setup_swap()<br/>Allocate 8GB /swapfile"]
-        C --> S2["uv Virtual Environment<br/>Python 3.12 + PyTorch cu128"]
+        C --> S2["uv Virtual Environment<br/>Python 3.12 + PyTorch cu124"]
         C --> S3["ComfyUI Engine Setup<br/>scripts/install_comfyui.sh"]
         C --> S4["Frontend Production Build<br/>Next.js 16"]
     end
