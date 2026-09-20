@@ -298,21 +298,48 @@ def _resolve_model_id(provider: str) -> str:
     }.get(provider, "tripo_sr")
 
 
-def _job_scoped_prompt(workflow: dict[str, Any], job_id: str) -> dict[str, Any]:
-    """Return a deep copy of the persisted workflow with a job-unique save path.
+def _job_scoped_prompt(
+    workflow: dict[str, Any],
+    job_id: str,
+    ref_image_name: str | None = None,
+    req: Optional[GenerationRequest] = None,
+) -> dict[str, Any]:
+    """Return a deep copy of the persisted workflow with a job-unique save path
 
-    The persisted workflow is immutable; this only mutates the in-memory copy
-    queued to ComfyUI so concurrent jobs never overwrite each other's outputs.
+    and active UI settings (reference image, seed, steps, prompt) injected into nodes.
     """
     scoped = copy.deepcopy(workflow)
     save_filename = f"{job_id}.glb"
     for node in scoped.values():
         if not isinstance(node, dict):
             continue
-        if node.get("class_type") == "[Comfy3D] Save 3D Mesh":
-            inputs = node.get("inputs", {})
+        c_type = node.get("class_type")
+        inputs = node.setdefault("inputs", {})
+        if c_type == "[Comfy3D] Save 3D Mesh":
             if "save_path" in inputs:
                 inputs["save_path"] = save_filename
+        elif c_type == "LoadImage" and ref_image_name:
+            inputs["image"] = ref_image_name
+        elif req:
+            if c_type == "[Comfy3D] TripoSR":
+                if req.octree_resolution and "geometry_extract_resolution" in inputs:
+                    inputs["geometry_extract_resolution"] = req.octree_resolution
+            elif c_type == "[Comfy3D] Trellis Structured 3D Latents Models":
+                if req.seed is not None and "seed" in inputs:
+                    inputs["seed"] = req.seed
+            elif c_type == "[Comfy3D] Hunyuan3D 21 ShapeGen":
+                if req.seed is not None and "seed" in inputs:
+                    inputs["seed"] = req.seed
+                if req.num_inference_steps and "steps" in inputs:
+                    inputs["steps"] = req.num_inference_steps
+                if req.guidance_scale is not None and "guidance_scale" in inputs:
+                    inputs["guidance_scale"] = req.guidance_scale
+                if req.octree_resolution and "octree_resolution" in inputs:
+                    inputs["octree_resolution"] = req.octree_resolution
+            elif "prompt" in inputs and isinstance(inputs["prompt"], str) and req.prompt:
+                inputs["prompt"] = req.prompt
+            elif "text" in inputs and isinstance(inputs["text"], str) and req.prompt:
+                inputs["text"] = req.prompt
     return scoped
 
 
@@ -401,7 +428,8 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
         # Queue the exact persisted workflow snapshot in ComfyUI, scoped to this
         # job so concurrent jobs never write the same output file.
         prompt_response = await client.queue_prompt(
-            _job_scoped_prompt(workflow, job_id), client_id=f"job_{job_id}"
+            _job_scoped_prompt(workflow, job_id, ref_image_name=ref_image_name, req=req),
+            client_id=f"job_{job_id}",
         )
         prompt_id = prompt_response.get("prompt_id")
 
