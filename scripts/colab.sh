@@ -186,9 +186,9 @@ ensure_cuda_12_4() {
     sudo apt-get update -qq 2>/dev/null || true
 
     # 5. Install CUDA 12.4 packages
-    info "Installing CUDA 12.4 packages (cuda-toolkit-12-4, nvcc)..."
+    info "Installing CUDA 12.4 packages (cuda-toolkit-12-4, nvcc, cusparse)..."
     sudo apt-get install -y --no-install-recommends cuda-toolkit-12-4 2>/dev/null || \
-    sudo apt-get install -y --no-install-recommends cuda-nvcc-12-4 cuda-cudart-dev-12-4 libcublas-dev-12-4 2>/dev/null || {
+    sudo apt-get install -y --no-install-recommends cuda-nvcc-12-4 cuda-cudart-dev-12-4 libcublas-dev-12-4 libcusparse-dev-12-4 libcusolver-dev-12-4 libcufft-dev-12-4 2>/dev/null || {
         warn "Direct apt-get install of CUDA 12.4 had warnings; continuing with runtime..."
     }
     sudo rm -f /etc/apt/sources.list.d/cuda-12-4.list 2>/dev/null || true
