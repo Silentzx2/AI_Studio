@@ -208,6 +208,13 @@ ensure_cuda_12_4() {
 }
 
 setup_cuda_env() {
+    local nproc_count
+    nproc_count=$(nproc 2>/dev/null || echo 4)
+    export MAX_JOBS="$nproc_count"
+    export CMAKE_BUILD_PARALLEL_LEVEL="$nproc_count"
+    export CMAKE_GENERATOR="Ninja"
+    export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-7.5;8.0;8.6;8.9;9.0+PTX}"
+
     if [[ -d "/usr/local/cuda-12.4" ]]; then
         export CUDA_HOME="/usr/local/cuda-12.4"
         export PATH="/usr/local/cuda-12.4/bin:${PATH}"
@@ -216,6 +223,33 @@ setup_cuda_env() {
         export CUDA_HOME="/usr/local/cuda"
         export PATH="/usr/local/cuda/bin:${PATH}"
         export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+    fi
+
+    if [[ -n "${CUDA_HOME:-}" && -d "${CUDA_HOME}/include" ]]; then
+        export CPATH="${CUDA_HOME}/include:${CPATH:-}"
+    fi
+    ensure_cuda_dev_headers
+}
+
+ensure_cuda_dev_headers() {
+    local cuda_root="${CUDA_HOME:-/usr/local/cuda-12.4}"
+    [[ -d "$cuda_root" ]] || cuda_root="/usr/local/cuda"
+    if [[ -d "$cuda_root/include" ]]; then
+        python3 -c "
+import glob, os, shutil
+cuda_inc = '${cuda_root}/include'
+venv_dirs = ['${PROJECT_ROOT}/backend/.venv', '/content/AI_Studio/backend/.venv', '${HOME}/.venv']
+for vd in venv_dirs:
+    for inc in glob.glob(os.path.join(vd, 'lib/python*/site-packages/nvidia/*/include')):
+        for f in os.listdir(inc):
+            s = os.path.join(inc, f)
+            d = os.path.join(cuda_inc, f)
+            if not os.path.exists(d):
+                try:
+                    shutil.copy2(s, d) if not os.path.isdir(s) else shutil.copytree(s, d)
+                except Exception:
+                    pass
+" 2>/dev/null || true
     fi
 }
 

@@ -9,7 +9,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-export PATH="$HOME/.local/bin:/usr/local/bin:/usr/local/cuda-12.4/bin:/usr/local/cuda/bin:$PATH"
+export PATH="${PROJECT_ROOT}/backend/.venv/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/cuda-12.4/bin:/usr/local/cuda/bin:$PATH"
+export MAX_JOBS="$(nproc 2>/dev/null || echo 4)"
+export CMAKE_BUILD_PARALLEL_LEVEL="$(nproc 2>/dev/null || echo 4)"
+export CMAKE_GENERATOR="Ninja"
+export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-7.5;8.0;8.6;8.9;9.0+PTX}"
 ENGINE_DIR="${PROJECT_ROOT}/ENGINE"
 COMFYUI_DIR="${ENGINE_DIR}/ComfyUI"
 CUSTOM_NODES_DIR="${COMFYUI_DIR}/custom_nodes"
@@ -294,14 +298,14 @@ if 'spconv-cu126' in c:
 p = '${dep_txt}'
 with open(p, 'r') as f:
     lines = f.readlines()
-# Exclude pytorch3d (takes 25 mins and fails on py312), spconv (pre-built on PyPI), kiuikit, and pytorch_scatter
-filtered = [l for l in lines if 'pytorch3d' not in l and 'spconv' not in l and 'kiuikit' not in l and 'pytorch_scatter' not in l]
+# Exclude pytorch3d (takes 25 mins and fails on py312), spconv (pre-built on PyPI), kiuikit, pytorch_scatter, and nvdiffrast (pre-installed)
+filtered = [l for l in lines if 'pytorch3d' not in l and 'spconv' not in l and 'kiuikit' not in l and 'pytorch_scatter' not in l and 'nvdiffrast' not in l]
 with open(p, 'w') as f:
     f.writelines(filtered)
 " 2>/dev/null || true
     fi
 
-    # 7. Unhide compilation output in install.py and auto_build_all.py
+    # 7. Unhide compilation output and enforce Ninja parallel build in install.py and auto_build_all.py
     if [[ -f "${pack_dir}/install.py" ]]; then
         python3 -c "
 p = '${pack_dir}/install.py'
@@ -320,6 +324,37 @@ p = '${auto_build}'
 with open(p, 'r') as f:
     c = f.read()
 c = c.replace('capture_output=True', 'capture_output=False')
+if 'NINJA_PARALLEL_ENV' not in c:
+    c = c.replace(
+        'def setup_build_env():',
+        '''def setup_build_env():
+    # NINJA_PARALLEL_ENV
+    import os, multiprocessing, glob, shutil
+    n_jobs = str(multiprocessing.cpu_count())
+    os.environ['MAX_JOBS'] = n_jobs
+    os.environ['CMAKE_BUILD_PARALLEL_LEVEL'] = n_jobs
+    os.environ['CMAKE_GENERATOR'] = 'Ninja'
+    os.environ['TORCH_CUDA_ARCH_LIST'] = os.environ.get('TORCH_CUDA_ARCH_LIST', '7.5;8.0;8.6;8.9;9.0+PTX')
+    os.environ['PATH'] = f\"{os.path.dirname(PYTHON_PATH)}:{os.environ.get('PATH', '')}\"
+    cuda_dir = os.environ.get('CUDA_HOME', '/usr/local/cuda-12.4')
+    if not os.path.exists(cuda_dir):
+        cuda_dir = '/usr/local/cuda'
+    inc_dir = os.path.join(cuda_dir, 'include')
+    if os.path.isdir(inc_dir):
+        os.environ['CPATH'] = f\"{inc_dir}:{os.environ.get('CPATH', '')}\"
+        vdir = os.path.dirname(os.path.dirname(PYTHON_PATH))
+        for inc in glob.glob(os.path.join(vdir, 'lib/python*/site-packages/nvidia/*/include')):
+            for f in os.listdir(inc):
+                s = os.path.join(inc, f)
+                d = os.path.join(inc_dir, f)
+                if not os.path.exists(d):
+                    try:
+                        shutil.copy2(s, d) if not os.path.isdir(s) else shutil.copytree(s, d)
+                    except Exception:
+                        pass'''
+    )
+c = c.replace('\"pip\", \"wheel\", \".\", \"--no-deps\",', '\"pip\", \"wheel\", \".\", \"--no-deps\", \"--no-build-isolation\",')
+c = c.replace('\"pip\", \"install\", \".\"', '\"pip\", \"install\", \"--no-build-isolation\", \".\"')
 with open(p, 'w') as f:
     f.write(c)
 " 2>/dev/null || true
@@ -364,11 +399,33 @@ install_3d_pack() {
     info "Ensuring pip, setuptools, wheel, ninja, and PyGithub are installed in Python runtime..."
     pip_install pip setuptools wheel ninja PyGithub || true
 
+    # Ensure CUDA dev headers (cusparse.h, cusolverDn.h, cufft.h) are present in CUDA_HOME/include
+    local cuda_root="${CUDA_HOME:-/usr/local/cuda-12.4}"
+    [[ -d "$cuda_root" ]] || cuda_root="/usr/local/cuda"
+    if [[ -d "$cuda_root/include" ]]; then
+        export CPATH="${cuda_root}/include:${CPATH:-}"
+        python3 -c "
+import glob, os, shutil
+cuda_inc = '${cuda_root}/include'
+venv_dirs = ['${PROJECT_ROOT}/backend/.venv', '/content/AI_Studio/backend/.venv', '${HOME}/.venv']
+for vd in venv_dirs:
+    for inc in glob.glob(os.path.join(vd, 'lib/python*/site-packages/nvidia/*/include')):
+        for f in os.listdir(inc):
+            s = os.path.join(inc, f)
+            d = os.path.join(cuda_inc, f)
+            if not os.path.exists(d):
+                try:
+                    shutil.copy2(s, d) if not os.path.isdir(s) else shutil.copytree(s, d)
+                except Exception:
+                    pass
+" 2>/dev/null || true
+    fi
+
     # Pre-install official binary wheels to bypass 30-min slow source compilations
     info "Installing pre-compiled 3D binary wheels (spconv-cu124, torch-scatter, kiui, nvdiffrast)..."
     pip_install "spconv-cu124" "kiui" || true
     pip_install torch-scatter -f "https://data.pyg.org/whl/torch-2.5.1+cu124.html" || true
-    pip_install "git+https://github.com/NVlabs/nvdiffrast.git" || true
+    pip_install --no-build-isolation "git+https://github.com/NVlabs/nvdiffrast.git" || true
 
     # Execute official install.py if available
     if [[ -f "${THREE_D_PACK_DIR}/install.py" ]]; then
@@ -385,10 +442,9 @@ install_3d_pack() {
 # ── Apply compatibility patches for ComfyUI-3D-Pack ───────────────────
 apply_compatibility_patches() {
     info "Verifying ComfyUI-3D-Pack essential libraries..."
-    # Ensure numpy<2.0.0 and scipy<1.14 are enforced for gpytoolbox/slangtorch 3D compatibility
-    pip_install "numpy<2.0.0" "scipy<1.14" || true
-    # Ensure critical 3D geometry & rendering packages are present
+    # Ensure critical 3D geometry & rendering packages are present along with numpy<2.0.0 & scipy<1.14
     pip_install \
+        "numpy<2.0.0" "scipy<1.14" \
         pyvista pymeshfix igraph mmgp pyhocon \
         diffusers open_clip_torch rembg trimesh \
         fast-simplification plyfile pygltflib xatlas \

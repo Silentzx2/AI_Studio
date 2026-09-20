@@ -128,8 +128,9 @@ graph TB
     API --> DB
     API <==>|HTTP Connection Pool / WS| Engine
     Engine --> Nodes
-    Nodes --> Output
-    Output --> Client
+    Nodes -->|Raw Neural Mesh| API
+    API -->|Master, LODs, Colliders| Output
+    Output -->|Static Delivery| Client
 ```
 
 ---

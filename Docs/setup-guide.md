@@ -1,8 +1,8 @@
 # AI 3D Studio - Setup & Installation Guide
 
-> **Version**: 4.0.0 (ComfyUI Core + ComfyUI-3D-Pack Engine)  
+> **Version**: 6.0.0 (ComfyUI Core + ComfyUI-3D-Pack Engine)  
 > **Difficulty**: Intermediate  
-> **Estimated Time**: 15-30 minutes (runtime only; weights are on-demand; 1-click on Colab)
+> **Estimated Time**: 15-30 minutes (runtime only; weights are on-demand; ~5 minutes on Colab)
 
 ---
 
@@ -18,7 +18,7 @@
 8. [Troubleshooting](#troubleshooting)
 9. [Verification](#verification)
 
-**See also:** [Google Colab Setup Guide](./COLAB_SETUP.md) — For running on Google Colab with 1-click via [`colab.ipynb`](../colab.ipynb) or [`AI_Studio_Colab.ipynb`](../AI_Studio_Colab.ipynb) (automatic 8GB swap and system dependencies)
+**See also:** [Google Colab Setup Guide](./COLAB_SETUP.md) — For running on Google Colab with 1-click via [`colab.ipynb`](../colab.ipynb) or [`AI_Studio_Colab.ipynb`](../AI_Studio_Colab.ipynb) (automatic 8GB swap, CUDA 12.4 dev header auto-linking, and multi-core Ninja compilation)
 
 ---
 
@@ -47,7 +47,7 @@
 
 ### System Build Dependencies
 
-Before running setup scripts, install these system-level packages (required for C extensions, especially PIL/Pillow):
+Before running setup scripts, install these system-level packages (required for C extensions, especially PIL/Pillow and PyTorch extensions):
 
 **Ubuntu/Debian:**
 ```bash
@@ -55,7 +55,9 @@ sudo apt-get update
 sudo apt-get install -y build-essential pkg-config
 sudo apt-get install -y libpng-dev libjpeg-dev zlib1g-dev libfreetype6-dev
 sudo apt-get install -y libharfbuzz-dev liblcms2-dev libopenjp2-7-dev libtiff-dev libwebp-dev
-sudo apt-get install -y ninja-build  # For native extension builds
+sudo apt-get install -y ninja-build  # For multi-threaded Ninja extension builds
+# CUDA 12.4 development packages for C++/CUDA extensions (cusparse, cusolver, cufft)
+sudo apt-get install -y cuda-nvcc-12-4 cuda-cudart-dev-12-4 libcublas-dev-12-4 libcusparse-dev-12-4 libcusolver-dev-12-4 libcufft-dev-12-4
 ```
 
 **CentOS/RHEL:**

@@ -26,6 +26,7 @@ graph TD
     REDIS[("Redis :6379<br/>Cache & Sessions")]
     COMFY["ComfyUI 0.36.0 Engine :8188<br/>Prompt Queue & Graph Execution"]
     PACK["ComfyUI-3D-Pack Nodes<br/>Hunyuan3D-2.1 / TRELLIS / TripoSR / SV3D"]
+    PROC["ArtifactManager & MeshProcessor<br/>LOD0-3, Convex Hull & QA Rubric"]
     STORAGE["Persistent Storage<br/>backend/storage/models/<job_id>"]
 
     UI -->|REST / Next.js Proxy| API
@@ -33,7 +34,8 @@ graph TD
     API -->|Cache / Sessions| REDIS
     API <==>|TCP Connection Pool / WS| COMFY
     COMFY -->|Executes Graph| PACK
-    PACK -->|Serializes Outputs| STORAGE
+    PACK -->|Outputs Raw Mesh| PROC
+    PROC -->|Serializes Master, LODs, Colliders| STORAGE
     STORAGE -->|Static / Binary Delivery| API
     API -->|Renders in Viewport| UI
 ```
@@ -54,6 +56,7 @@ sequenceDiagram
     participant Client as ComfyUIClient
     participant Comfy as ComfyUI Engine (:8188)
     participant Pack as 3D Pack Custom Nodes
+    participant Proc as ArtifactManager & MeshProcessor
     participant Storage as backend/storage/
 
     User->>Frontend: Submit Image / Text Prompt + Platform Budget
@@ -73,19 +76,22 @@ sequenceDiagram
         Comfy->>Pack: Execute Texture Generator / Paint (hy3dpaint)
     end
 
-    Pack->>Storage: Save master source.glb (Untouched Master)
+    Pack-->>Comfy: Emit Raw 3D Mesh Output
+    Comfy-->>Client: WS event: execution_success
+    Client->>Proc: Hand off mesh for post-processing
+    Proc->>Storage: Save master source.glb (Untouched Master)
     
     opt Game-Ready Decimation & LODs
-        Pack->>Storage: Save game_ready.glb (Decimated to Target Budget)
-        Pack->>Storage: Save lods/lod0..3.glb (100%, 50%, 25%, 12.5%)
+        Proc->>Storage: Save game_ready.glb (Decimated to Target Budget)
+        Proc->>Storage: Save lods/lod0..3.glb (100%, 50%, 25%, 12.5%)
     end
 
     opt Physics Collision Hull
-        Pack->>Storage: Save collision.glb (Convex Hull)
+        Proc->>Storage: Save collision.glb (Convex Hull)
     end
 
-    Comfy-->>Client: WS event: execution_success
-    Client->>Storage: Verify generated artifact files
+    Proc->>Storage: Compute quality_report.json (0-100 QA Score)
+    Proc-->>Client: Return artifact URLs & mesh metadata
     Client->>DB: Update GenerationJob (status="completed", artifact_urls)
     Frontend->>API: GET /api/v1/generation/status/{job_id}
     API-->>Frontend: Return status="completed" + asset URLs

@@ -24,16 +24,17 @@ flowchart TD
 
     subgraph ColabSystem["System & Memory Hardening"]
         C --> S1["setup_swap()<br/>Allocate 8GB /swapfile"]
-        C --> S2["uv Virtual Environment<br/>Python 3.12 + PyTorch cu124"]
-        C --> S3["ComfyUI Engine Setup<br/>scripts/install_comfyui.sh"]
-        C --> S4["Frontend Production Build<br/>Next.js 16"]
+        S1 --> S2["CUDA 12.4 & Dev Headers<br/>Auto-link cusparse / cufft / cusolver"]
+        S2 --> S3["uv Python 3.12 Runtime<br/>PyTorch cu124 + Ninja Multi-Core"]
+        S3 --> S4["ComfyUI Engine & 3D-Pack<br/>scripts/install_comfyui.sh"]
+        S4 --> S5["Frontend Production Build<br/>Next.js 16"]
     end
 
-    subgraph Services["Orchestrated Daemons"]
-        S4 --> D1["ComfyUI Engine (:8188)<br/>mmap Tensors + Split Attention"]
-        S4 --> D2["FastAPI Application (:8000)<br/>Connection-pooled proxy"]
-        S4 --> D3["Next.js Web Server (:3000)"]
-        S4 --> D4["Cloudflare Tunnel Egress"]
+    subgraph Services["Orchestrated Daemons (scripts/colab_start.sh)"]
+        S5 --> D1["ComfyUI Engine (:8188)<br/>mmap Tensors + Split Attention"]
+        S5 --> D2["FastAPI Application (:8000)<br/>Connection-pooled proxy"]
+        S5 --> D3["Next.js Web Server (:3000)"]
+        S5 --> D4["Cloudflare Tunnel Egress"]
     end
 
     subgraph TunnelCard["Instant Access Card"]
@@ -61,8 +62,10 @@ flowchart TD
 ## Features & Resilience
 
 - **8GB Swapfile Safety Net**: Colab free-tier instances provide only 12.7GB CPU RAM with 0 swap. Loading heavy 3D diffusion weights (e.g., Hunyuan3D or TRELLIS) can trigger the Linux kernel Out-Of-Memory (OOM) killer. The bootstrap script automatically allocates an 8GB `/swapfile` to ensure uninterrupted operation.
+- **CUDA 12.4 Dedicated Runtime & Dev Header Auto-Linking**: Enforces PyTorch 2.5.1 with CUDA 12.4 (`cu124`) across T4, L4, V100, and A100 GPUs. Automatically bridges missing CUDA headers (`cusparse.h`, `cusolverDn.h`, `cufft.h`) from venv site-packages into `/usr/local/cuda-12.4/include` and sets `CPATH`, eliminating C++/CUDA extension compilation failures.
+- **Multi-Core Ninja Build System**: Preconfigures `MAX_JOBS="$(nproc)"`, `CMAKE_BUILD_PARALLEL_LEVEL`, and `CMAKE_GENERATOR="Ninja"`. Drops 3D extension compilation times from 25–40 minutes down to ~5 minutes.
+- **Pre-Compiled 3D Binary Wheels**: Pre-installs official binary wheels (`spconv-cu124`, `torch-scatter`, `kiui`, `nvdiffrast`) to bypass redundant native source builds.
 - **Engine Performance Flags**: ComfyUI launches with `--mmap-torch-files` and `--enable-compress-response-body` to minimize RAM pressure and accelerate HTTP transfers. On GPU runtimes, `--async-offload 2` is enabled.
-- **CUDA 12.4 Dedicated Runtime**: Enforces PyTorch 2.5.1 with CUDA 12.4 (`cu124`) on all GPU environments. CUDA 12.4 guarantees backward/forward driver compatibility across NVIDIA T4, L4, V100, and A100 GPUs while providing binary wheel compatibility with specialized 3D libraries (`spconv`, `diffusers`, `ComfyUI-3D-Pack`).
 - **Dedicated Colab Service Scripts**:
   - `bash scripts/colab_start.sh`: Start all daemons, establish Cloudflare tunnels, and attach foreground supervisor.
   - `bash scripts/colab_stop.sh`: Cleanly stop Next.js, FastAPI, ComfyUI, and all active tunnels.

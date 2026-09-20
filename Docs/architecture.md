@@ -31,6 +31,7 @@ graph TB
         API_SYS["/api/v1/system"]
         STATIC["/static Binary Model Delivery"]
         COMFY_CLIENT["ComfyUI Client (TCP Pool + WS)"]
+        PROCESSOR["ArtifactManager & MeshProcessor"]
         DB[("PostgreSQL 16 Database")]
     end
 
@@ -61,9 +62,10 @@ graph TB
     Gateway --> DB
     Gateway <==>|Connection Pool / WS| Core
     Core --> Pack
-    Pack --> Storage
-    Storage --> Gateway
-    Gateway --> Client
+    Pack -->|Raw Neural Mesh| PROCESSOR
+    PROCESSOR -->|Post-processed Derivatives| Storage
+    Storage -->|Static File Delivery| STATIC
+    STATIC --> Client
 ```
 
 ---
@@ -137,6 +139,7 @@ sequenceDiagram
     participant Client as ComfyUIClient
     participant Engine as ComfyUI Engine (:8188)
     participant Pack as ComfyUI-3D-Pack Nodes
+    participant Processor as ArtifactManager & MeshProcessor
     participant Storage as backend/storage/
 
     User->>Frontend: Select prompt / image + Platform budget
@@ -151,14 +154,17 @@ sequenceDiagram
     Engine-->>Client: WebSocket progress updates (node execution)
     Client-->>DB: Update job progress & stage
 
-    Pack->>Storage: Write source.glb (Untouched Master)
-    Pack->>Storage: Write game_ready.glb (Decimated)
-    Pack->>Storage: Write lods/lod0..3.glb (LOD Cascade)
-    Pack->>Storage: Write collision.glb (Convex Hull)
-
+    Pack-->>Engine: Raw 3D mesh output
     Engine-->>Client: Execution complete event
-    Client->>Storage: Register final asset URLs
-    Client->>DB: Update GenerationJob (status="completed")
+    Client->>Processor: Hand off generated mesh output
+    Processor->>Storage: Preserve master source.glb (Untouched Master)
+    Processor->>Storage: Generate game_ready.glb (Decimated to Target Polycount)
+    Processor->>Storage: Generate lods/lod0..3.glb (LOD Cascade)
+    Processor->>Storage: Compute collision.glb (Convex Hull Physics Mesh)
+    Processor->>Storage: Compute quality_report.json (QA 0-100 Score)
+
+    Processor-->>Client: All artifact paths & metadata ready
+    Client->>DB: Update GenerationJob (status="completed", outputs)
     Frontend->>API: GET /api/v1/generation/status/{job_id}
     API-->>Frontend: Return {status: "completed", outputs: {...}}
     Frontend->>User: Render 3D model in Viewport
