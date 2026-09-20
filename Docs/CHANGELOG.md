@@ -18,6 +18,8 @@ All notable changes, architectural updates, and feature implementations for AI 3
   - Upgraded `pydantic-settings` to `>=2.2.1` to support `TomlConfigSettingsSource`, resolving the ComfyUI pyproject parsing warning on startup.
 - **Cross-Script CORS Configuration (`scripts/start.sh`, `scripts/colab.sh`, `scripts/colab_watch.sh`, `manager.sh`)**:
   - Configured `--enable-cors-header` properly as a standalone flag without unquoted wildcard `*` to prevent bash expansion of directory files into ComfyUI cli arguments.
+- **Transformers `CLIPFeatureExtractor` Compatibility (`scripts/colab.sh`, `scripts/colab_watch.sh`, `scripts/install_comfyui.sh`)**:
+  - Fixed `ImportError: cannot import name 'CLIPFeatureExtractor' from 'transformers'` in ComfyUI-3D-Pack's Era3D multi-view diffusion pipeline (`pipeline_mvdiffusion_unclip.py`) by automatically aliasing to `CLIPImageProcessor` for modern transformers (v4.45+). Ensures `ComfyUI-3D-Pack` loads with 100% success.
 
 ---
 

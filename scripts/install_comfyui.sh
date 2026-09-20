@@ -403,6 +403,33 @@ with open(p, 'w') as f:
 " 2>/dev/null || true
     fi
 
+    # Patch deprecated CLIPFeatureExtractor in ComfyUI-3D-Pack for modern transformers
+    python3 -c "
+import os
+pack_dir = '${pack_dir}'
+if os.path.isdir(pack_dir):
+    for root, _, files in os.walk(pack_dir):
+        for file in files:
+            if file.endswith('.py'):
+                fpath = os.path.join(root, file)
+                try:
+                    with open(fpath, 'r') as fp:
+                        c = fp.read()
+                    if 'CLIPFeatureExtractor' in c and 'CLIPFeatureExtractor = ' not in c:
+                        if 'from transformers import' in c:
+                            c = c.replace(
+                                'from transformers import CLIPImageProcessor, CLIPVisionModelWithProjection, CLIPFeatureExtractor, CLIPTokenizer, CLIPTextModel',
+                                'from transformers import CLIPImageProcessor, CLIPVisionModelWithProjection, CLIPTokenizer, CLIPTextModel\ntry:\n    from transformers import CLIPFeatureExtractor\nexcept ImportError:\n    CLIPFeatureExtractor = CLIPImageProcessor'
+                            )
+                            if 'CLIPFeatureExtractor' in c and 'CLIPFeatureExtractor = ' not in c:
+                                c = c.replace(', CLIPFeatureExtractor', '').replace('CLIPFeatureExtractor, ', '')
+                                c = 'try:\n    from transformers import CLIPImageProcessor as CLIPFeatureExtractor\nexcept Exception:\n    CLIPFeatureExtractor = None\n' + c
+                            with open(fpath, 'w') as fp:
+                                fp.write(c)
+                except Exception:
+                    pass
+" 2>/dev/null || true
+
     log "ComfyUI-3D-Pack compatibility patches applied successfully"
 }
 
