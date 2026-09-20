@@ -180,25 +180,43 @@ async def create_generation(req: GenerationRequest, request: Request, background
     # §9: selected model/provider maps to a verified workflow. No silent fallback
     # to a different model. If no workflow is registered for the selection, the
     # generation path returns an explicit error (see process_generation_job).
-    _SUPPORTED_PROVIDERS = {
-        "triposr", "tripo_sr", "hunyuan3d", "hunyuan3d_21", "hunyuan3d_image",
-        "hunyuan3d_paint", "trellis", "texture_pbr", "remesh", "comfyui", "",
-    }
-
     # Map workspace to mode
     if req.workspace and req.mode == "text-to-3d" and req.workspace in _WORKSPACE_MODE_MAP:
         req.mode = _WORKSPACE_MODE_MAP[req.workspace]
 
-    # Determine and strictly validate provider (no silent fallback)
+    # Determine and strictly validate provider against registered workflows & default catalog
     provider = req.provider or "comfyui"
-    if req.provider and req.provider.lower().strip() not in _SUPPORTED_PROVIDERS:
+    workflow_registry = get_workflow_registry()
+    model_id = _resolve_model_id(provider, req.mode)
+
+    # Dynamic check: verify workflow exists for model_id OR directly by provider name
+    active_wf = await workflow_registry.get_active_workflow(model_id)
+    if active_wf is None and req.provider:
+        raw_p = req.provider.lower().strip()
+        active_wf = await workflow_registry.get_active_workflow(raw_p)
+        if active_wf:
+            model_id = raw_p
+
+    # If active_wf is still None, check if it can be auto-seeded from bundled templates
+    if active_wf is None:
+        from app.core.comfy.workflow_registry import DEFAULT_WORKFLOWS
+        if model_id in DEFAULT_WORKFLOWS:
+            await workflow_registry.save_workflow(
+                model_id=model_id,
+                prompt=DEFAULT_WORKFLOWS[model_id]["prompt"],
+                name=DEFAULT_WORKFLOWS[model_id]["name"],
+                description=DEFAULT_WORKFLOWS[model_id]["description"],
+                source="bundled",
+            )
+            active_wf = await workflow_registry.get_active_workflow(model_id)
+
+    if active_wf is None:
+        registered = await workflow_registry.list_workflows()
+        available_ids = [w.model_id for w in registered]
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported generation provider '{req.provider}'. Supported: triposr, hunyuan3d, trellis, texture_pbr, remesh, comfyui.",
+            detail=f"Unsupported or unregistered generation provider '{req.provider}'. Available models/workflows: {', '.join(available_ids) or 'tripo_sr, trellis, hunyuan3d, texture_pbr, remesh'}.",
         )
-
-    # Canonical model ID used by the workflow registry
-    model_id = _resolve_model_id(provider, req.mode)
 
     # Create job in database
     try:
@@ -315,47 +333,81 @@ def _job_scoped_prompt(
 ) -> dict[str, Any]:
     """Return a deep copy of the persisted workflow with a job-unique save path
 
-    and active UI settings (reference image, mesh path, seed, steps, prompt) injected into nodes.
+    and active UI settings (reference image, mesh path, seed, steps, prompt) injected into nodes
+    dynamically based on node input schema rather than rigid class names.
     """
     scoped = copy.deepcopy(workflow)
     save_filename = f"{job_id}.glb"
+
     for node in scoped.values():
         if not isinstance(node, dict):
             continue
-        c_type = node.get("class_type")
+        c_type = node.get("class_type", "")
         inputs = node.setdefault("inputs", {})
-        if c_type == "[Comfy3D] Save 3D Mesh":
+
+        # 1. Output/Save 3D Mesh nodes:
+        if "Save" in c_type and any(k in c_type for k in ("Mesh", "3D", "GLB", "OBJ")):
             if "save_path" in inputs:
                 inputs["save_path"] = save_filename
-        elif c_type == "LoadImage" and ref_image_name:
-            inputs["image"] = ref_image_name
-        elif c_type == "[Comfy3D] Load 3D Mesh" and ref_mesh_path:
-            inputs["mesh_file_path"] = ref_mesh_path
-        elif c_type == "[Comfy3D] Hunyuan3D 21 TexGen" and ref_mesh_path:
-            inputs["mesh_path"] = ref_mesh_path
-        elif req:
-            if c_type == "[Comfy3D] TripoSR":
-                if req.octree_resolution and "geometry_extract_resolution" in inputs:
-                    inputs["geometry_extract_resolution"] = req.octree_resolution
-            elif c_type == "[Comfy3D] Trellis Structured 3D Latents Models":
-                if req.seed is not None and "seed" in inputs:
-                    inputs["seed"] = req.seed
-            elif c_type == "[Comfy3D] Hunyuan3D 21 ShapeGen":
-                if req.seed is not None and "seed" in inputs:
-                    inputs["seed"] = req.seed
-                if req.num_inference_steps and "steps" in inputs:
-                    inputs["steps"] = req.num_inference_steps
-                if req.guidance_scale is not None and "guidance_scale" in inputs:
-                    inputs["guidance_scale"] = req.guidance_scale
-                if req.octree_resolution and "octree_resolution" in inputs:
-                    inputs["octree_resolution"] = req.octree_resolution
-            elif c_type == "[Comfy3D] Decimate Mesh":
-                if req.face_count and "target" in inputs:
-                    inputs["target"] = int(req.face_count)
-            elif "prompt" in inputs and isinstance(inputs["prompt"], str) and req.prompt:
-                inputs["prompt"] = req.prompt
-            elif "text" in inputs and isinstance(inputs["text"], str) and req.prompt:
-                inputs["text"] = req.prompt
+            elif "filename_prefix" in inputs:
+                inputs["filename_prefix"] = job_id
+        elif "save_path" in inputs and isinstance(inputs["save_path"], str):
+            inputs["save_path"] = save_filename
+
+        # 2. Input Image nodes:
+        if ref_image_name:
+            if "LoadImage" in c_type:
+                inputs["image"] = ref_image_name
+            elif "image" in inputs and isinstance(inputs["image"], str) and not isinstance(inputs["image"], list):
+                inputs["image"] = ref_image_name
+            elif "reference_image" in inputs and isinstance(inputs["reference_image"], str) and not isinstance(inputs["reference_image"], list):
+                inputs["reference_image"] = ref_image_name
+
+        # 3. Input 3D Mesh nodes (for texture, remesh, or deformation pipelines):
+        if ref_mesh_path:
+            for mesh_k in ("mesh_file_path", "mesh_path", "mesh_file"):
+                if mesh_k in inputs and not isinstance(inputs[mesh_k], list):
+                    inputs[mesh_k] = ref_mesh_path
+
+        # 4. Dynamic user tuning & inference parameters:
+        if req:
+            # Seed
+            if req.seed is not None:
+                for seed_k in ("seed", "noise_seed"):
+                    if seed_k in inputs and not isinstance(inputs[seed_k], list):
+                        inputs[seed_k] = req.seed
+
+            # Steps
+            if req.num_inference_steps:
+                for step_k in ("steps", "num_inference_steps", "sample_steps", "sparse_structure_sample_steps"):
+                    if step_k in inputs and not isinstance(inputs[step_k], list):
+                        inputs[step_k] = req.num_inference_steps
+
+            # Guidance scale / CFG
+            if req.guidance_scale is not None:
+                for cfg_k in ("guidance_scale", "cfg", "scale", "sparse_structure_guidance_scale"):
+                    if cfg_k in inputs and not isinstance(inputs[cfg_k], list):
+                        inputs[cfg_k] = req.guidance_scale
+
+            # Resolution
+            res = req.octree_resolution
+            if res:
+                for res_k in ("geometry_extract_resolution", "octree_resolution", "resolution"):
+                    if res_k in inputs and not isinstance(inputs[res_k], list):
+                        inputs[res_k] = res
+
+            # Target face count (Decimation / Remesh)
+            if req.face_count:
+                for face_k in ("target", "target_faces", "face_count"):
+                    if face_k in inputs and not isinstance(inputs[face_k], list):
+                        inputs[face_k] = int(req.face_count)
+
+            # Prompt / Text inputs (only direct string inputs, never slot connections)
+            if req.prompt:
+                for text_k in ("prompt", "text", "positive"):
+                    if text_k in inputs and isinstance(inputs[text_k], str) and not isinstance(inputs[text_k], list):
+                        inputs[text_k] = req.prompt
+
     return scoped
 
 

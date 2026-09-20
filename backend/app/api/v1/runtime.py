@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from app.config import get_settings
 from app.core import get_comfyui_client
-from app.api.v1.models import AVAILABLE_MODELS
+from app.api.v1.models import AVAILABLE_MODELS, get_evaluated_models
 from app.schemas import SuccessResponse
 
 router = APIRouter()
@@ -139,20 +139,21 @@ async def runtime_options():
                 "label": f"{dev.get('name', 'NVIDIA GPU')} ({vram_gb} GB)",
             })
 
+    evaluated_models = await get_evaluated_models()
     three_d_models = []
-    for m in AVAILABLE_MODELS:
+    for m in evaluated_models:
         three_d_models.append({
-            "id": m["id"],
-            "label": m["name"],
-            "available": m["available"],
-            "installed": m["installed"],
-            "status": m["status"],
-            "vram_required_mb": m.get("vram_required_mb", 8192),
-            "supports_texture": m.get("supports_texture", False),
-            "supports_text_to_3d": m.get("supports_text_to_3d", False),
-            "supports_image_to_3d": m.get("supports_image_to_3d", False),
-            "colab_incompatible": m.get("colab_incompatible", False),
-            "colab_skip_reason": m.get("colab_skip_reason"),
+            "id": m.id,
+            "label": m.name,
+            "available": m.available,
+            "installed": m.installed,
+            "status": m.status,
+            "vram_required_mb": m.vram_required_mb or 8192,
+            "supports_texture": m.supports_texture,
+            "supports_text_to_3d": m.supports_text_to_3d,
+            "supports_image_to_3d": m.supports_image_to_3d,
+            "colab_incompatible": m.colab_incompatible,
+            "colab_skip_reason": m.colab_skip_reason,
         })
 
     return SuccessResponse(

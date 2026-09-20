@@ -2,7 +2,29 @@
 
 > **Version**: 6.0.0 (ComfyUI 0.36.0 Execution Core & ComfyUI-3D-Pack Integration)
 > **Status**: Verified and operational; backend e2e self-check passes, Next.js frontend intact.
-> **Last Updated**: September 19, 2026
+> **Last Updated**: September 20, 2026
+
+---
+
+## v6.0.0 — Dynamic Workflow Discovery & Schema-Based Node Injection (2026-09-20)
+
+### Key Architectural Enhancements
+1. **Dynamic Model & Workflow Discovery**:
+   - Eliminated rigid hardcoded model lists across `models.py` and `runtime.py`.
+   - `get_evaluated_models()` automatically discovers all custom workflows saved in the database (`comfy_workflows`), checks node readiness against live ComfyUI `/object_info`, and dynamically registers them as active models in the API.
+   - Any custom pipeline built in the native ComfyUI UI and saved via `/api/v1/workflows/save` immediately appears in UI selectors without code changes.
+
+2. **Schema-Based Dynamic Node Parameter Injection**:
+   - Upgraded `_job_scoped_prompt()` from hardcoded class-type checks to semantic schema-based input matching.
+   - Automatically injects reference images into image loaders, reference meshes into mesh loaders/texgen nodes, and parameters (seeds, inference steps, CFG/guidance scale, octree resolution, target face counts, text prompts) into matching inputs across any arbitrary custom node.
+   - Safely preserves node graph topology and slot connection lists (`[node_id, slot_index]`).
+
+3. **Dynamic Provider Validation**:
+   - Eliminated hardcoded `_SUPPORTED_PROVIDERS` whitelist in `generation.py`.
+   - Generation requests are validated dynamically against registered workflows and the workflow registry.
+
+4. **Engine Node Introspection**:
+   - Added `GET /api/v1/models/nodes/installed` returning all 3D, mesh, and texture processing nodes currently loaded in ComfyUI.
 
 ---
 
