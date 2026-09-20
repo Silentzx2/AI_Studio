@@ -138,6 +138,75 @@ detect_cuda_version() {
     echo "124"
 }
 
+ensure_cuda_12_4() {
+    if [[ "$(detect_gpu)" != "gpu" ]]; then
+        return 0
+    fi
+
+    # 1. Check if /usr/local/cuda-12.4 is already on disk
+    if [[ -d "/usr/local/cuda-12.4" ]] && [[ -x "/usr/local/cuda-12.4/bin/nvcc" ]]; then
+        if [[ -L /usr/local/cuda ]]; then
+            sudo rm -f /usr/local/cuda 2>/dev/null || true
+        elif [[ -d /usr/local/cuda ]]; then
+            sudo mv /usr/local/cuda /usr/local/cuda-backup-$(date +%s) 2>/dev/null || true
+        fi
+        sudo ln -sf /usr/local/cuda-12.4 /usr/local/cuda 2>/dev/null || true
+        setup_cuda_env
+        log "CUDA 12.4 is active and set as default (/usr/local/cuda → /usr/local/cuda-12.4)"
+        return 0
+    fi
+
+    # 2. Detect existing CUDA version
+    local current_cuda=""
+    if command -v nvcc &>/dev/null; then
+        current_cuda=$(nvcc --version 2>/dev/null | grep release | sed 's/.*release //;s/,.*//' || echo "")
+    elif [[ -x "/usr/local/cuda/bin/nvcc" ]]; then
+        current_cuda=$(/usr/local/cuda/bin/nvcc --version 2>/dev/null | grep release | sed 's/.*release //;s/,.*//' || echo "")
+    fi
+
+    if [[ -n "$current_cuda" && "$current_cuda" != *"12.4"* ]]; then
+        warn "Current system CUDA is ${current_cuda} — installing CUDA 12.4 toolkit and making it default..."
+    else
+        info "CUDA 12.4 toolkit not found on disk — installing CUDA 12.4..."
+    fi
+
+    # 3. Detect Ubuntu version
+    local ubuntu_ver
+    ubuntu_ver=$(lsb_release -rs 2>/dev/null | tr -d '.' || echo "2204")
+    local repo_ver="$ubuntu_ver"
+    if [[ "$ubuntu_ver" -ge 2404 ]]; then
+        repo_ver="2204"
+    elif [[ "$ubuntu_ver" -lt 2004 ]]; then
+        repo_ver="2004"
+    fi
+
+    # 4. Add trusted NVIDIA repository for Ubuntu
+    _sanitize_apt_cuda_sources
+    echo "deb [trusted=yes] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${repo_ver}/x86_64/ /" | sudo tee /etc/apt/sources.list.d/cuda-12-4.list >/dev/null 2>&1 || true
+    sudo apt-get update -qq 2>/dev/null || true
+
+    # 5. Install CUDA 12.4 packages
+    info "Installing CUDA 12.4 packages (cuda-toolkit-12-4, nvcc)..."
+    sudo apt-get install -y --no-install-recommends cuda-toolkit-12-4 2>/dev/null || \
+    sudo apt-get install -y --no-install-recommends cuda-nvcc-12-4 cuda-cudart-dev-12-4 libcublas-dev-12-4 2>/dev/null || {
+        warn "Direct apt-get install of CUDA 12.4 had warnings; continuing with runtime..."
+    }
+    sudo rm -f /etc/apt/sources.list.d/cuda-12-4.list 2>/dev/null || true
+
+    # 6. Make /usr/local/cuda default symlink to /usr/local/cuda-12.4
+    if [[ -d "/usr/local/cuda-12.4" ]]; then
+        if [[ -L /usr/local/cuda ]]; then
+            sudo rm -f /usr/local/cuda 2>/dev/null || true
+        elif [[ -d /usr/local/cuda ]]; then
+            sudo mv /usr/local/cuda /usr/local/cuda-backup-$(date +%s) 2>/dev/null || true
+        fi
+        sudo ln -sf /usr/local/cuda-12.4 /usr/local/cuda 2>/dev/null || true
+        log "CUDA 12.4 successfully installed and set as default (/usr/local/cuda → /usr/local/cuda-12.4)"
+    fi
+
+    setup_cuda_env
+}
+
 setup_cuda_env() {
     if [[ -d "/usr/local/cuda-12.4" ]]; then
         export CUDA_HOME="/usr/local/cuda-12.4"
@@ -356,7 +425,7 @@ colab_stop_services() {
     if command -v systemctl &>/dev/null; then
         sudo systemctl stop postgresql 2>/dev/null || true
     fi
-    pkill -u postgres -f "postgres" 2>/dev/null || true
+    pkill -f "postgres" 2>/dev/null || true
     free_port 5432
     log "PostgreSQL stopped"
 
@@ -657,6 +726,7 @@ run_full_bootstrap() {
 step "1/6 Colab Environment Setup"
 _sanitize_apt_cuda_sources
 setup_swap
+ensure_cuda_12_4
 
 # Ensure uv is available
 if ! command -v uv &>/dev/null; then
@@ -761,6 +831,7 @@ uv pip install --python "$PYTHON_BIN" pip setuptools wheel ninja PyGithub -q 2>/
 
 # Install PyTorch matching GPU / CUDA — always target CUDA 12.4 (cu124) on GPU
 if [[ "$(detect_gpu)" == "gpu" ]]; then
+    ensure_cuda_12_4
     setup_cuda_env
     has_cu124=$("$PYTHON_BIN" -c "import torch; print(torch.cuda.is_available() and '12.4' in str(torch.version.cuda or ''))" 2>/dev/null || echo "False")
     if [[ "$has_cu124" == "True" ]]; then

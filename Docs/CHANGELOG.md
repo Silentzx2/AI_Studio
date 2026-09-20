@@ -25,6 +25,8 @@ All notable changes, architectural updates, and feature implementations for AI 3
   - Preserved logging in `alembic/env.py` using `disable_existing_loggers=False`.
 - **Colab Automation & Dedicated Scripts**:
   - Enforced CUDA 12.4 (`cu124`) PyTorch runtime across GPU hosts in `scripts/colab.sh`, matching binary wheels for modern 3D packages (`spconv`, `diffusers`, `ComfyUI-3D-Pack`).
+  - Added automated `ensure_cuda_12_4()` detection and installation in `scripts/colab.sh`: if a non-12.4 CUDA version is active on the system, it automatically installs `cuda-toolkit-12-4` and sets `/usr/local/cuda` symlink to CUDA 12.4 as system default.
+  - Patched `ComfyUI-3D-Pack` build system (`build_config.yaml` & `build_utils.py`) in `scripts/install_comfyui.sh`: prevents upstream `install.py` from attempting to download 3.5GB of `torch==2.7.0+cu128` packages when PyTorch 2.5.1+cu124 is already installed, and ensures resilient CUDA 12.4 detection without fatal `sys.exit` crashes.
   - Added dedicated Colab lifecycle scripts: `scripts/colab_start.sh`, `scripts/colab_stop.sh`, `scripts/colab_restart.sh`, and `scripts/colab_status.sh`.
   - Added interactive Colab management submenu for `manager.sh` (Option 14) and `scripts/colab.sh --interactive` (start, stop, restart, status, logs, full bootstrap, setup-only).
   - Implemented graceful `SIGINT` (Ctrl+C) signal traps across `manager.sh`, `scripts/colab.sh`, `scripts/setup.sh`, and `scripts/install_comfyui.sh`, allowing users to interrupt long commands or log tails without killing the manager menu.
