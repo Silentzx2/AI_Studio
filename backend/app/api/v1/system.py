@@ -190,12 +190,27 @@ async def _get_disk_info() -> dict[str, Any]:
 
 async def _get_comfyui_info() -> dict[str, Any]:
     """Get ComfyUI status."""
+    tunnel_url = None
+    for cand in [Path(".cloudflare_tunnels/8188.url"), Path("../.cloudflare_tunnels/8188.url"), Path("/content/AI_Studio/.cloudflare_tunnels/8188.url")]:
+        if cand.exists():
+            try:
+                content = cand.read_text().strip()
+                if content.startswith("http"):
+                    tunnel_url = content
+                    break
+            except Exception:
+                pass
     try:
         client = get_comfyui_client()
         health = await client.health_check()
+        if tunnel_url:
+            health["tunnel_url"] = tunnel_url
         return health
     except Exception as e:
-        return {"status": "error", "error": str(e)}
+        res = {"status": "error", "error": str(e)}
+        if tunnel_url:
+            res["tunnel_url"] = tunnel_url
+        return res
 
 
 @router.get("/gpu", response_model=SuccessResponse)

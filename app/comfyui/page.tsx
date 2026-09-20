@@ -29,11 +29,11 @@ export default function ComfyUIPage() {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
-  // Dynamically resolve ComfyUI URL (same-origin proxy for HTTPS, local fallback for HTTP)
+  // Dynamically resolve ComfyUI URL (direct tunnel for HTTPS if available, proxy fallback, or local HTTP)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (window.location.protocol === 'https:') {
-        // Same-origin reverse proxy avoids mixed content on HTTPS deployments
+        // Same-origin reverse proxy default; auto-upgraded if tunnel_url detected
         setComfyUrl('/comfyui-frame');
       } else {
         const hostname = window.location.hostname || '127.0.0.1';
@@ -48,9 +48,14 @@ export default function ComfyUIPage() {
       const res = await fetch('/api/v1/system/info');
       if (res.ok) {
         const json = await res.json();
-        const comfyStatus = json?.data?.comfyui?.status || json?.comfyui?.status;
+        const comfyData = json?.data?.comfyui || json?.comfyui;
+        const comfyStatus = comfyData?.status;
+        const tunnelUrl = comfyData?.tunnel_url;
+        if (tunnelUrl && typeof window !== 'undefined' && window.location.protocol === 'https:') {
+          setComfyUrl((prev) => (prev !== tunnelUrl ? tunnelUrl : prev));
+        }
         setIsConnected(comfyStatus === 'online' || comfyStatus === 'connected' || comfyStatus === 'ok');
-        setSystemStats(json?.data?.comfyui || json?.comfyui || null);
+        setSystemStats(comfyData || null);
       } else {
         // Direct probe fallback
         const directRes = await fetch(`${comfyUrl}/system_stats`, { signal: AbortSignal.timeout(3000) });

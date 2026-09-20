@@ -675,9 +675,11 @@ asyncio.run(init())
     head_ "Setting up Cloudflare Tunnels for External Access"
     local cf_api_url=""
     local cf_frontend_url=""
+    local cf_comfy_url=""
     if install_cloudflared; then
         cf_api_url=$(start_tunnel 8000 "Backend API")
         cf_frontend_url=$(start_tunnel 3000 "Frontend")
+        cf_comfy_url=$(start_tunnel 8188 "ComfyUI Engine")
     fi
 
     echo ""
@@ -695,6 +697,9 @@ asyncio.run(init())
     if [[ -n "$cf_frontend_url" ]]; then
         echo -e "  ${BOLD}Cloudflare Public URLs:${NC}"
         echo -e "    Frontend       ${GREEN}${cf_frontend_url}${NC}"
+    fi
+    if [[ -n "$cf_comfy_url" ]]; then
+        echo -e "    ComfyUI Engine ${GREEN}${cf_comfy_url}${NC}"
     fi
     if [[ -n "$cf_api_url" ]]; then
         echo -e "    Backend API    ${GREEN}${cf_api_url}${NC}"

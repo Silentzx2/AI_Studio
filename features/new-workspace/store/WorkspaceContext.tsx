@@ -1183,6 +1183,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     mainNavRef.current = 'workspace';
     setIsLeftPanelOpen(true);
     const route = TOOL_TO_ROUTE[tool] || '/workspace/generate';
+    if (!pathname?.startsWith('/workspace')) {
+      router.push(route);
+      return;
+    }
     if (pathname !== route) {
       // Use replaceState instead of router.push to avoid full page remount.
       // This keeps the MeshViewer mounted while updating the URL.
@@ -1190,16 +1194,16 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         window.history.replaceState(null, '', route);
       }
     }
-  }, [pathname, setMainNav, setActiveTool, setIsLeftPanelOpen]);
+  }, [pathname, router, setMainNav, setActiveTool, setIsLeftPanelOpen]);
 
   const navigateToMain = useCallback((nav: MainNavRoute) => {
-    if (mainNavRef.current === nav) return;
     setMainNav(nav);
+    mainNavRef.current = nav;
     if (nav === 'dashboard') router.push('/workspace/overview');
     else if (nav === 'assets') router.push('/workspace/assets');
     else if (nav === 'system') router.push('/workspace/system');
     else if (nav === 'settings') router.push('/admin?tab=settings');
-  }, [router]);
+  }, [router, setMainNav]);
 
   // Split context value into smaller memos to reduce re-render scope.
   // Each memo only recalculates when its specific dependencies change.

@@ -54,8 +54,36 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: '/comfyui-frame',
+        destination: 'http://127.0.0.1:8188/',
+      },
+      {
         source: '/comfyui-frame/:path*',
         destination: 'http://127.0.0.1:8188/:path*',
+      },
+      {
+        source: '/extensions/:path*',
+        destination: 'http://127.0.0.1:8188/extensions/:path*',
+      },
+      {
+        source: '/customnode/:path*',
+        destination: 'http://127.0.0.1:8188/customnode/:path*',
+      },
+      {
+        source: '/object_info',
+        destination: 'http://127.0.0.1:8188/object_info',
+      },
+      {
+        source: '/object_info/:path*',
+        destination: 'http://127.0.0.1:8188/object_info/:path*',
+      },
+      {
+        source: '/embeddings',
+        destination: 'http://127.0.0.1:8188/embeddings',
+      },
+      {
+        source: '/viewfile',
+        destination: 'http://127.0.0.1:8188/viewfile',
       },
     ];
   },
