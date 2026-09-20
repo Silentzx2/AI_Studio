@@ -148,3 +148,82 @@ async def set_active_workflow(workflow_id: str):
     registry = get_workflow_registry()
     versions = await registry.list_versions(workflow_id)
     return _wf_to_response(wf, [_v_to_response(v) for v in versions])
+
+
+class ImportWorkflowRequest(BaseModel):
+    name: str
+    workflow_json: dict[str, Any]
+    model_id: Optional[str] = None
+    description: Optional[str] = None
+
+
+@router.post("/import")
+async def import_workflow(req: ImportWorkflowRequest):
+    """Import and auto-analyze any arbitrary ComfyUI workflow JSON.
+
+    - Normalizes UI or API format prompt dictionaries.
+    - Inspects node dependencies against live ComfyUI engine.
+    - Automatically registers the workflow as an available generation model.
+    """
+    import re
+    import time
+    from app.core import get_comfyui_client
+
+    raw = req.workflow_json
+    # Extract prompt graph if wrapped
+    prompt = raw.get("prompt", raw) if isinstance(raw, dict) else {}
+    if not isinstance(prompt, dict) or not prompt:
+        raise HTTPException(status_code=400, detail="Invalid workflow JSON. Expected dictionary of nodes.")
+
+    # Determine model ID slug
+    slug = req.model_id or re.sub(r"[^a-zA-Z0-9_]+", "_", req.name.lower()).strip("_")
+    if not slug:
+        slug = f"workflow_{int(time.time())}"
+
+    # Analyze required node classes
+    node_classes = [
+        node.get("class_type")
+        for node in prompt.values()
+        if isinstance(node, dict) and "class_type" in node
+    ]
+
+    client = get_comfyui_client()
+    comfy_alive = await client.is_alive()
+    missing_nodes = []
+    if comfy_alive:
+        try:
+            object_info = await client.get_object_info()
+            missing_nodes = [c for c in node_classes if c and c not in object_info]
+        except Exception:
+            pass
+
+    # Detect features
+    has_image = any("LoadImage" in str(c) for c in node_classes)
+    has_3d_save = any("Save" in str(c) and ("Mesh" in str(c) or "3D" in str(c)) for c in node_classes)
+
+    # Save to registry
+    registry = get_workflow_registry()
+    wf, version = await registry.save_workflow(
+        model_id=slug,
+        prompt=prompt,
+        name=req.name,
+        description=req.description or f"Imported workflow with {len(node_classes)} nodes",
+        source="imported",
+        set_active=True,
+    )
+
+    return {
+        "success": True,
+        "model_id": slug,
+        "name": req.name,
+        "is_compatible": len(missing_nodes) == 0 if comfy_alive else None,
+        "missing_nodes": missing_nodes,
+        "total_nodes": len(node_classes),
+        "supports_image_to_3d": has_image,
+        "has_3d_output": has_3d_save,
+        "message": (
+            "Workflow imported successfully and ready for generation"
+            if not missing_nodes
+            else f"Imported with missing nodes on current engine: {missing_nodes}"
+        ),
+    }

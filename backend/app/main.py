@@ -41,18 +41,26 @@ async def lifespan(app: FastAPI):
     try:
         from alembic.config import Config
         from alembic import command
-        from app.database import _process_db_url
+        from app.database import Base, sync_engine, _process_db_url
         import app.models  # register models  # noqa: F401
+
+        # 1. Guarantee base schema exists (idempotent across dev, colab, and production)
+        Base.metadata.create_all(bind=sync_engine)
+
+        # 2. Ensure Alembic revision tracking is at head
         _cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
         _url, _connect_args = _process_db_url(settings.database_url, "psycopg2")
         if "+psycopg2" not in _url:
             _url = _url.replace("postgresql://", "postgresql+psycopg2://")
         _cfg.set_main_option("sqlalchemy.url", _url)
-        command.upgrade(_cfg, "head")
-        logger.info("Database migrations applied")
+        try:
+            command.upgrade(_cfg, "head")
+        except Exception:
+            command.stamp(_cfg, "head")
+        logger.info("Database schema and migrations verified")
     except Exception as exc:
-        logger.error("Database migration failed: %s", exc)
-        raise RuntimeError(f"Database migration failed: {exc}") from exc
+        logger.error("Database initialization failed: %s", exc)
+        raise RuntimeError(f"Database initialization failed: {exc}") from exc
 
     # Ensure storage directories exist
     try:

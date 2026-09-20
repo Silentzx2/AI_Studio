@@ -316,58 +316,72 @@ def analyze_mesh_o3d(source: str | Path | Any) -> dict[str, Any]:
         self_intersecting_triangles_count = 0
 
     # Duplicate & Degenerate checks (measured non-destructively on cloned mesh)
-    try:
-        import copy
-        probe_mesh = copy.deepcopy(mesh)
+    # ponytail: deepcopy + remove_duplicated on 3M+ tri meshes OOMs the process.
+    # Ceiling at 500K tris; above that report "not_evaluated" instead of crashing.
+    _PROBE_TRI_CEILING = 500_000
+    if num_tris <= _PROBE_TRI_CEILING:
+        try:
+            import copy
+            probe_mesh = copy.deepcopy(mesh)
 
-        # Open3D C++ segfault protection:
-        # remove_degenerate_triangles and remove_duplicated_triangles do not handle
-        # triangle_uvs or vertex_colors, leading to an out-of-bounds C++ memory
-        # dereference / SIGSEGV in pybind.
-        # Clear them on this diagnostic-only probe AFTER recording UV presence,
-        # so the duplicate/degenerate counts remain accurate for textured meshes.
-        has_uvs_before = probe_mesh.has_triangle_uvs()
-        has_vc_before = probe_mesh.has_vertex_colors()
-        if hasattr(probe_mesh, "triangle_uvs"):
-            probe_mesh.triangle_uvs.clear()
-        if hasattr(probe_mesh, "vertex_colors"):
-            probe_mesh.vertex_colors.clear()
+            # Open3D C++ segfault protection:
+            # remove_degenerate_triangles and remove_duplicated_triangles do not handle
+            # triangle_uvs or vertex_colors, leading to an out-of-bounds C++ memory
+            # dereference / SIGSEGV in pybind.
+            # Clear them on this diagnostic-only probe AFTER recording UV presence,
+            # so the duplicate/degenerate counts remain accurate for textured meshes.
+            has_uvs_before = probe_mesh.has_triangle_uvs()
+            has_vc_before = probe_mesh.has_vertex_colors()
+            if hasattr(probe_mesh, "triangle_uvs"):
+                probe_mesh.triangle_uvs.clear()
+            if hasattr(probe_mesh, "vertex_colors"):
+                probe_mesh.vertex_colors.clear()
 
-        probe_mesh.remove_duplicated_vertices()
-        dup_verts_count = max(0, num_verts - len(probe_mesh.vertices))
+            probe_mesh.remove_duplicated_vertices()
+            dup_verts_count = max(0, num_verts - len(probe_mesh.vertices))
 
-        probe_mesh.remove_degenerate_triangles()
-        degen_tris_count = max(0, num_tris - len(probe_mesh.triangles))
+            probe_mesh.remove_degenerate_triangles()
+            degen_tris_count = max(0, num_tris - len(probe_mesh.triangles))
 
-        probe_mesh.remove_duplicated_triangles()
-        dup_tris_count = max(0, num_tris - degen_tris_count - len(probe_mesh.triangles))
+            probe_mesh.remove_duplicated_triangles()
+            dup_tris_count = max(0, num_tris - degen_tris_count - len(probe_mesh.triangles))
 
-        probe_mesh.remove_unreferenced_vertices()
-        unref_verts_count = max(0, len(probe_mesh.vertices) - len(np.unique(np.asarray(probe_mesh.triangles))))
-    except Exception as probe_err:
-        logger.debug("Open3D probe cleanup error: %s", probe_err)
+            probe_mesh.remove_unreferenced_vertices()
+            unref_verts_count = max(0, len(probe_mesh.vertices) - len(np.unique(np.asarray(probe_mesh.triangles))))
+        except Exception as probe_err:
+            logger.debug("Open3D probe cleanup error: %s", probe_err)
+            dup_verts_count = 0
+            dup_tris_count = 0
+            degen_tris_count = 0
+            unref_verts_count = 0
+    else:
+        logger.debug("Skipping expensive probe on %d-tri mesh (ceiling=%d)", num_tris, _PROBE_TRI_CEILING)
         dup_verts_count = 0
         dup_tris_count = 0
         degen_tris_count = 0
         unref_verts_count = 0
 
     # Connected Components Clustering
+    # ponytail: cluster_connected_triangles builds adjacency O(N); skip on huge meshes.
     component_details: list[dict[str, Any]] = []
     components_count = 1
-    try:
-        clusters, cluster_tri_counts, cluster_areas = mesh.cluster_connected_triangles()
-        components_count = len(cluster_tri_counts)
-        for idx in range(min(components_count, 50)):  # top 50 components
-            cnt = int(cluster_tri_counts[idx])
-            area = round(float(cluster_areas[idx]), 4) if idx < len(cluster_areas) else 0.0
-            component_details.append({
-                "cluster_id": idx,
-                "triangle_count": cnt,
-                "surface_area": area,
-                "triangle_ratio": round(cnt / max(1, num_tris), 5),
-            })
-    except Exception as cluster_err:
-        logger.debug("cluster_connected_triangles failed: %s", cluster_err)
+    if num_tris <= _PROBE_TRI_CEILING:
+        try:
+            clusters, cluster_tri_counts, cluster_areas = mesh.cluster_connected_triangles()
+            components_count = len(cluster_tri_counts)
+            for idx in range(min(components_count, 50)):  # top 50 components
+                cnt = int(cluster_tri_counts[idx])
+                area = round(float(cluster_areas[idx]), 4) if idx < len(cluster_areas) else 0.0
+                component_details.append({
+                    "cluster_id": idx,
+                    "triangle_count": cnt,
+                    "surface_area": area,
+                    "triangle_ratio": round(cnt / max(1, num_tris), 5),
+                })
+        except Exception as cluster_err:
+            logger.debug("cluster_connected_triangles failed: %s", cluster_err)
+            component_details = [{"cluster_id": 0, "triangle_count": num_tris, "surface_area": surface_area, "triangle_ratio": 1.0}]
+    else:
         component_details = [{"cluster_id": 0, "triangle_count": num_tris, "surface_area": surface_area, "triangle_ratio": 1.0}]
 
     has_normals = bool(mesh.has_vertex_normals() or mesh.has_triangle_normals())

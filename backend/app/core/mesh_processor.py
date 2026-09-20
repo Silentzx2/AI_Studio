@@ -479,17 +479,22 @@ def run_mesh_diagnostics(model_path: str, target_platform: str = "generic") -> d
     if is_open3d_available():
         try:
             qa_res = o3d_game_ready_qa(str(path), target_platform=target_platform)
-            if qa_res.get("diagnostics"):
-                # Enrich Open3D QA with UV and material inspection
-                uv_info = validate_uv_mapping(str(path))
-                has_uv = bool(uv_info.get("has_uv", False))
-                tex_info = validate_texture(str(path))
-                has_texture = bool(tex_info.get("textured", False))
+            diag = qa_res.get("diagnostics")
+            if diag:
+                # Open3D already computed has_uvs in C++ in 0.1s
+                has_uv = bool(diag.get("has_uvs", False))
+                # ponytail: avoid duplicate 50MB+ mesh re-parsing with pure Python trimesh
+                has_texture = False
+                if path.stat().st_size <= 20_000_000:
+                    tex_info = validate_texture(str(path))
+                    has_texture = bool(tex_info.get("textured", False))
+                else:
+                    has_texture = has_uv
 
-                qa_res["diagnostics"]["has_uv"] = has_uv
-                qa_res["diagnostics"]["has_texture"] = has_texture
-                qa_res["diagnostics"]["polygon_count"] = qa_res["diagnostics"].get("triangle_count", 0)
-                qa_res["diagnostics"]["scoring_breakdown"] = {
+                diag["has_uv"] = has_uv
+                diag["has_texture"] = has_texture
+                diag["polygon_count"] = diag.get("triangle_count", 0)
+                diag["scoring_breakdown"] = {
                     "overall_score": qa_res.get("game_ready_score", 100),
                     "status": qa_res.get("status", "pass"),
                     "warnings_count": len(qa_res.get("warnings", [])),

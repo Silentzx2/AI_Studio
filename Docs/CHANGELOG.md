@@ -4,6 +4,28 @@ All notable changes, architectural updates, and feature implementations for AI 3
 
 ---
 
+## [6.1.0] — 2026-09-20
+
+### 🛡️ Production Readiness, Tripo AI Parity & High-Poly Optimization
+
+- **Tripo-Style Auto Image Conditioning (`backend/app/core/image_preprocessor.py`)**:
+  - Transparent alpha channel detection and automatic rembg AI background removal.
+  - Automatic foreground bounding-box crop with centered aspect-ratio-preserving padding.
+  - Generates `{job_id}_input.png` automatically fed to ComfyUI image-to-3D nodes.
+- **Dynamic ComfyUI Workflow Import & Node Registry**:
+  - `POST /api/v1/workflows/import`: Upload arbitrary ComfyUI workflow JSON files, automatically validate node presence against live `/object_info`, extract inputs/outputs, and register as active models.
+  - `GET /api/v1/models/nodes/installed`: Dynamic introspection endpoint exposing 220+ 3D/mesh nodes from ComfyUI runtime.
+  - Dynamic model discovery in `get_evaluated_models()` without hardcoded catalogs.
+- **High-Poly Mesh QA & OOM Protection**:
+  - Added `_PROBE_TRI_CEILING = 500,000` in `open3d_service.py` to prevent memory exhaustion and C++ vector deep-copy freezes on raw 3M+ triangle marching cubes meshes.
+  - Streamlined `mesh_processor.py` to reuse Open3D C++ UV diagnostics, avoiding duplicate 50MB pure-Python trimesh parsing passes.
+- **Engine Bug Fixes**:
+  - Patched `ComfyUI-3D-Pack/nodes.py:run_TSR` to handle mismatched spatial dimensions between reference images and ComfyUI LoadImage dummy masks.
+  - Fixed storage root path resolution in `backend/app/config.py` using canonical `workspace_root()`, preventing double-nested `backend/backend/storage` directory bugs.
+  - Preserved logging in `alembic/env.py` using `disable_existing_loggers=False`.
+
+---
+
 ## [6.0.0] — 2026-09-19
 
 ### 🚀 Backend Rebuild: ComfyUI Core & ComfyUI-3D-Pack Engine

@@ -308,7 +308,7 @@ def _resolve_model_id(provider: str, mode: str = "") -> str:
         return "remesh"
     if m in ("texture-generation", "texture") or p in ("texture_pbr", "hunyuan3d_paint"):
         return "texture_pbr"
-    return {
+    known = {
         "tripo_sr": "tripo_sr",
         "tripo": "tripo_sr",
         "triposr": "tripo_sr",
@@ -321,7 +321,11 @@ def _resolve_model_id(provider: str, mode: str = "") -> str:
         "remesh": "remesh",
         "comfyui": "tripo_sr",
         "": "tripo_sr",
-    }.get(p, "tripo_sr")
+    }
+    if p in known:
+        return known[p]
+    return p
+
 
 
 def _job_scoped_prompt(
@@ -467,30 +471,34 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
         workflow = workflow_version.prompt
         save_filename = f"{job_id}.glb"
 
-        # Prepare reference image in ComfyUI input directory
-        ref_image_name = "test.png"
+        # Prepare reference image in ComfyUI input directory with Tripo-style automatic conditioning
+        ref_image_name = f"{job_id}_input.png"
+        ref_image_path = input_dir / ref_image_name
+        from app.core.image_preprocessor import condition_image_for_3d
+
         if req.reference_image_url:
             raw_name = Path(req.reference_image_url).name
             storage_upload = Path(settings.storage_local_path).resolve() / "uploads" / raw_name
+            src_img = None
             if storage_upload.exists():
-                shutil.copy2(storage_upload, input_dir / raw_name)
-                ref_image_name = raw_name
+                src_img = storage_upload
             elif (input_dir / raw_name).exists():
-                ref_image_name = raw_name
+                src_img = input_dir / raw_name
+
+            if src_img:
+                condition_image_for_3d(src_img, ref_image_path, target_size=512, auto_remove_bg=True)
             else:
-                # Ensure input file exists for LoadImage
-                ref_image_name = raw_name
                 try:
                     from PIL import Image
-                    img = Image.new("RGB", (256, 256), color=(128, 128, 128))
-                    img.save(input_dir / ref_image_name)
+                    img = Image.new("RGBA", (512, 512), color=(128, 128, 128, 255))
+                    img.save(ref_image_path)
                 except Exception:
                     pass
-        elif not (input_dir / "test.png").exists():
+        elif not ref_image_path.exists():
             try:
                 from PIL import Image
-                img = Image.new("RGB", (256, 256), color=(128, 128, 128))
-                img.save(input_dir / "test.png")
+                img = Image.new("RGBA", (512, 512), color=(128, 128, 128, 255))
+                img.save(ref_image_path)
             except Exception:
                 pass
 
@@ -675,6 +683,30 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
                 )
             except Exception as e:
                 logger.warning("Collision mesh generation failed: %s", e)
+
+        # Autonomous preview thumbnail (render from 3D mesh if not produced by ComfyUI)
+        thumb_path = job_dir / "thumbnail.png"
+        if not thumb_path.exists():
+            try:
+                from app.core.mesh_processor import render_thumbnail
+                render_thumbnail(str(master_mesh), str(thumb_path))
+            except Exception as th_err:
+                logger.debug("Thumbnail rendering skipped: %s", th_err)
+
+        # Autonomous QA diagnostics scoring (0-100 rubric)
+        try:
+            from app.core.mesh_processor import run_mesh_diagnostics
+            qa_res = run_mesh_diagnostics(str(master_mesh))
+            (job_dir / "qa_report.json").write_text(json.dumps(qa_res, indent=2))
+        except Exception as qa_err:
+            logger.debug("QA diagnostics skipped: %s", qa_err)
+
+        # Re-register all job artifacts so newly generated derivatives (LODs, colliders, thumbnail) are in download_urls
+        all_artifacts = list(job_dir.glob("*"))
+        artifact_manager.register_artifacts(job_id, all_artifacts)
+        metadata = artifact_manager.process_job_outputs(
+            job_id, prompt_id, prefix=job_id, history_outputs=history_outputs
+        )
 
         # Update job with successful completion
         async with AsyncSessionLocal() as session:

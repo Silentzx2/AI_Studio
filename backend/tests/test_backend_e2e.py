@@ -104,19 +104,27 @@ async def test_workflow_registry():
         active = await registry.get_active_version(model_id)
         assert active is not None, f"No active workflow version registered for {model_id}"
 
-    # Save a new version and confirm it is appended, not overwriting history.
+    # Save a new version for an isolated test model and confirm versioning works.
     wf, version = await registry.save_workflow(
-        model_id="tripo_sr",
+        model_id="test_model",
         prompt={"1": {"class_type": "LoadImage", "inputs": {"image": "test.png"}}},
         name="test-save",
         description="e2e test version",
         source="test",
     )
+    # Append another version
+    wf2, version2 = await registry.save_workflow(
+        model_id="test_model",
+        prompt={"1": {"class_type": "LoadImage", "inputs": {"image": "test2.png"}}},
+        name="test-save-2",
+        description="e2e test version 2",
+        source="test",
+    )
     versions = await registry.list_versions(wf.id)
     assert len(versions) >= 2, f"Expected >= 2 versions after save, got {len(versions)}"
-    assert versions[-1].version == version.version
+    assert versions[-1].version == version2.version
     assert versions[-1].source == "test"
-    print(f"[PASS] Workflow registry: {len(versions)} versions persisted for tripo_sr")
+    print(f"[PASS] Workflow registry: {len(versions)} versions persisted for test_model")
 
 
 def test_workflow_resolution():

@@ -5,7 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,12 +40,13 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
-    # Storage
-    storage_local_path: str = Field(default="./backend/storage", alias="STORAGE_LOCAL_PATH")
-    runtime_cache_dir: str = Field(default="./backend/.runtime_cache", alias="RUNTIME_CACHE_DIR")
-    hf_home: str = Field(default="./backend/third_party/.hf_cache", alias="HF_HOME")
-    weights_dir: str = Field(default="./backend/third_party/weights", alias="WEIGHTS_DIR")
-    third_party_dir: str = Field(default="./backend/third_party", alias="THIRD_PARTY_DIR")
+    # Storage — paths resolve against the repo root regardless of process CWD.
+    # ponytail: uses model_validator to resolve once; avoids CWD-dependent relative path bugs.
+    storage_local_path: str = Field(default="backend/storage", alias="STORAGE_LOCAL_PATH")
+    runtime_cache_dir: str = Field(default="backend/.runtime_cache", alias="RUNTIME_CACHE_DIR")
+    hf_home: str = Field(default="backend/third_party/.hf_cache", alias="HF_HOME")
+    weights_dir: str = Field(default="backend/third_party/weights", alias="WEIGHTS_DIR")
+    third_party_dir: str = Field(default="backend/third_party", alias="THIRD_PARTY_DIR")
 
     # ComfyUI
     comfyui_host: str = Field(default="127.0.0.1", alias="COMFYUI_HOST")
@@ -74,6 +75,18 @@ class Settings(BaseSettings):
         if self.comfyui_base_url:
             return self.comfyui_base_url.rstrip("/")
         return f"http://{self.comfyui_host}:{self.comfyui_port}"
+
+    @model_validator(mode="after")
+    def _resolve_paths(self) -> "Settings":
+        """Resolve relative storage paths against the repo root, not process CWD."""
+        from app.core.paths import workspace_root
+        root = workspace_root()
+        for attr in ("storage_local_path", "runtime_cache_dir", "hf_home", "weights_dir", "third_party_dir"):
+            val = getattr(self, attr)
+            p = Path(val)
+            if not p.is_absolute():
+                object.__setattr__(self, attr, str(root / p))
+        return self
 
 
 @lru_cache

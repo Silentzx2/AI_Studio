@@ -6,25 +6,35 @@
 
 ---
 
-## v6.0.0 — Dynamic Workflow Discovery & Schema-Based Node Injection (2026-09-20)
+## v6.0.0 — Production-Ready Autonomous 3D Generation & Tripo AI Parity (2026-09-20)
 
 ### Key Architectural Enhancements
-1. **Dynamic Model & Workflow Discovery**:
+1. **Tripo-Style Autonomous Image Conditioning**:
+   - Added `backend/app/core/image_preprocessor.py`: automatically detects missing alpha channels, applies AI background removal (`rembg`), tight bounding-box cropping, and centered canvas padding with proportional margins.
+   - Automatically conditions input images before passing to any ComfyUI 3D node (`LoadImage`), scoped to unique `{job_id}_input.png`.
+
+2. **Upstream Tensor & Mask Resilience**:
+   - Patched `ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/nodes.py:run_TSR`: resolves PyTorch tensor shape mismatch (`torch.cat((image, mask), dim=2)`) when input images lack alpha channels and ComfyUI emits a dummy 64x64 mask.
+
+3. **Dynamic Model & Workflow Discovery**:
    - Eliminated rigid hardcoded model lists across `models.py` and `runtime.py`.
    - `get_evaluated_models()` automatically discovers all custom workflows saved in the database (`comfy_workflows`), checks node readiness against live ComfyUI `/object_info`, and dynamically registers them as active models in the API.
-   - Any custom pipeline built in the native ComfyUI UI and saved via `/api/v1/workflows/save` immediately appears in UI selectors without code changes.
+   - Preserves custom provider names in `_resolve_model_id()` without forcing fallback to default models.
 
-2. **Schema-Based Dynamic Node Parameter Injection**:
-   - Upgraded `_job_scoped_prompt()` from hardcoded class-type checks to semantic schema-based input matching.
-   - Automatically injects reference images into image loaders, reference meshes into mesh loaders/texgen nodes, and parameters (seeds, inference steps, CFG/guidance scale, octree resolution, target face counts, text prompts) into matching inputs across any arbitrary custom node.
+4. **Schema-Based Dynamic Node Parameter Injection**:
+   - Upgraded `_job_scoped_prompt()` from hardcoded class-type checks to semantic schema-based input matching (`save_path`, `image`, `mesh_file_path`, `seed`, `steps`, `guidance_scale`, `octree_resolution`, `face_count`, `prompt`).
    - Safely preserves node graph topology and slot connection lists (`[node_id, slot_index]`).
 
-3. **Dynamic Provider Validation**:
-   - Eliminated hardcoded `_SUPPORTED_PROVIDERS` whitelist in `generation.py`.
-   - Generation requests are validated dynamically against registered workflows and the workflow registry.
+5. **Storage Resilience & CWD Independence**:
+   - Added canonical path resolution in `backend/app/config.py` resolving all relative storage paths against `workspace_root()`, preventing double-nested `backend/backend/storage` paths regardless of invocation CWD.
 
-4. **Engine Node Introspection**:
-   - Added `GET /api/v1/models/nodes/installed` returning all 3D, mesh, and texture processing nodes currently loaded in ComfyUI.
+6. **High-Poly QA Diagnostics & OOM Protection**:
+   - Implemented `_PROBE_TRI_CEILING = 500,000` in `open3d_service.py` to prevent OOM/CPU lockup on raw un-decimated marching-cubes meshes (up to 3M+ triangles).
+   - Reused Open3D C++ UV evaluations in `mesh_processor.py` to eliminate duplicate 50MB+ pure-Python trimesh re-parsing passes.
+   - Set `disable_existing_loggers=False` in `alembic/env.py` to preserve uvicorn and app logging.
+
+7. **Engine Node Introspection**:
+   - Added `GET /api/v1/models/nodes/installed` returning 220+ 3D, mesh, and texture processing nodes currently loaded in ComfyUI.
 
 ---
 
