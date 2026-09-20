@@ -1096,8 +1096,21 @@ redis-cli ping
 | Backend API | `logs/api.log` | `tail -f logs/api.log` |
 | ComfyUI Engine | `logs/comfyui.log` | `tail -f logs/comfyui.log` |
 | Frontend | `logs/frontend.log` | `tail -f logs/frontend.log` |
+| Cloudflare Tunnels | `.cloudflare_tunnels/*.log` | `tail -f .cloudflare_tunnels/*.log` |
 | PostgreSQL | `/var/log/postgresql/` | `sudo journalctl -u postgresql -f` |
 | Redis | stdout | `redis-cli monitor` |
+
+---
+
+### 🌐 ComfyUI Access & Iframe Embedding Troubleshooting
+
+#### "Access Denied" or Refused to Connect in ComfyUI Canvas
+If accessing ComfyUI through the web UI shows "Access Denied", "Refused to frame", or WebSocket disconnection:
+1. **CORS Headers**: ComfyUI must be started with `--enable-cors-header *` (configured in `scripts/colab.sh` and `scripts/start.sh`).
+2. **Cloudflare Tunnel Iframe Restrictions**: Cloudflare Quick Tunnels (`trycloudflare.com`) send `X-Frame-Options: SAMEORIGIN`. Modern browsers block cross-subdomain embedding inside iframes.
+   - The embedded iframe uses same-origin `/comfyui-frame` which is proxied by Next.js rewrites to `http://127.0.0.1:8188`.
+   - For direct, zero-restriction canvas access with hardware acceleration and full keyboard shortcuts, use the **"Launch Dedicated Tab"** button in `/comfyui` or click the direct ComfyUI tunnel link rendered in Colab Step 3 (`.cloudflare_tunnels/8188.url`).
+3. **Cloudflare Host Header**: When proxying through `cloudflared`, pass `--http-host-header "127.0.0.1:${port}"` to ensure upstream host validation succeeds.
 
 ---
 

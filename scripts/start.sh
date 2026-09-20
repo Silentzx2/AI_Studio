@@ -597,7 +597,7 @@ log "Bytecode caches cleaned"
 step "4/6 Starting ComfyUI Execution Engine (http://localhost:8188)..."
 : > "$PROJECT_ROOT/logs/comfyui.log"
 if ! curl -sf http://127.0.0.1:8188/system_stats &>/dev/null; then
-    COMFY_ARGS="--listen 0.0.0.0 --port 8188 --enable-compress-response-body --mmap-torch-files"
+    COMFY_ARGS="--listen 0.0.0.0 --port 8188 --enable-cors-header * --enable-compress-response-body --mmap-torch-files"
     if ! command -v nvidia-smi &>/dev/null || ! nvidia-smi &>/dev/null; then
         COMFY_ARGS="$COMFY_ARGS --cpu --use-split-cross-attention"
     else

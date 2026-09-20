@@ -23,17 +23,19 @@ export default function ComfyUIPage() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [comfyUrl, setComfyUrl] = useState<string>('http://127.0.0.1:8188');
+  const [tunnelUrl, setTunnelUrl] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [systemStats, setSystemStats] = useState<any>(null);
   const [isClearingVram, setIsClearingVram] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
-  // Dynamically resolve ComfyUI URL (direct tunnel for HTTPS if available, proxy fallback, or local HTTP)
+  // Dynamically resolve ComfyUI URL:
+  // On HTTPS, use same-origin reverse proxy (/comfyui-frame) for iframe to prevent Cloudflare X-Frame-Options "Access Denied" blocks.
+  // The direct tunnel_url is used for 1-click full-screen dedicated window access.
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (window.location.protocol === 'https:') {
-        // Same-origin reverse proxy default; auto-upgraded if tunnel_url detected
         setComfyUrl('/comfyui-frame');
       } else {
         const hostname = window.location.hostname || '127.0.0.1';
@@ -50,9 +52,9 @@ export default function ComfyUIPage() {
         const json = await res.json();
         const comfyData = json?.data?.comfyui || json?.comfyui;
         const comfyStatus = comfyData?.status;
-        const tunnelUrl = comfyData?.tunnel_url;
-        if (tunnelUrl && typeof window !== 'undefined' && window.location.protocol === 'https:') {
-          setComfyUrl((prev) => (prev !== tunnelUrl ? tunnelUrl : prev));
+        const detectedTunnel = comfyData?.tunnel_url;
+        if (detectedTunnel) {
+          setTunnelUrl(detectedTunnel);
         }
         setIsConnected(comfyStatus === 'online' || comfyStatus === 'connected' || comfyStatus === 'ok');
         setSystemStats(comfyData || null);
@@ -205,13 +207,14 @@ export default function ComfyUIPage() {
               </button>
 
               <a
-                href={comfyUrl}
+                href={tunnelUrl || comfyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 p-1.5 text-zinc-400 hover:text-white rounded-md hover:bg-white/[0.06] transition-colors"
-                title="Open raw ComfyUI in new tab"
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 transition-colors shadow-sm"
+                title="Launch ComfyUI in a dedicated browser window (avoids iframe X-Frame-Options restrictions)"
               >
-                <ExternalLink className="w-3.5 h-3.5" />
+                <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+                <span className="hidden sm:inline">Launch Dedicated Tab</span>
               </a>
 
               <button
@@ -223,6 +226,25 @@ export default function ComfyUIPage() {
               </button>
             </div>
           </div>
+
+          {/* Cloudflare Tunnel Helper Banner (if active) */}
+          {tunnelUrl && (
+            <div className="bg-blue-950/40 border-b border-blue-500/20 px-4 py-1.5 flex items-center justify-between text-xs text-blue-200/90 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                <span>Cloudflare Tunnel Connected. If browser blocks embedded canvas, open directly:</span>
+              </div>
+              <a
+                href={tunnelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-300 hover:text-white underline underline-offset-2 ml-2"
+              >
+                Open {tunnelUrl}
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          )}
 
           {/* Embedded ComfyUI Web Canvas */}
           <div className="flex-1 w-full h-full relative overflow-hidden bg-[#18181b]">

@@ -387,7 +387,8 @@ start_tunnel() {
     kill_by_pid_file "$CF_DIR/${port}.pid"
     info "Starting Cloudflare tunnel for ${name} (port ${port})..."
     nohup cloudflared tunnel \
-        --url "http://localhost:${port}" \
+        --url "http://127.0.0.1:${port}" \
+        --http-host-header "127.0.0.1:${port}" \
         --no-autoupdate \
         > "$CF_DIR/${port}.log" 2>&1 &
     echo $! > "$CF_DIR/${port}.pid"
@@ -612,7 +613,7 @@ asyncio.run(init())
     kill_by_pid_file "$PID_DIR/comfyui.pid"
     free_port 8188
     patch_runtime_compatibility
-    local COMFY_ARGS="--listen 0.0.0.0 --port 8188 --enable-compress-response-body --mmap-torch-files"
+    local COMFY_ARGS="--listen 0.0.0.0 --port 8188 --enable-cors-header * --enable-compress-response-body --mmap-torch-files"
     if [[ "$(detect_gpu)" == "cpu" ]]; then
         COMFY_ARGS="$COMFY_ARGS --cpu --use-split-cross-attention"
     else

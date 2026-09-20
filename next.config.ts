@@ -85,6 +85,50 @@ const nextConfig: NextConfig = {
         source: '/viewfile',
         destination: 'http://127.0.0.1:8188/viewfile',
       },
+      {
+        source: '/assets/:path*',
+        destination: 'http://127.0.0.1:8188/assets/:path*',
+      },
+      {
+        source: '/scripts/:path*',
+        destination: 'http://127.0.0.1:8188/scripts/:path*',
+      },
+      {
+        source: '/templates/:path*',
+        destination: 'http://127.0.0.1:8188/templates/:path*',
+      },
+      {
+        source: '/userdata/:path*',
+        destination: 'http://127.0.0.1:8188/userdata/:path*',
+      },
+      {
+        source: '/system_stats',
+        destination: 'http://127.0.0.1:8188/system_stats',
+      },
+      {
+        source: '/queue',
+        destination: 'http://127.0.0.1:8188/queue',
+      },
+      {
+        source: '/prompt',
+        destination: 'http://127.0.0.1:8188/prompt',
+      },
+      {
+        source: '/history',
+        destination: 'http://127.0.0.1:8188/history',
+      },
+      {
+        source: '/history/:path*',
+        destination: 'http://127.0.0.1:8188/history/:path*',
+      },
+      {
+        source: '/view',
+        destination: 'http://127.0.0.1:8188/view',
+      },
+      {
+        source: '/view/:path*',
+        destination: 'http://127.0.0.1:8188/view/:path*',
+      },
     ];
   },
   // ponytail: standalone output is ONLY enabled for the Docker packaging path
