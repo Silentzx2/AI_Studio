@@ -9,6 +9,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+export PATH="$HOME/.local/bin:/usr/local/bin:/usr/local/cuda-12.4/bin:/usr/local/cuda/bin:$PATH"
 ENGINE_DIR="${PROJECT_ROOT}/ENGINE"
 COMFYUI_DIR="${ENGINE_DIR}/ComfyUI"
 CUSTOM_NODES_DIR="${COMFYUI_DIR}/custom_nodes"
@@ -70,8 +71,17 @@ resolve_python() {
 
 pip_install() {
     resolve_python
+    local uv_bin=""
     if command -v uv &>/dev/null; then
-        uv pip install --python "${PYTHON_BIN}" "$@"
+        uv_bin="$(command -v uv)"
+    elif [[ -x "$HOME/.local/bin/uv" ]]; then
+        uv_bin="$HOME/.local/bin/uv"
+    elif [[ -x "/usr/local/bin/uv" ]]; then
+        uv_bin="/usr/local/bin/uv"
+    fi
+
+    if [[ -n "$uv_bin" ]]; then
+        "$uv_bin" pip install --python "${PYTHON_BIN}" "$@"
     else
         "${PYTHON_BIN}" -m pip install "$@"
     fi
@@ -259,6 +269,20 @@ if 'TORCH_RUNTIME_VERSION_DETECT' not in c:
 
 with open(p, 'w') as f:
     f.write(c)
+" 2>/dev/null || true
+    fi
+
+    # 5. requirements.txt: map spconv-cu126 -> spconv-cu124 for CUDA 12.4
+    local req_txt="${pack_dir}/requirements.txt"
+    if [[ -f "$req_txt" ]]; then
+        python3 -c "
+p = '${req_txt}'
+with open(p, 'r') as f:
+    c = f.read()
+if 'spconv-cu126' in c:
+    c = c.replace('spconv-cu126', 'spconv-cu124')
+    with open(p, 'w') as f:
+        f.write(c)
 " 2>/dev/null || true
     fi
 
