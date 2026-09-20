@@ -211,6 +211,28 @@ DEFAULT_WORKFLOWS: dict[str, dict[str, Any]] = {
             "4": {"class_type": "[Comfy3D] Save 3D Mesh", "inputs": {"mesh": ["3", 0], "save_path": "output.glb"}},
         },
     },
+    "texture_pbr": {
+        "name": "Hunyuan3D-2.1 TexGen (PBR)",
+        "description": "Verified default: LoadImage -> Load Hunyuan3D 21 TexGen Pipeline -> Hunyuan3D 21 TexGen -> Save 3D Mesh",
+        "prompt": {
+            "1": {"class_type": "LoadImage", "inputs": {"image": "test.png"}},
+            "2": {"class_type": "[Comfy3D] Load Hunyuan3D 21 TexGen Pipeline", "inputs": {"max_num_view": 8, "resolution": 768, "enable_mmgp": True}},
+            "3": {"class_type": "[Comfy3D] Hunyuan3D 21 TexGen", "inputs": {
+                "texgen_pipe": ["2", 0], "mesh_path": "model.glb", "image": ["1", 0], "create_pbr": True, "use_remesh": False}},
+            "4": {"class_type": "[Comfy3D] Save 3D Mesh", "inputs": {"mesh": ["3", 0], "save_path": "output.glb"}},
+        },
+    },
+    "remesh": {
+        "name": "Mesh Decimate & Remesh",
+        "description": "Verified default: Load 3D Mesh -> Decimate Mesh -> Save 3D Mesh",
+        "prompt": {
+            "1": {"class_type": "[Comfy3D] Load 3D Mesh", "inputs": {
+                "mesh_file_path": "model.glb", "resize": False, "renormal": True, "retex": False, "optimizable": False, "clean": False, "resize_bound": 0.5}},
+            "2": {"class_type": "[Comfy3D] Decimate Mesh", "inputs": {
+                "mesh": ["1", 0], "target": 10000, "remesh": True, "optimalplacement": True}},
+            "3": {"class_type": "[Comfy3D] Save 3D Mesh", "inputs": {"mesh": ["2", 0], "save_path": "output.glb"}},
+        },
+    },
 }
 
 

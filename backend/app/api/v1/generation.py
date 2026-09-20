@@ -180,7 +180,10 @@ async def create_generation(req: GenerationRequest, request: Request, background
     # §9: selected model/provider maps to a verified workflow. No silent fallback
     # to a different model. If no workflow is registered for the selection, the
     # generation path returns an explicit error (see process_generation_job).
-    _SUPPORTED_PROVIDERS = {"triposr", "tripo_sr", "hunyuan3d", "hunyuan3d_21", "trellis", "comfyui", ""}
+    _SUPPORTED_PROVIDERS = {
+        "triposr", "tripo_sr", "hunyuan3d", "hunyuan3d_21", "hunyuan3d_image",
+        "hunyuan3d_paint", "trellis", "texture_pbr", "remesh", "comfyui", "",
+    }
 
     # Map workspace to mode
     if req.workspace and req.mode == "text-to-3d" and req.workspace in _WORKSPACE_MODE_MAP:
@@ -191,11 +194,11 @@ async def create_generation(req: GenerationRequest, request: Request, background
     if req.provider and req.provider.lower().strip() not in _SUPPORTED_PROVIDERS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported generation provider '{req.provider}'. Supported: triposr, hunyuan3d, trellis, comfyui.",
+            detail=f"Unsupported generation provider '{req.provider}'. Supported: triposr, hunyuan3d, trellis, texture_pbr, remesh, comfyui.",
         )
 
-    # Canonical model ID used by the workflow registry (tripo_sr, trellis, hunyuan3d).
-    model_id = _resolve_model_id(provider)
+    # Canonical model ID used by the workflow registry
+    model_id = _resolve_model_id(provider, req.mode)
 
     # Create job in database
     try:
@@ -279,13 +282,14 @@ async def create_generation(req: GenerationRequest, request: Request, background
     )
 
 
-def _resolve_model_id(provider: str) -> str:
-    """Map a generation provider to the canonical model ID used by the workflow registry.
-
-    The registry keys are tripo_sr / trellis / hunyuan3d. Aliases such as
-    'tripo', 'triposr', 'hunyuan3d_21' and the legacy 'comfyui' default all
-    resolve to the same canonical ID.
-    """
+def _resolve_model_id(provider: str, mode: str = "") -> str:
+    """Map a generation provider and mode to the canonical model ID used by the workflow registry."""
+    p = (provider or "").lower().strip()
+    m = (mode or "").lower().strip()
+    if m == "remesh" or p == "remesh":
+        return "remesh"
+    if m in ("texture-generation", "texture") or p in ("texture_pbr", "hunyuan3d_paint"):
+        return "texture_pbr"
     return {
         "tripo_sr": "tripo_sr",
         "tripo": "tripo_sr",
@@ -293,20 +297,25 @@ def _resolve_model_id(provider: str) -> str:
         "trellis": "trellis",
         "hunyuan3d": "hunyuan3d",
         "hunyuan3d_21": "hunyuan3d",
+        "hunyuan3d_image": "hunyuan3d",
+        "texture_pbr": "texture_pbr",
+        "hunyuan3d_paint": "texture_pbr",
+        "remesh": "remesh",
         "comfyui": "tripo_sr",
         "": "tripo_sr",
-    }.get(provider, "tripo_sr")
+    }.get(p, "tripo_sr")
 
 
 def _job_scoped_prompt(
     workflow: dict[str, Any],
     job_id: str,
     ref_image_name: str | None = None,
+    ref_mesh_path: str | None = None,
     req: Optional[GenerationRequest] = None,
 ) -> dict[str, Any]:
     """Return a deep copy of the persisted workflow with a job-unique save path
 
-    and active UI settings (reference image, seed, steps, prompt) injected into nodes.
+    and active UI settings (reference image, mesh path, seed, steps, prompt) injected into nodes.
     """
     scoped = copy.deepcopy(workflow)
     save_filename = f"{job_id}.glb"
@@ -320,6 +329,10 @@ def _job_scoped_prompt(
                 inputs["save_path"] = save_filename
         elif c_type == "LoadImage" and ref_image_name:
             inputs["image"] = ref_image_name
+        elif c_type == "[Comfy3D] Load 3D Mesh" and ref_mesh_path:
+            inputs["mesh_file_path"] = ref_mesh_path
+        elif c_type == "[Comfy3D] Hunyuan3D 21 TexGen" and ref_mesh_path:
+            inputs["mesh_path"] = ref_mesh_path
         elif req:
             if c_type == "[Comfy3D] TripoSR":
                 if req.octree_resolution and "geometry_extract_resolution" in inputs:
@@ -336,6 +349,9 @@ def _job_scoped_prompt(
                     inputs["guidance_scale"] = req.guidance_scale
                 if req.octree_resolution and "octree_resolution" in inputs:
                     inputs["octree_resolution"] = req.octree_resolution
+            elif c_type == "[Comfy3D] Decimate Mesh":
+                if req.face_count and "target" in inputs:
+                    inputs["target"] = int(req.face_count)
             elif "prompt" in inputs and isinstance(inputs["prompt"], str) and req.prompt:
                 inputs["prompt"] = req.prompt
             elif "text" in inputs and isinstance(inputs["text"], str) and req.prompt:
@@ -389,6 +405,7 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
 
         # Resolve the exact workflow version for the selected model.
         # §9: never silently fall back to a different model's workflow.
+        model_id = _resolve_model_id(req.provider, req.mode)
         workflow_version = await workflow_registry.get_active_version(model_id)
         if workflow_version is None:
             raise RuntimeError(
@@ -425,10 +442,26 @@ async def process_generation_job(job_id: str, req: GenerationRequest):
             except Exception:
                 pass
 
+        # Prepare reference 3D mesh if provided (for remesh / texture workflows)
+        ref_mesh_path = None
+        if req.source_mesh_url:
+            raw_mesh_name = Path(req.source_mesh_url).name
+            storage_mesh = Path(settings.storage_local_path).resolve() / "uploads" / raw_mesh_name
+            if not storage_mesh.exists():
+                storage_mesh = Path(settings.storage_local_path).resolve() / "jobs" / raw_mesh_name
+            if storage_mesh.exists():
+                dest = input_dir / raw_mesh_name
+                shutil.copy2(storage_mesh, dest)
+                ref_mesh_path = str(dest)
+            elif (input_dir / raw_mesh_name).exists():
+                ref_mesh_path = str(input_dir / raw_mesh_name)
+
         # Queue the exact persisted workflow snapshot in ComfyUI, scoped to this
         # job so concurrent jobs never write the same output file.
         prompt_response = await client.queue_prompt(
-            _job_scoped_prompt(workflow, job_id, ref_image_name=ref_image_name, req=req),
+            _job_scoped_prompt(
+                workflow, job_id, ref_image_name=ref_image_name, ref_mesh_path=ref_mesh_path, req=req
+            ),
             client_id=f"job_{job_id}",
         )
         prompt_id = prompt_response.get("prompt_id")
