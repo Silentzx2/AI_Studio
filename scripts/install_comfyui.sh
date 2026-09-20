@@ -129,6 +129,38 @@ install_3d_pack() {
         }
         (cd "${THREE_D_PACK_DIR}" && git checkout -q "${THREE_D_PACK_COMMIT}") 2>/dev/null || true
         log "ComfyUI-3D-Pack repository cloned and checked out at commit ${THREE_D_PACK_COMMIT}"
+
+        # Apply verified runtime patches (TripoSR mask mismatch fix)
+        if [[ -f "${THREE_D_PACK_DIR}/nodes.py" ]]; then
+            python3 -c "
+p = '${THREE_D_PACK_DIR}/nodes.py'
+with open(p, 'r') as f:
+    c = f.read()
+if 'mask = reference_mask[0].unsqueeze(2)' in c and 'if mask.shape[0] != image.shape[0]' not in c:
+    c = c.replace(
+        'mask = reference_mask[0].unsqueeze(2)',
+        'mask = reference_mask[0].unsqueeze(2) if len(reference_mask.shape) >= 3 else reference_mask.unsqueeze(2)\n        if mask.shape[0] != image.shape[0] or mask.shape[1] != image.shape[1]:\n            mask = torch.ones((image.shape[0], image.shape[1], 1), dtype=image.dtype, device=image.device)'
+    )
+    with open(p, 'w') as f:
+        f.write(c)
+" 2>/dev/null || true
+        fi
+
+        # Apply uv speedup patch to install.py if present
+        if [[ -f "${THREE_D_PACK_DIR}/install.py" ]]; then
+            python3 -c "
+p = '${THREE_D_PACK_DIR}/install.py'
+with open(p, 'r') as f:
+    c = f.read()
+if 'shutil.which(\"uv\")' not in c:
+    c = c.replace(
+        'for wheel_path in wheel_files:',
+        'import shutil\n        uv_bin = shutil.which(\"uv\")\n        for wheel_path in wheel_files:\n            if uv_bin:\n                res_uv = subprocess.run([uv_bin, \"pip\", \"install\", \"--python\", PYTHON_PATH, \"--no-deps\", \"--reinstall\", wheel_path], capture_output=True)\n                if res_uv.returncode == 0:\n                    cstr(f\"Successfully installed wheel: {os.path.basename(wheel_path)}\").msg.print()\n                    success_count += 1\n                    continue'
+    )
+    with open(p, 'w') as f:
+        f.write(c)
+" 2>/dev/null || true
+        fi
     fi
 
     # Install ComfyUI-3D-Pack dependencies
@@ -140,11 +172,15 @@ install_3d_pack() {
         log "ComfyUI-3D-Pack requirements processed"
     fi
 
+    # Ensure pip, ninja, setuptools, wheel, and PyGithub are available in the Python runtime
+    info "Ensuring pip, setuptools, wheel, ninja, and PyGithub are installed in Python runtime..."
+    pip_install pip setuptools wheel ninja PyGithub 2>/dev/null || true
+
     # Execute official install.py if available
     if [[ -f "${THREE_D_PACK_DIR}/install.py" ]]; then
         info "Running official ComfyUI-3D-Pack install.py..."
         resolve_python
-        (cd "${THREE_D_PACK_DIR}" && "${PYTHON_BIN}" install.py) 2>/dev/null || {
+        (cd "${THREE_D_PACK_DIR}" && "${PYTHON_BIN}" install.py) || {
             warn "ComfyUI-3D-Pack install.py finished with warnings; applying verified fallbacks..."
         }
     fi

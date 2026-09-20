@@ -786,6 +786,7 @@ install_python_deps() {
         --index-url https://download.pytorch.org/whl/cpu -q
     fi
 
+    uv pip install --python .venv/bin/python pip setuptools wheel ninja PyGithub -q 2>/dev/null || true
     uv pip install --python .venv/bin/python -r requirements.txt -q
   )
   local rc=$?

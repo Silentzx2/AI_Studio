@@ -510,7 +510,7 @@ log "Node/Bun runtime ready"
 # Setup PostgreSQL and Redis
 info "Ensuring PostgreSQL & Redis are installed..."
 if ! command -v psql &>/dev/null || ! command -v redis-server &>/dev/null; then
-    sudo apt-get update -qq && sudo apt-get install -y postgresql postgresql-contrib redis-server ffmpeg libgl1 >/dev/null 2>&1 || true
+    sudo apt-get update -qq && sudo apt-get install -y postgresql postgresql-contrib redis-server ffmpeg libgl1 ninja-build build-essential >/dev/null 2>&1 || true
 fi
 sudo service postgresql start 2>/dev/null || true
 sudo service redis-server start 2>/dev/null || true
@@ -586,8 +586,12 @@ log "Storage & Engine directories created"
 step "3/6 Setting Up Python Virtual Environment & PyTorch (CUDA 12.4)"
 if [[ ! -d "backend/.venv" || ! -x "$PYTHON_BIN" ]]; then
     info "Creating Python 3.12 virtual environment..."
-    uv venv backend/.venv --python 3.12 2>/dev/null || python3 -m venv backend/.venv
+    uv venv backend/.venv --python 3.12 --seed 2>/dev/null || uv venv backend/.venv --python 3.12 2>/dev/null || python3 -m venv backend/.venv
 fi
+
+# Ensure pip, wheel, setuptools, and ninja build tools are present inside the venv
+info "Ensuring pip, setuptools, wheel, ninja, and PyGithub are available in Python venv..."
+uv pip install --python "$PYTHON_BIN" pip setuptools wheel ninja PyGithub -q 2>/dev/null || true
 
 # Install PyTorch matching GPU / CUDA — always target CUDA 12.4 (cu124) on GPU
 if [[ "$(detect_gpu)" == "gpu" ]]; then
