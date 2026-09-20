@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'motion/react';
+import { MOTION_FAST } from '@/lib/motion';
 import { TopHeader } from '@/features/new-workspace/Header/TopHeader';
 import { LeftNavigation } from '@/features/new-workspace/Navigation/LeftNavigation';
 import {
@@ -15,6 +17,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Cpu,
+  X,
 } from 'lucide-react';
 
 export default function ComfyUIPage() {
@@ -29,6 +32,7 @@ export default function ComfyUIPage() {
   const [isClearingVram, setIsClearingVram] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
 
   // Dynamically resolve ComfyUI URL:
   // On HTTPS, use same-origin reverse proxy (/comfyui-frame) for iframe to prevent Cloudflare X-Frame-Options "Access Denied" blocks.
@@ -131,24 +135,68 @@ export default function ComfyUIPage() {
       {/* Top Application Header */}
       {!isFullscreen && (
         <div className="flex-shrink-0 relative z-50">
-          <TopHeader />
+          <TopHeader
+            onMobileMenuToggle={() => setIsMobileNavOpen(!isMobileNavOpen)}
+            isMobileNavOpen={isMobileNavOpen}
+          />
         </div>
       )}
 
       <div className="flex flex-1 overflow-hidden relative bg-[hsl(var(--surface-1))]">
-        {/* Left Navigation Rail */}
+        {/* Left Navigation Rail (Desktop) */}
         {!isFullscreen && (
           <div className="z-30 h-full flex-shrink-0 relative hidden md:block">
             <LeftNavigation />
           </div>
         )}
 
+        {/* Mobile Navigation Drawer Overlay */}
+        <AnimatePresence>
+          {isMobileNavOpen && !isFullscreen && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={MOTION_FAST}
+                onClick={() => setIsMobileNavOpen(false)}
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+              />
+              {/* Drawer */}
+              <motion.aside
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={MOTION_FAST}
+                className="fixed top-12 left-0 bottom-0 z-50 w-64 bg-[hsl(var(--surface-0))] border-r border-white/[0.08] shadow-2xl flex flex-col md:hidden"
+              >
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08]">
+                  <span className="font-bold text-xs text-white">Navigation</span>
+                  <button
+                    onClick={() => setIsMobileNavOpen(false)}
+                    className="p-1 rounded-md text-zinc-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  <LeftNavigation
+                    isMobileDrawer
+                    onToolSelect={() => setIsMobileNavOpen(false)}
+                  />
+                </div>
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>
+
         {/* Main ComfyUI Studio View */}
         <div ref={containerRef} className="flex-1 flex flex-col h-full overflow-hidden bg-zinc-950 relative">
           {/* Subheader Toolbar */}
-          <div className="h-10 px-4 bg-[hsl(var(--surface-1))]/90 backdrop-blur-md border-b border-white/[0.08] flex items-center justify-between z-20 flex-shrink-0 select-none">
+          <div className="h-10 px-2 sm:px-4 bg-[hsl(var(--surface-1))]/90 backdrop-blur-md border-b border-white/[0.08] flex items-center justify-between z-20 flex-shrink-0 select-none">
             {/* Left Info & Status */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-3">
               <button
                 onClick={() => router.push('/workspace')}
                 className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white px-2 py-1 rounded-md hover:bg-white/[0.06] transition-colors"
@@ -158,15 +206,15 @@ export default function ComfyUIPage() {
                 <span className="hidden sm:inline font-medium">Studio</span>
               </button>
 
-              <div className="h-3.5 w-px bg-white/[0.1]" />
+              <div className="h-3.5 w-px bg-white/[0.1] hidden xs:block" />
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Cpu className="w-3.5 h-3.5 text-primary" />
-                  ComfyUI Engine
+                  <span className="hidden sm:inline">ComfyUI</span> Engine
                 </span>
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                  className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                     isConnected
                       ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                       : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
@@ -175,19 +223,19 @@ export default function ComfyUIPage() {
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}
                   />
-                  {isConnected ? 'Connected' : 'Connecting...'}
+                  <span>{isConnected ? 'Connected' : 'Connecting...'}</span>
                 </span>
               </div>
 
               {actionNotice && (
-                <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded border border-primary/20 animate-in fade-in">
+                <span className="text-[11px] text-primary font-medium bg-primary/10 px-2 py-0.5 rounded border border-primary/20 animate-in fade-in hidden md:inline">
                   {actionNotice}
                 </span>
               )}
             </div>
 
             {/* Right Action Controls */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5">
               <button
                 onClick={handleClearVram}
                 disabled={isClearingVram}

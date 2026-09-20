@@ -72,14 +72,14 @@ export function AdminShell({ activeTab, onTabChange, children }: AdminShellProps
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setMobileOpen(false)}
-            className="fixed inset-0 z-40 bg-[hsl(var(--surface-0))] lg:hidden"
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
           />
         )}
       </AnimatePresence>
 
       <aside
         className={cn(
-          'fixed lg:relative z-50 flex flex-col glass-strong border-r border-[hsl(var(--border))] transition-all duration-300 shrink-0',
+          'fixed lg:relative z-50 top-0 bottom-0 left-0 h-full max-w-[85vw] flex flex-col glass-strong border-r border-[hsl(var(--border))] transition-all duration-300 shrink-0',
           collapsed ? 'w-[68px]' : 'w-[240px]',
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}

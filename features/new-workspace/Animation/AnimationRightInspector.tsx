@@ -288,7 +288,7 @@ export const AnimationRightInspector: React.FC = () => {
   const currentBoneRot = (selectedBone && boneRotations[selectedBone]) || [0, 0, 0];
 
   return (
-    <div className="w-[320px] h-full bg-[hsl(var(--surface-0))] border-l border-white/[0.08] flex flex-col flex-shrink-0 select-none overflow-hidden">
+    <div className="w-full lg:w-[320px] h-full bg-[hsl(var(--surface-0))] lg:border-l border-white/[0.08] flex flex-col flex-shrink-0 select-none overflow-hidden">
       {/* SLEEK INSPECTOR HEADER */}
       <div className="h-10 px-3 bg-[hsl(var(--surface-0))] border-b border-white/[0.08] flex items-center justify-between flex-shrink-0">
         <span className="text-xs font-bold text-white flex items-center gap-1.5">

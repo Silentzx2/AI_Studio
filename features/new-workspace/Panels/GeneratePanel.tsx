@@ -1334,79 +1334,124 @@ export const GeneratePanel: React.FC = () => {
             </div>
 
             {/* Text Prompt & AI Enhance Card */}
-            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-2.5 space-y-2">
+            <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-0))] p-2.5 space-y-2.5">
               <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-300">
                 <span className="flex items-center gap-1.5">
                   <Wand2 className="w-3.5 h-3.5 text-primary" />
-                  <span>Prompt / Description</span>
+                  <span>Prompt / 3D Concept</span>
                 </span>
-                <button
-                  type="button"
-                  onClick={handleEnhancePrompt}
-                  disabled={isEnhancing || !(generationSettings.prompt || generationSettings.imageName)}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 transition-all font-bold text-[9px] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  title="Enhance prompt with 3D quality descriptors (PBR, topology, lighting)"
-                >
-                  {isEnhancing ? (
-                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-2.5 h-2.5" />
+                {/* Smart Action Button Group */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleRollRandomPrompt}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white border border-white/[0.08] transition-all font-semibold text-[9px] cursor-pointer active:scale-95"
+                    title="Roll random 3D prompt inspiration"
+                  >
+                    <Dices className="w-3 h-3 text-primary" />
+                    <span>Inspire</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleEnhancePrompt}
+                    disabled={isEnhancing || !(generationSettings.prompt || generationSettings.imageName)}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 transition-all font-bold text-[9px] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-95"
+                    title="Enhance prompt with 3D quality descriptors (PBR, topology, lighting)"
+                  >
+                    {isEnhancing ? (
+                      <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-2.5 h-2.5" />
+                    )}
+                    <span>{isEnhancing ? 'Enhancing...' : 'AI Enhance'}</span>
+                  </button>
+
+                  {Boolean(generationSettings.prompt?.trim()) && (
+                    <button
+                      type="button"
+                      onClick={() => setGenerationSettings(prev => ({ ...prev, prompt: '', imageName: undefined }))}
+                      className="p-1 rounded-md bg-white/[0.04] hover:bg-rose-500/20 text-zinc-400 hover:text-rose-300 border border-white/[0.08] hover:border-rose-500/30 transition-all text-[9px] cursor-pointer"
+                      title="Clear prompt"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   )}
-                  <span>{isEnhancing ? 'Enhancing...' : 'AI Enhance'}</span>
-                </button>
+                </div>
               </div>
 
-              <textarea
-                value={generationSettings.prompt || ''}
-                onChange={(e) => setGenerationSettings(prev => ({ ...prev, prompt: e.target.value }))}
-                placeholder={
-                  subAction === 'wand'
-                    ? "Describe your 3D model (e.g. Cyberpunk samurai helmet with gold accents, glowing visor)..."
-                    : "Describe or refine model concept (optional for image-to-3d)..."
-                }
-                rows={2}
-                className="w-full bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-lg p-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-primary/50 resize-none font-sans"
-              />
+              <div className="relative">
+                <textarea
+                  value={generationSettings.prompt || ''}
+                  onChange={(e) => setGenerationSettings(prev => ({ ...prev, prompt: e.target.value }))}
+                  placeholder={
+                    subAction === 'wand'
+                      ? "Describe your 3D model (e.g. Cyberpunk samurai helmet with gold accents, glowing visor)..."
+                      : "Describe or refine model concept (optional for image-to-3d)..."
+                  }
+                  rows={2}
+                  className="w-full bg-[hsl(var(--surface-1))] border border-white/[0.08] focus:border-primary/50 rounded-lg p-2 text-xs text-white placeholder-zinc-500 focus:outline-none resize-none font-sans transition-colors"
+                />
+              </div>
+
+              {/* Quick Style Chips */}
+              <div className="space-y-1">
+                <div className="text-[8px] font-bold uppercase tracking-wider text-zinc-500">
+                  Quick Style Descriptors
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {['PBR Game Asset', 'Clean Quad Topology', 'Stylized 3D', 'Photorealistic', 'Cyberpunk', 'Hard Surface'].map((style) => {
+                    const isApplied = (generationSettings.prompt || '').toLowerCase().includes(style.toLowerCase());
+                    return (
+                      <button
+                        key={style}
+                        type="button"
+                        onClick={() => {
+                          setGenerationSettings(prev => {
+                            const base = prev.prompt?.trim() || '';
+                            if (base.toLowerCase().includes(style.toLowerCase())) return prev;
+                            return { ...prev, prompt: base ? `${base}, ${style}` : style };
+                          });
+                        }}
+                        className={`px-2 py-0.5 rounded-md border text-[9px] font-medium transition-all active:scale-95 cursor-pointer ${
+                          isApplied
+                            ? 'bg-primary/20 border-primary/40 text-primary font-bold shadow-xs'
+                            : 'bg-[hsl(var(--surface-2))] hover:bg-white/[0.08] text-zinc-300 hover:text-white border-white/[0.08]'
+                        }`}
+                      >
+                        {isApplied ? `✓ ${style}` : `+ ${style}`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* Collapsible Negative Prompt */}
-              <div className="space-y-1">
-                <button
-                  type="button"
-                  onClick={() => setShowNegativePrompt(!showNegativePrompt)}
-                  className="flex items-center gap-1 text-[9px] font-semibold text-zinc-400 hover:text-zinc-200 cursor-pointer"
-                >
-                  {showNegativePrompt ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                  <span>Negative Prompt (Exclude artifacts)</span>
-                </button>
+              <div className="pt-1 border-t border-white/[0.06]">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setShowNegativePrompt(!showNegativePrompt)}
+                    className="flex items-center gap-1.5 text-[9px] font-semibold text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                  >
+                    {showNegativePrompt ? <ChevronDown className="w-3 h-3 text-primary" /> : <ChevronRight className="w-3 h-3" />}
+                    <span>Negative Prompt (Exclude artifacts)</span>
+                  </button>
+                  {Boolean(generationSettings.negativePrompt?.trim()) && (
+                    <span className="text-[8px] font-mono px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                      Active
+                    </span>
+                  )}
+                </div>
                 {showNegativePrompt && (
                   <input
                     type="text"
                     value={generationSettings.negativePrompt || ''}
                     onChange={(e) => setGenerationSettings(prev => ({ ...prev, negativePrompt: e.target.value }))}
                     placeholder="e.g. blurry, low poly, distorted, holes, non-manifold, floating geometry..."
-                    className="w-full bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-md px-2 py-1 text-[10px] text-white placeholder-zinc-500 focus:outline-none focus:border-primary/50"
+                    className="mt-1.5 w-full bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-md px-2 py-1 text-[10px] text-white placeholder-zinc-500 focus:outline-none focus:border-primary/50"
                   />
                 )}
-              </div>
-
-              {/* Quick Style Chips */}
-              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                {['PBR Game Asset', 'Clean Quad Topology', 'Sci-Fi', 'Stylized', 'Photorealistic', 'Cyberpunk', 'Fantasy'].map((style) => (
-                  <button
-                    key={style}
-                    type="button"
-                    onClick={() => {
-                      setGenerationSettings(prev => {
-                        const base = prev.prompt?.trim() || '';
-                        if (base.toLowerCase().includes(style.toLowerCase())) return prev;
-                        return { ...prev, prompt: base ? `${base}, ${style}` : style };
-                      });
-                    }}
-                    className="px-2 py-0.5 rounded-full bg-[hsl(var(--surface-2))] hover:bg-white/[0.08] text-zinc-300 hover:text-white border border-white/[0.08] hover:border-primary/40 text-[9px] font-medium transition-all active:scale-95 cursor-pointer"
-                  >
-                    + {style}
-                  </button>
-                ))}
               </div>
             </div>
 
@@ -2355,6 +2400,22 @@ export const GeneratePanel: React.FC = () => {
 
       {/* Bottom Sticky Action Footer */}
       <div className="p-2.5 sm:p-3 border-t border-white/[0.1] bg-[hsl(var(--surface-1))]/95 backdrop-blur-md relative z-20 flex-shrink-0 space-y-2">
+        {/* Smart Pre-flight Configuration Summary Bar */}
+        <div className="flex items-center justify-between text-[9px] font-mono text-zinc-400 px-0.5 pb-0.5">
+          <div className="flex items-center gap-1.5 truncate">
+            <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-zinc-300 font-semibold truncate max-w-[120px]">
+              {activeModelObj?.label || activeModelObj?.id || 'Trellis'}
+            </span>
+            <span>•</span>
+            <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold uppercase">
+              {generationSettings.meshQuality || 'high'}
+            </span>
+          </div>
+          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${generationSettings.generateTexture !== false ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' : 'bg-zinc-800 text-zinc-400'}`}>
+            {generationSettings.generateTexture !== false ? 'PBR TEXTURED' : 'GEOMETRY ONLY'}
+          </span>
+        </div>
+
         {/* Bottom Sticky Action Button */}
         <ShimmerButton
           id="btn-generate-model-action"

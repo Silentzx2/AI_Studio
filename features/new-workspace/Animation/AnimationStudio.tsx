@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Save,
@@ -13,7 +13,12 @@ import {
   Layers,
   BookOpen,
   Box,
+  Sliders,
+  FolderOpen,
+  X,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { MOTION_FAST } from '@/lib/motion';
 import { useAnimationStore, AnimationStudioMode } from '@/stores/useAnimationStore';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { AnimationLeftPanel } from './AnimationLeftPanel';
@@ -26,6 +31,7 @@ import { useViewerStore } from '@/stores/useViewerStore';
 export const AnimationStudio: React.FC = () => {
   const { navigateToTool, currentAsset, setIsExportModalOpen } = useWorkspace();
   const viewerStore = useViewerStore();
+  const [mobilePanel, setMobilePanel] = useState<'none' | 'left' | 'right'>('none');
   const {
     activeMode,
     setActiveMode,
@@ -131,14 +137,14 @@ export const AnimationStudio: React.FC = () => {
                 <button
                   key={mode.id}
                   onClick={() => handleModeChange(mode.id as AnimationStudioMode)}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     isActive
                       ? 'bg-primary text-black shadow-sm'
                       : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
                   }`}
                 >
                   {mode.icon}
-                  <span>{mode.label}</span>
+                  <span className="hidden sm:inline">{mode.label}</span>
                 </button>
               );
             })}
@@ -146,7 +152,7 @@ export const AnimationStudio: React.FC = () => {
         </div>
 
         {/* Right: Real Active Model Pill + Save + Share + Export */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Real Model Pill */}
           <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-xl text-xs">
             <Box className="w-3.5 h-3.5 text-primary" />
@@ -176,7 +182,7 @@ export const AnimationStudio: React.FC = () => {
 
           <button
             onClick={() => setIsExportModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-primary hover:bg-[hsl(var(--primary)/0.9)] text-black font-bold text-xs transition-all shadow-[0_2px_12px_rgba(249,207,0,0.25)] active:scale-95 cursor-pointer ml-1"
+            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl bg-primary hover:bg-[hsl(var(--primary)/0.9)] text-black font-bold text-xs transition-all shadow-[0_2px_12px_rgba(249,207,0,0.25)] active:scale-95 cursor-pointer ml-0.5 sm:ml-1"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export</span>
@@ -184,16 +190,93 @@ export const AnimationStudio: React.FC = () => {
         </div>
       </div>
 
-      {/* MAIN 3-COLUMN WORKSPACE BODY */}
+      {/* MAIN WORKSPACE BODY - Responsive 3-Column on desktop, Viewport-centric with drawer sheets on mobile */}
       <div className="flex-1 flex overflow-hidden relative min-h-0">
-        {/* Left Column: Model & Assets + Animation Library */}
-        <AnimationLeftPanel />
+        {/* Left Column: Model & Assets + Animation Library (Desktop) */}
+        <div className="hidden lg:flex h-full flex-shrink-0">
+          <AnimationLeftPanel />
+        </div>
 
         {/* Center Column: 3D Viewport + NLA Timeline */}
-        <AnimationViewportStage />
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+          <AnimationViewportStage />
 
-        {/* Right Column: Tabbed Inspector (Properties, Rigging, Animation) */}
-        <AnimationRightInspector />
+          {/* Mobile Bottom Quick Bar (Tools & Inspector) - only visible when panels are closed */}
+          {mobilePanel === 'none' && (
+            <div className="lg:hidden absolute bottom-3 inset-x-3 z-20 flex items-center justify-between pointer-events-none">
+              <button
+                onClick={() => setMobilePanel('left')}
+                className="pointer-events-auto flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-primary text-black font-black text-xs shadow-xl shadow-black/50 hover:bg-primary/90 transition-all active:scale-95 cursor-pointer border border-primary/40"
+              >
+                <FolderOpen className="w-4 h-4 stroke-[2.2]" />
+                <span>Library</span>
+              </button>
+
+              <button
+                onClick={() => setMobilePanel('right')}
+                className="pointer-events-auto flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[hsl(var(--surface-1))]/95 backdrop-blur-md border border-white/[0.15] text-zinc-200 hover:text-white font-bold text-xs shadow-xl shadow-black/50 transition-all active:scale-95 cursor-pointer"
+              >
+                <Sliders className="w-4 h-4 stroke-[2.2] text-primary" />
+                <span>Inspector</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Tabbed Inspector (Desktop) */}
+        <div className="hidden lg:flex h-full flex-shrink-0">
+          <AnimationRightInspector />
+        </div>
+
+        {/* Mobile Slide-over Sheet: Left Animation Library & Assets */}
+        <AnimatePresence>
+          {mobilePanel === 'left' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={MOTION_FAST}
+              className="lg:hidden absolute inset-x-2 top-2 bottom-2 z-30 bg-[hsl(var(--surface-0))] rounded-2xl border border-white/[0.1] shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="flex items-center justify-between px-3.5 py-2 border-b border-white/[0.08] bg-[hsl(var(--surface-1))] flex-shrink-0">
+                <span className="font-bold text-xs text-white">Animation Library &amp; Assets</span>
+                <button
+                  onClick={() => setMobilePanel('none')}
+                  className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <AnimationLeftPanel />
+              </div>
+            </motion.div>
+          )}
+
+          {/* Mobile Slide-over Sheet: Right Inspector & Rigging */}
+          {mobilePanel === 'right' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={MOTION_FAST}
+              className="lg:hidden absolute inset-x-2 top-2 bottom-2 z-30 bg-[hsl(var(--surface-0))] rounded-2xl border border-white/[0.1] shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="flex items-center justify-between px-3.5 py-2 border-b border-white/[0.08] bg-[hsl(var(--surface-1))] flex-shrink-0">
+                <span className="font-bold text-xs text-white">Inspector &amp; Rigging</span>
+                <button
+                  onClick={() => setMobilePanel('none')}
+                  className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <AnimationRightInspector />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

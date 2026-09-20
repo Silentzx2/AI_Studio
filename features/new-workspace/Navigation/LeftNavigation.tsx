@@ -5,18 +5,15 @@ import {
   Scissors,
   CircleDashed,
   Layers,
-  Settings,
-  Pencil,
   Film,
   FolderOpen,
-  Activity,
   Cpu,
 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { ToolType } from '../types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
-import { motion } from 'motion/react';
+import { motion, LayoutGroup } from 'motion/react';
 
 interface LeftNavigationProps {
   /** When true, renders as a wide drawer with full labels instead of icon rail */
@@ -25,13 +22,28 @@ interface LeftNavigationProps {
   onToolSelect?: () => void;
 }
 
+interface NavItemConfig {
+  id: string;
+  label: string;
+  tooltip: string;
+  shortcut: string;
+  icon: React.ComponentType<{ className?: string }>;
+  active: boolean;
+  onClick: () => void;
+  isExecuting?: boolean;
+  badge?: string;
+}
+
 export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer = false, onToolSelect }) => {
   const router = useRouter();
+  const pathname = usePathname();
   const {
     activeTool,
     mainNav,
     navigateToTool,
     navigateToMainNav,
+    isExecuting,
+    activeTask,
   } = useWorkspace();
 
   const handleToolClick = (tool: ToolType) => {
@@ -44,363 +56,294 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
     onToolSelect?.();
   };
 
-  const pathname = usePathname();
   const isActive = (tool: ToolType) => mainNav === 'workspace' && activeTool === tool;
   const isOverviewActive = mainNav === 'dashboard';
   const isAssetsActive = mainNav === 'assets';
-  const isSystemActive = mainNav === 'system';
   const isComfyActive = pathname === '/comfyui';
 
-  // Mobile drawer: wide list with full labels
+  // Check if a specific tool is running a background generation
+  const isModelExecuting = isExecuting && (activeTask?.type === 'image-to-3d' || activeTask?.type === 'text-to-3d' || !activeTask?.type);
+  const isRemeshExecuting = isExecuting && activeTask?.type === 'remesh';
+  const isTextureExecuting = isExecuting && activeTask?.type === 'texture';
+  const isAnimationExecuting = isExecuting && activeTask?.type === 'animation';
+
+  // Primary 3D creation tools
+  const creationTools: NavItemConfig[] = [
+    {
+      id: 'tool-btn-model',
+      label: 'Model',
+      tooltip: '3D Model Generation (Image & Text to 3D) • G',
+      shortcut: 'G',
+      icon: Box,
+      active: isActive('model'),
+      onClick: () => handleToolClick('model'),
+      isExecuting: isModelExecuting,
+    },
+    {
+      id: 'tool-btn-remesh',
+      label: 'Poly',
+      tooltip: 'Retopology & Quad Remesh • R',
+      shortcut: 'R',
+      icon: CircleDashed,
+      active: isActive('remesh'),
+      onClick: () => handleToolClick('remesh'),
+      isExecuting: isRemeshExecuting,
+    },
+    {
+      id: 'tool-btn-texture',
+      label: 'Texture',
+      tooltip: 'PBR Texture Maps Generation • T',
+      shortcut: 'T',
+      icon: Layers,
+      active: isActive('texture'),
+      onClick: () => handleToolClick('texture'),
+      isExecuting: isTextureExecuting,
+    },
+    {
+      id: 'tool-btn-animation',
+      label: 'Animate',
+      tooltip: 'Animation & Rigging Studio • A',
+      shortcut: 'A',
+      icon: Film,
+      active: isActive('animation'),
+      onClick: () => handleToolClick('animation'),
+      isExecuting: isAnimationExecuting,
+    },
+    {
+      id: 'tool-btn-segment',
+      label: 'Segment',
+      tooltip: 'Mesh Segmentation & Part Splitting • S',
+      shortcut: 'S',
+      icon: Scissors,
+      active: isActive('segment'),
+      onClick: () => handleToolClick('segment'),
+    },
+  ];
+
+  // Workspace & project hub views
+  const workspaceViews: NavItemConfig[] = [
+    {
+      id: 'tool-btn-overview',
+      label: 'Overview',
+      tooltip: 'Studio Overview & Hub • ⌘1',
+      shortcut: '⌘1',
+      icon: LayoutDashboard,
+      active: isOverviewActive,
+      onClick: () => handleMainNavClick('dashboard'),
+    },
+    {
+      id: 'tool-btn-assets',
+      label: 'Assets',
+      tooltip: 'Outputs & Asset History • ⌘2',
+      shortcut: '⌘2',
+      icon: FolderOpen,
+      active: isAssetsActive,
+      onClick: () => handleMainNavClick('assets'),
+    },
+    {
+      id: 'tool-btn-comfyui',
+      label: 'ComfyUI',
+      tooltip: 'ComfyUI Node Graph Studio • ⌘4',
+      shortcut: '⌘4',
+      icon: Cpu,
+      active: isComfyActive,
+      onClick: () => {
+        router.push('/comfyui');
+        onToolSelect?.();
+      },
+    },
+  ];
+
+  /** Render individual desktop nav button with clean SaaS aesthetic and smooth Framer Motion layout sliding */
+  const renderDesktopNavButton = (item: NavItemConfig) => {
+    const Icon = item.icon;
+    return (
+      <SimpleTooltip key={item.id} side="right" label={item.tooltip} className="w-full flex justify-center">
+        <motion.button
+          layout
+          id={item.id}
+          onClick={item.onClick}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.96 }}
+          transition={{
+            layout: { type: 'spring', stiffness: 440, damping: 32 },
+            scale: { duration: 0.1 },
+          }}
+          className={`group relative w-[52px] h-[46px] flex flex-col items-center justify-center rounded-xl cursor-pointer flex-shrink-0 select-none transition-colors duration-150 ${
+            item.active
+              ? 'text-white'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
+          }`}
+        >
+          {/* Framer Motion Background Indicator smoothly slides between active items */}
+          {item.active && (
+            <motion.div
+              layoutId="saasNavActivePill"
+              className="absolute inset-0 rounded-xl bg-white/[0.08] border border-white/[0.12] -z-0"
+              transition={{
+                type: 'spring',
+                stiffness: 440,
+                damping: 32,
+              }}
+            />
+          )}
+
+          {/* Live execution pulse indicator */}
+          {item.isExecuting && (
+            <span className="absolute top-1.5 right-1.5 flex h-2 w-2 z-10" title="Engine actively executing">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+            </span>
+          )}
+
+          <Icon
+            className={`w-4 h-4 mb-1 flex-shrink-0 transition-colors duration-150 ${
+              item.active
+                ? 'text-primary'
+                : 'text-zinc-400 group-hover:text-zinc-200'
+            }`}
+          />
+          <span
+            className={`text-[9px] font-medium leading-none text-center tracking-tight truncate w-full transition-colors duration-150 ${
+              item.active ? 'text-white font-semibold' : 'text-zinc-400 group-hover:text-zinc-200'
+            }`}
+          >
+            {item.label}
+          </span>
+        </motion.button>
+      </SimpleTooltip>
+    );
+  };
+
+  // Mobile drawer: wide categorized list with full labels
   if (isMobileDrawer) {
     return (
       <nav
         id="left-tool-rail-mobile"
         aria-label="3D Studio Toolset"
-        className="h-full bg-[hsl(var(--surface-0))] flex flex-col select-none overflow-y-auto"
+        className="h-full bg-[hsl(var(--surface-0))] flex flex-col select-none overflow-y-auto p-4"
       >
-        <div className="flex-1 w-full py-2 px-2 space-y-1">
-          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-            Studio Views
+        <div className="flex-1 w-full flex flex-col gap-4">
+          {/* Section: 3D Creation Tools */}
+          <div className="space-y-1">
+            <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+              3D Creation Tools
+            </div>
+            <div className="grid grid-cols-1 gap-1">
+              {creationTools.map((item) => (
+                <MobileNavItem
+                  key={item.id}
+                  id={item.id}
+                  icon={<item.icon className="w-4 h-4" />}
+                  label={item.label}
+                  shortcut={item.shortcut}
+                  active={item.active}
+                  isExecuting={item.isExecuting}
+                  onClick={item.onClick}
+                />
+              ))}
+            </div>
           </div>
-          <MobileNavItem
-            id="tool-btn-overview"
-            icon={<LayoutDashboard className="w-4 h-4" />}
-            label="Studio Overview"
-            active={isOverviewActive}
-            onClick={() => handleMainNavClick('dashboard')}
-          />
-          <MobileNavItem
-            id="tool-btn-assets"
-            icon={<FolderOpen className="w-4 h-4" />}
-            label="Assets & Outputs"
-            active={isAssetsActive}
-            onClick={() => handleMainNavClick('assets')}
-          />
-          <MobileNavItem
-            id="tool-btn-system"
-            icon={<Activity className="w-4 h-4" />}
-            label="System & Telemetry"
-            active={isSystemActive}
-            onClick={() => handleMainNavClick('system')}
-          />
-          <MobileNavItem
-            id="tool-btn-comfyui"
-            icon={<Cpu className="w-4 h-4" />}
-            label="ComfyUI Engine"
-            active={isComfyActive}
-            onClick={() => { router.push('/comfyui'); onToolSelect?.(); }}
-          />
-          <div className="h-px bg-white/[0.08] my-2" />
-          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-            3D Generation Tools
+
+          <div className="h-px bg-white/[0.08] mx-2" />
+
+          {/* Section: Workspace Views */}
+          <div className="space-y-1">
+            <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+              Workspaces & Hub
+            </div>
+            <div className="grid grid-cols-1 gap-1">
+              {workspaceViews.map((item) => (
+                <MobileNavItem
+                  key={item.id}
+                  id={item.id}
+                  icon={<item.icon className="w-4 h-4" />}
+                  label={item.label}
+                  shortcut={item.shortcut}
+                  active={item.active}
+                  onClick={item.onClick}
+                />
+              ))}
+            </div>
           </div>
-          <MobileNavItem
-            id="tool-btn-model"
-            icon={<Box className="w-4 h-4" />}
-            label="3D Model Generation"
-            active={isActive('model')}
-            onClick={() => handleToolClick('model')}
-          />
-          <MobileNavItem
-            id="tool-btn-remesh"
-            icon={<CircleDashed className="w-4 h-4" />}
-            label="Quad Remesh (Poly)"
-            active={isActive('remesh')}
-            onClick={() => handleToolClick('remesh')}
-          />
-          <MobileNavItem
-            id="tool-btn-texture"
-            icon={<Layers className="w-4 h-4" />}
-            label="PBR Texture Maps"
-            active={isActive('texture')}
-            onClick={() => handleToolClick('texture')}
-          />
-          <MobileNavItem
-            id="tool-btn-animation"
-            icon={<Film className="w-4 h-4" />}
-            label="Animation & Rigging"
-            active={isActive('animation')}
-            onClick={() => handleToolClick('animation')}
-          />
-          <MobileNavItem
-            id="tool-btn-segment"
-            icon={<Scissors className="w-4 h-4" />}
-            label="Mesh Segmentation"
-            active={isActive('segment')}
-            onClick={() => handleToolClick('segment')}
-          />
-        </div>
-        <div className="px-2 py-2 border-t border-white/[0.08]">
-          <MobileNavItem
-            id="tool-btn-settings"
-            icon={<Settings className="w-4 h-4" />}
-            label="Admin & Settings"
-            active={false}
-            onClick={() => { router.push('/admin?tab=settings'); onToolSelect?.(); }}
-          />
         </div>
       </nav>
     );
   }
 
-  // Desktop: unified icon rail with tool groups
+  // Desktop: unified, clean SaaS icon rail
   return (
-    <nav
-      id="left-tool-rail"
-      aria-label="3D Studio Toolset"
-      className="w-[72px] h-full bg-[hsl(var(--surface-0))] border-r border-white/[0.08] flex flex-col items-center justify-between z-20 select-none flex-shrink-0"
-    >
-      {/* Tool Stack (AI 3D Studio Toolset) */}
-      <div className="flex-1 w-full flex flex-col items-center gap-1.5 px-1.5 py-2 overflow-y-auto overflow-x-hidden scrollbar-none">
-        {/* Studio Overview */}
-        <SimpleTooltip side="right" label="Studio Overview (Dashboard & Hardware)">
-          <button
-            id="tool-btn-overview"
-            onClick={() => navigateToMainNav('dashboard')}
-            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
-              isOverviewActive
-                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
-            }`}
-          >
-            {isOverviewActive && (
-              <motion.div
-                layoutId="leftNavIndicator"
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
-              />
-            )}
-            <LayoutDashboard className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isOverviewActive ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
-            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isOverviewActive ? 'text-white font-bold' : 'font-medium'}`}>Overview</span>
-          </button>
-        </SimpleTooltip>
+    <LayoutGroup id="workspace-left-navigation">
+      <motion.nav
+        layout
+        id="left-tool-rail"
+        aria-label="3D Studio Toolset"
+        transition={{
+          layout: { type: 'spring', stiffness: 400, damping: 32 },
+        }}
+        className="relative w-[64px] h-full bg-[hsl(var(--surface-0))] border-r border-white/[0.08] flex flex-col items-center py-3.5 z-20 select-none flex-shrink-0"
+      >
+        {/* Primary Tool Stack */}
+        <div className="flex-1 w-full flex flex-col items-center gap-1 overflow-y-auto overflow-x-hidden scrollbar-none px-1">
+          {/* 3D Creation Tools */}
+          <div className="w-full flex flex-col items-center gap-1">
+            {creationTools.map(renderDesktopNavButton)}
+          </div>
 
-        {/* Assets & Outputs */}
-        <SimpleTooltip side="right" label="Outputs & Asset History">
-          <button
-            id="tool-btn-assets"
-            onClick={() => navigateToMainNav('assets')}
-            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
-              isAssetsActive
-                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
-            }`}
-          >
-            {isAssetsActive && (
-              <motion.div
-                layoutId="leftNavIndicator"
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
-              />
-            )}
-            <FolderOpen className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isAssetsActive ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
-            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isAssetsActive ? 'text-white font-bold' : 'font-medium'}`}>Assets</span>
-          </button>
-        </SimpleTooltip>
+          {/* Clean SaaS Hairline Separator */}
+          <div className="w-7 h-px bg-white/[0.08] my-1.5 flex-shrink-0" role="separator" />
 
-        {/* System & Telemetry */}
-        <SimpleTooltip side="right" label="System Telemetry & VRAM">
-          <button
-            id="tool-btn-system"
-            onClick={() => navigateToMainNav('system')}
-            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
-              isSystemActive
-                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
-            }`}
-          >
-            {isSystemActive && (
-              <motion.div
-                layoutId="leftNavIndicator"
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
-              />
-            )}
-            <Activity className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isSystemActive ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
-            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isSystemActive ? 'text-white font-bold' : 'font-medium'}`}>System</span>
-          </button>
-        </SimpleTooltip>
-
-        {/* ComfyUI Studio */}
-        <SimpleTooltip side="right" label="ComfyUI Node Graph Studio">
-          <button
-            id="tool-btn-comfyui"
-            onClick={() => router.push('/comfyui')}
-            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
-              isComfyActive
-                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
-            }`}
-          >
-            {isComfyActive && (
-              <motion.div
-                layoutId="leftNavIndicator"
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
-              />
-            )}
-            <Cpu className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isComfyActive ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
-            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isComfyActive ? 'text-white font-bold' : 'font-medium'}`}>ComfyUI</span>
-          </button>
-        </SimpleTooltip>
-
-        <div className="w-8 h-px bg-white/[0.08] my-1 flex-shrink-0" />
-
-        {/* 1. 3D Model Generation */}
-        <SimpleTooltip side="right" label="3D Model Generation (Image & Text to 3D)">
-          <button
-            id="tool-btn-model"
-            onClick={() => handleToolClick('model')}
-            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
-              isActive('model')
-                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
-            }`}
-          >
-            {isActive('model') && (
-              <motion.div
-                layoutId="leftNavIndicator"
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
-              />
-            )}
-            <Box className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isActive('model') ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
-            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isActive('model') ? 'text-white font-bold' : 'font-medium'}`}>Model</span>
-          </button>
-        </SimpleTooltip>
-
-        {/* 2. Quad Remesh (Poly) */}
-        <SimpleTooltip side="right" label="Retopology / Quad Remesh (Poly)">
-          <button
-            id="tool-btn-remesh"
-            onClick={() => handleToolClick('remesh')}
-            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
-              isActive('remesh')
-                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
-            }`}
-          >
-            {isActive('remesh') && (
-              <motion.div
-                layoutId="leftNavIndicator"
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
-              />
-            )}
-            <CircleDashed className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isActive('remesh') ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
-            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isActive('remesh') ? 'text-white font-bold' : 'font-medium'}`}>Poly</span>
-          </button>
-        </SimpleTooltip>
-
-        {/* 3. Texture / PBR Maps */}
-        <SimpleTooltip side="right" label="PBR Texture Maps Generation">
-          <button
-            id="tool-btn-texture"
-            onClick={() => handleToolClick('texture')}
-            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
-              isActive('texture')
-                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
-            }`}
-          >
-            {isActive('texture') && (
-              <motion.div
-                layoutId="leftNavIndicator"
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
-              />
-            )}
-            <Layers className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isActive('texture') ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
-            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isActive('texture') ? 'text-white font-bold' : 'font-medium'}`}>Texture</span>
-          </button>
-        </SimpleTooltip>
-
-        {/* 4. Animation & Rigging Studio */}
-        <SimpleTooltip side="right" label="Animation & Rigging Studio (Motion AI / ARDY)">
-          <button
-            id="tool-btn-animation"
-            onClick={() => handleToolClick('animation')}
-            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
-              isActive('animation')
-                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
-            }`}
-          >
-            {isActive('animation') && (
-              <motion.div
-                layoutId="leftNavIndicator"
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
-              />
-            )}
-            <Film className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isActive('animation') ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
-            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isActive('animation') ? 'text-white font-bold' : 'font-medium'}`}>Animate</span>
-          </button>
-        </SimpleTooltip>
-
-        {/* 5. Segment */}
-        <SimpleTooltip side="right" label="Mesh Segmentation / Part Separation">
-          <button
-            id="tool-btn-segment"
-            onClick={() => handleToolClick('segment')}
-            className={`group relative w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl transition-all duration-150 cursor-pointer flex-shrink-0 active:scale-95 ${
-              isActive('segment')
-                ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white shadow-[0_2px_12px_hsl(var(--primary)/0.12)]'
-                : 'border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-[hsl(var(--surface-1))]'
-            }`}
-          >
-            {isActive('segment') && (
-              <motion.div
-                layoutId="leftNavIndicator"
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]"
-              />
-            )}
-            <Scissors className={`w-4 h-4 mb-1 flex-shrink-0 transition-transform ${isActive('segment') ? 'text-primary scale-110' : 'group-hover:scale-105'}`} />
-            <span className={`text-[9px] leading-tight text-center tracking-tight truncate w-full ${isActive('segment') ? 'text-white font-bold' : 'font-medium'}`}>Segment</span>
-          </button>
-        </SimpleTooltip>
-      </div>
-
-      {/* Bottom Settings */}
-      <div className="flex flex-col items-center w-full px-1.5 py-2 border-t border-white/[0.08] flex-shrink-0">
-        <SimpleTooltip side="right" label="Admin & Settings">
-          <button
-            id="tool-btn-settings"
-            onClick={() => router.push('/admin?tab=settings')}
-            className="group w-full h-[52px] py-1 px-1 flex flex-col items-center justify-center rounded-xl text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-1))] transition-all duration-150 active:scale-95 cursor-pointer flex-shrink-0"
-          >
-            <Settings className="w-4 h-4 mb-1 flex-shrink-0 transition-transform group-hover:rotate-45" />
-            <span className="text-[9px] font-medium leading-tight text-center tracking-tight truncate w-full">Settings</span>
-          </button>
-        </SimpleTooltip>
-      </div>
-    </nav>
+          {/* Workspace Views */}
+          <div className="w-full flex flex-col items-center gap-1">
+            {workspaceViews.map(renderDesktopNavButton)}
+          </div>
+        </div>
+      </motion.nav>
+    </LayoutGroup>
   );
 };
 
-/** Internal component for mobile drawer nav items */
+/** Internal component for mobile drawer nav items with smooth animated feedback */
 const MobileNavItem: React.FC<{
   id: string;
   icon: React.ReactNode;
   label: string;
+  shortcut?: string;
   active: boolean;
+  isExecuting?: boolean;
   onClick: () => void;
-}> = ({ id, icon, label, active, onClick }) => (
+}> = ({ id, icon, label, shortcut, active, isExecuting, onClick }) => (
   <button
     id={id}
     onClick={onClick}
-    className={`w-full relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all active:scale-98 cursor-pointer ${
+    className={`w-full relative flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all duration-150 active:scale-[0.98] cursor-pointer ${
       active
-        ? 'bg-[hsl(var(--surface-2))] border border-primary/40 text-white font-bold shadow-sm'
-        : 'text-zinc-300 hover:text-white hover:bg-[hsl(var(--surface-1))] border border-transparent'
+        ? 'bg-gradient-to-r from-primary/15 via-primary/10 to-transparent border border-primary/40 text-white font-bold shadow-sm'
+        : 'text-zinc-300 hover:text-white hover:bg-white/[0.04] border border-transparent'
     }`}
   >
     {active && (
       <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.8)]" />
     )}
-    <span className={`flex-shrink-0 ${active ? 'text-primary' : 'text-zinc-400'}`}>{icon}</span>
-    <span className="text-xs font-semibold truncate">{label}</span>
+    <div className="flex items-center gap-3 min-w-0">
+      <span className={`flex-shrink-0 transition-transform ${active ? 'text-primary scale-110' : 'text-zinc-400'}`}>
+        {icon}
+      </span>
+      <span className="text-xs font-semibold truncate">{label}</span>
+    </div>
+
+    <div className="flex items-center gap-2 flex-shrink-0">
+      {isExecuting && (
+        <span className="flex h-2 w-2 relative">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+        </span>
+      )}
+      {shortcut && (
+        <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.08] text-[9px] font-mono text-zinc-400">
+          {shortcut}
+        </kbd>
+      )}
+    </div>
   </button>
 );

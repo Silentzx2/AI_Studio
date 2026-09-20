@@ -25,7 +25,7 @@ export const RightWorkspacePanel: React.FC = () => {
 
   const isRunning = isExecuting || activeTask?.status === 'running' || activeTask?.status === 'queued';
 
-  // Context-aware auto-switching per Rule #3 & #6:
+  // Context-aware auto-switching:
   // When generation starts running -> switch to live execution
   useEffect(() => {
     if (isRunning) {
@@ -35,7 +35,7 @@ export const RightWorkspacePanel: React.FC = () => {
     }
   }, [isRunning, rightPanelMode, setRightPanelMode]);
 
-  // When task completes -> switch to properties inspector so user can immediately view & export
+  // When task completes -> switch to properties inspector so user can immediately inspect geometry & export
   useEffect(() => {
     if (activeTask?.status === 'completed') {
       setRightPanelMode('properties');
@@ -43,14 +43,14 @@ export const RightWorkspacePanel: React.FC = () => {
   }, [activeTask?.status, setRightPanelMode]);
 
   const currentActiveTab =
-    rightPanelMode === 'prompt' && isRunning
+    rightPanelMode === 'prompt'
       ? 'prompt'
       : rightPanelMode === 'assets'
       ? 'assets'
       : 'properties';
 
   return (
-    <div className="flex flex-col h-full w-full bg-[hsl(var(--surface-1))] text-xs select-none overflow-hidden">
+    <div id="right-workspace-panel" className="flex flex-col h-full w-full bg-[hsl(var(--surface-1))] text-xs select-none overflow-hidden">
       {/* Top Segmented Header (Clean Technical Inspector Navigation) */}
       <div className="h-10 px-2.5 flex items-center justify-between border-b border-white/[0.08] bg-[hsl(var(--surface-1))] flex-shrink-0">
         <div className="flex-1 min-w-0 mr-2">
@@ -60,8 +60,13 @@ export const RightWorkspacePanel: React.FC = () => {
             activeTab={currentActiveTab}
             onChange={(tab) => setRightPanelMode(tab as any)}
             tabs={[
-              ...(isRunning ? [{ id: 'prompt', label: 'Executing', icon: Activity }] : []),
               { id: 'properties', label: 'Properties', icon: Sliders },
+              {
+                id: 'prompt',
+                label: isRunning ? 'Executing' : 'Console',
+                icon: Activity,
+                badge: isRunning ? '●' : undefined,
+              },
               { id: 'assets', label: 'Assets', icon: FolderOpen },
             ]}
             activeIndicatorClassName="bg-[hsl(var(--surface-2))] border-white/[0.1]"
@@ -73,6 +78,7 @@ export const RightWorkspacePanel: React.FC = () => {
         <SimpleTooltip label="Collapse panel (maximize 3D viewer)" side="left">
           <button
             type="button"
+            id="btn-collapse-right-panel"
             onClick={() => setIsRightPanelOpen(false)}
             className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-2))] transition-colors cursor-pointer flex-shrink-0"
           >

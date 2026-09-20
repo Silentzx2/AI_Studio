@@ -2845,7 +2845,7 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
           {/* Unified Minimalist Viewport Transport & Shading HUD Capsule */}
           {!isExecuting && !debugBlueprint && (
-            <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 sm:gap-2 max-w-[calc(100vw-1.5rem)] flex-wrap justify-center pointer-events-auto">
+            <div className="absolute bottom-14 md:bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 sm:gap-2 max-w-[calc(100vw-1.5rem)] flex-wrap justify-center pointer-events-auto">
               {/* Camera Presets Dropdown */}
               <div className="relative" ref={cameraMenuRef}>
                 <button

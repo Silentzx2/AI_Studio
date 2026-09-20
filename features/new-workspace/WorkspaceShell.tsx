@@ -62,10 +62,80 @@ export const WorkspaceShell: React.FC = () => {
     rightPanelMode, setRightPanelMode,
     isLeftPanelOpen, isRightPanelOpen,
     setIsLeftPanelOpen, setIsRightPanelOpen,
+    navigateToTool, navigateToMainNav,
   } = useWorkspace();
 
   // Mobile menu state: left navigation drawer
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  // Global Workspace Navigation Keyboard Shortcuts (⌘1, ⌘2, ⌘3, ⌘4, G, R, T, A, S, ⌘,)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Avoid intercepting keystrokes in inputs, textareas, or content-editable elements
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable ||
+          target.tagName === 'SELECT')
+      ) {
+        return;
+      }
+
+      const isMac = typeof navigator !== 'undefined' && navigator.platform?.toUpperCase().includes('MAC');
+      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+
+      if (cmdOrCtrl) {
+        if (e.key === '1') {
+          e.preventDefault();
+          navigateToMainNav('dashboard');
+        } else if (e.key === '2') {
+          e.preventDefault();
+          navigateToMainNav('assets');
+        } else if (e.key === '3') {
+          e.preventDefault();
+          navigateToMainNav('system');
+        } else if (e.key === '4') {
+          e.preventDefault();
+          router.push('/comfyui');
+        } else if (e.key === ',') {
+          e.preventDefault();
+          router.push('/admin?tab=settings');
+        }
+        return;
+      }
+
+      // Single-letter tool hotkeys (no modifiers)
+      if (!e.altKey && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        const key = e.key.toLowerCase();
+        if (key === 'g') {
+          e.preventDefault();
+          navigateToTool('model');
+          setIsLeftPanelOpen(true);
+        } else if (key === 'r') {
+          e.preventDefault();
+          navigateToTool('remesh');
+          setIsLeftPanelOpen(true);
+        } else if (key === 't') {
+          e.preventDefault();
+          navigateToTool('texture');
+          setIsLeftPanelOpen(true);
+        } else if (key === 'a') {
+          e.preventDefault();
+          navigateToTool('animation');
+          setIsLeftPanelOpen(true);
+        } else if (key === 's') {
+          e.preventDefault();
+          navigateToTool('segment');
+          setIsLeftPanelOpen(true);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigateToMainNav, navigateToTool, router, setIsLeftPanelOpen]);
 
   useEffect(() => {
     const rawPath = pathname?.toLowerCase() ?? '';
@@ -143,6 +213,19 @@ export const WorkspaceShell: React.FC = () => {
     }
     setIsRightPanelOpen(open);
   }, [setIsLeftPanelOpen, setIsRightPanelOpen]);
+
+  // Ensure mutual exclusion on mobile resize as well
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        if (isLeftPanelOpen && isRightPanelOpen) {
+          setIsRightPanelOpen(false);
+        }
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isLeftPanelOpen, isRightPanelOpen, setIsRightPanelOpen]);
 
   // Redirect / to /workspace/overview
   useEffect(() => {
@@ -292,17 +375,6 @@ export const WorkspaceShell: React.FC = () => {
             </div>
           )}
 
-          {/* Mobile: floating action button to open tool panel */}
-          {mainNav === 'workspace' && !isLeftPanelOpen && (
-            <button
-              onClick={() => toggleLeftPanel(true)}
-              className="md:hidden absolute left-3 bottom-3 z-20 w-11 h-11 rounded-full bg-primary text-primary-foreground shadow-xl flex items-center justify-center hover:bg-primary/90 transition-transform active:scale-95 cursor-pointer"
-              aria-label="Open tool panel"
-            >
-              <Sliders className="w-4 h-4 stroke-[2.2]" />
-            </button>
-          )}
-
           {/* Floating Context-Aware Control & Property Panel (Right) - Responsive width & mobile sheet */}
           <AnimatePresence initial={false}>
             {mainNav === 'workspace' && isRightPanelOpen && (
@@ -343,15 +415,27 @@ export const WorkspaceShell: React.FC = () => {
             </div>
           )}
 
-          {/* Mobile: floating action button to open asset panel */}
-          {mainNav === 'workspace' && !isRightPanelOpen && (
-            <button
-              onClick={() => toggleRightPanel(true)}
-              className="md:hidden absolute right-3 bottom-3 z-20 w-11 h-11 rounded-full bg-[hsl(var(--surface-1))] border border-white/[0.12] shadow-xl flex items-center justify-center text-zinc-300 hover:text-primary transition-transform active:scale-95 cursor-pointer"
-              aria-label="Open asset panel"
-            >
-              <FolderOpen className="w-4 h-4 stroke-[2.2]" />
-            </button>
+          {/* Mobile: unified bottom quick dock - only shown when both panels are closed to prevent any UI overlapping */}
+          {mainNav === 'workspace' && !isLeftPanelOpen && !isRightPanelOpen && (
+            <div className="md:hidden absolute bottom-2.5 inset-x-3 z-20 flex items-center justify-between pointer-events-none">
+              <button
+                onClick={() => toggleLeftPanel(true)}
+                className="pointer-events-auto flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-primary text-black font-black text-xs shadow-xl shadow-black/50 hover:bg-primary/90 transition-all active:scale-95 cursor-pointer border border-primary/40"
+                aria-label="Open tool panel"
+              >
+                <Sliders className="w-4 h-4 stroke-[2.5]" />
+                <span>Tools</span>
+              </button>
+
+              <button
+                onClick={() => toggleRightPanel(true)}
+                className="pointer-events-auto flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[hsl(var(--surface-1))]/95 backdrop-blur-md border border-white/[0.15] text-zinc-200 hover:text-white font-bold text-xs shadow-xl shadow-black/50 transition-all active:scale-95 cursor-pointer"
+                aria-label="Open inspector and assets"
+              >
+                <FolderOpen className="w-4 h-4 stroke-[2.2] text-primary" />
+                <span>Inspector</span>
+              </button>
+            </div>
           )}
             </>
           )}
@@ -366,7 +450,7 @@ export const WorkspaceShell: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={MOTION_FAST}
-              className="absolute inset-0 left-0 md:left-[72px] z-[15] bg-[hsl(var(--surface-0))] overflow-auto flex flex-col"
+              className="absolute inset-0 left-0 md:left-[64px] z-[15] bg-[hsl(var(--surface-0))] overflow-auto flex flex-col"
             >
               <StudioDashboard />
             </motion.div>
@@ -378,7 +462,7 @@ export const WorkspaceShell: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={MOTION_FAST}
-              className="absolute inset-0 left-0 md:left-[72px] z-[15] bg-[hsl(var(--surface-0))] overflow-auto flex flex-col"
+              className="absolute inset-0 left-0 md:left-[64px] z-[15] bg-[hsl(var(--surface-0))] overflow-auto flex flex-col"
             >
               <OutputsPage />
             </motion.div>
@@ -390,7 +474,7 @@ export const WorkspaceShell: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={MOTION_FAST}
-              className="absolute inset-0 left-0 md:left-[72px] z-[15] bg-[hsl(var(--surface-0))] overflow-auto flex flex-col"
+              className="absolute inset-0 left-0 md:left-[64px] z-[15] bg-[hsl(var(--surface-0))] overflow-auto flex flex-col"
             >
               <SystemPage />
             </motion.div>

@@ -193,7 +193,7 @@ export const AnimationLeftPanel: React.FC = () => {
   };
 
   return (
-    <div className="w-[300px] h-full bg-[hsl(var(--surface-0))] border-r border-white/[0.08] flex flex-col flex-shrink-0 select-none overflow-hidden">
+    <div className="w-full lg:w-[300px] h-full bg-[hsl(var(--surface-0))] lg:border-r border-white/[0.08] flex flex-col flex-shrink-0 select-none overflow-hidden">
       {/* Hidden File Input for Replace / Import */}
       <input
         ref={fileInputRef}
