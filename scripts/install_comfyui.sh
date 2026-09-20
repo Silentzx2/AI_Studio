@@ -71,9 +71,9 @@ resolve_python() {
 pip_install() {
     resolve_python
     if command -v uv &>/dev/null; then
-        uv pip install --python "${PYTHON_BIN}" "$@" -q
+        uv pip install --python "${PYTHON_BIN}" "$@"
     else
-        "${PYTHON_BIN}" -m pip install -q "$@"
+        "${PYTHON_BIN}" -m pip install "$@"
     fi
 }
 
@@ -299,7 +299,7 @@ install_3d_pack() {
 
     # Ensure pip, ninja, setuptools, wheel, and PyGithub are available in the Python runtime
     info "Ensuring pip, setuptools, wheel, ninja, and PyGithub are installed in Python runtime..."
-    pip_install pip setuptools wheel ninja PyGithub 2>/dev/null || true
+    pip_install pip setuptools wheel ninja PyGithub || true
 
     # Execute official install.py if available
     if [[ -f "${THREE_D_PACK_DIR}/install.py" ]]; then
@@ -317,14 +317,14 @@ install_3d_pack() {
 apply_compatibility_patches() {
     info "Verifying ComfyUI-3D-Pack essential libraries..."
     # Ensure numpy<2.0.0 and scipy<1.14 are enforced for gpytoolbox/slangtorch 3D compatibility
-    pip_install "numpy<2.0.0" "scipy<1.14" 2>/dev/null || true
+    pip_install "numpy<2.0.0" "scipy<1.14" || true
     # Ensure critical 3D geometry & rendering packages are present
     pip_install \
         pyvista pymeshfix igraph mmgp pyhocon \
         diffusers open_clip_torch rembg trimesh \
         fast-simplification plyfile pygltflib xatlas \
         torchmetrics pytorch_msssim pytorch-lightning peft \
-        imageio imageio-ffmpeg PyMCubes 2>/dev/null || true
+        imageio imageio-ffmpeg PyMCubes || true
 
     log "Essential 3D libraries and compatibility patches verified"
 }

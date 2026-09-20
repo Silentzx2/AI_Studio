@@ -827,7 +827,7 @@ fi
 
 # Ensure pip, wheel, setuptools, and ninja build tools are present inside the venv
 info "Ensuring pip, setuptools, wheel, ninja, and PyGithub are available in Python venv..."
-uv pip install --python "$PYTHON_BIN" pip setuptools wheel ninja PyGithub -q 2>/dev/null || true
+uv pip install --python "$PYTHON_BIN" pip setuptools wheel ninja PyGithub || true
 
 # Install PyTorch matching GPU / CUDA — always target CUDA 12.4 (cu124) on GPU
 if [[ "$(detect_gpu)" == "gpu" ]]; then
@@ -840,23 +840,23 @@ if [[ "$(detect_gpu)" == "gpu" ]]; then
         info "Installing PyTorch 2.5.1 with CUDA 12.4 (cu124) via uv..."
         uv pip install --python "$PYTHON_BIN" \
             torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-            --index-url "https://download.pytorch.org/whl/cu124" -q || {
+            --index-url "https://download.pytorch.org/whl/cu124" || {
             warn "Direct cu124 pinned install had warnings, trying unpinned cu124..."
             uv pip install --python "$PYTHON_BIN" torch torchvision torchaudio \
-                --index-url https://download.pytorch.org/whl/cu124 -q
+                --index-url https://download.pytorch.org/whl/cu124
         }
     fi
 else
     info "Installing PyTorch CPU..."
     uv pip install --python "$PYTHON_BIN" torch torchvision torchaudio \
-        --index-url https://download.pytorch.org/whl/cpu -q
+        --index-url https://download.pytorch.org/whl/cpu
 fi
 TORCH_INFO=$("$PYTHON_BIN" -c "import torch; print(f'{torch.__version__} (CUDA: {torch.cuda.is_available()})')" 2>/dev/null || echo "installed")
 log "PyTorch runtime ready: ${TORCH_INFO}"
 
 # ── Step 4: Backend Dependencies ─────────────────────────────────────────
 step "4/6 Installing Backend API Dependencies"
-uv pip install --python "$PYTHON_BIN" -r backend/requirements.txt -q
+uv pip install --python "$PYTHON_BIN" -r backend/requirements.txt
 log "FastAPI backend dependencies installed"
 
 # ── Step 5: ComfyUI + ComfyUI-3D-Pack Engine ─────────────────────────────
