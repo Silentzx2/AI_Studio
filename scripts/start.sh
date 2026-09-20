@@ -1,11 +1,28 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# AI 3D Studio v4.0 — Startup Script (Non-Docker)
+# [ENVIRONMENT: VPS / DEDICATED SERVER / LOCAL MACHINE ONLY]
+# ⚠️  DO NOT USE THIS SCRIPT ON GOOGLE COLAB!
+# For Google Colab, use: bash scripts/colab_start.sh OR bash scripts/colab.sh --start
+#
+# AI 3D Studio v4.0 — Startup Script (Non-Docker VPS)
 # Starts all services natively:
 #   PostgreSQL → Redis → ComfyUI Engine → Backend API → Frontend
 # ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
+
+# ── SIGINT / Ctrl+C handler ───────────────────────────────────────────────
+_start_on_sigint() {
+    echo ""
+    echo -e "\n\033[1;33m[!] Startup interrupted by user (Ctrl+C).\033[0m"
+    local child_pids
+    child_pids=$(jobs -p 2>/dev/null || true)
+    if [[ -n "$child_pids" ]]; then
+        kill -TERM $child_pids 2>/dev/null || true
+    fi
+    exit 130
+}
+trap '_start_on_sigint' INT
 
 # ── Colors ────────────────────────────────────────────────────────────────
 RED='\033[0;31m'

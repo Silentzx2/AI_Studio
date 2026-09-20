@@ -30,6 +30,8 @@ All notable changes, architectural updates, and feature implementations for AI 3
   - Implemented graceful `SIGINT` (Ctrl+C) signal traps across `manager.sh`, `scripts/colab.sh`, `scripts/setup.sh`, and `scripts/install_comfyui.sh`, allowing users to interrupt long commands or log tails without killing the manager menu.
   - Added partial clone cleanup before git cloning `ComfyUI-3D-Pack` to prevent corrupt git states when interrupted midway.
   - Integrated Cloudflare tunnel orchestration directly into `colab_start_services()` and tunnel cleanup into `colab_stop_services()`.
+  - Added explicit environment isolation banner headers to all scripts (`setup.sh`, `start.sh`, `stop.sh`, `restart.sh` labeled as `[VPS / LOCAL ONLY]`; `colab*.sh` labeled as `[GOOGLE COLAB ONLY]`).
+  - Enhanced Option 15 in `manager.sh` (`cmd_clean`) into a full multi-tier cleanup utility (Standard Clean, Dependencies Clean, Engine Clean, Full Factory Wipe) to remove stale caches, broken venvs, temporary clone folders, and wheel builds.
 
 ---
 

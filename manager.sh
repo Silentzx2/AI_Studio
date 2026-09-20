@@ -358,69 +358,108 @@ cmd_clean_logs() {
 }
 
 cmd_clean() {
-    banner
-    echo -e "${CYAN}Clean Environments & Dependencies${NC}"
-    echo ""
-    echo "This will remove:"
-    echo -e "  ${RED}•${NC} Backend venv (backend/.venv)"
-    echo -e "  ${RED}•${NC} Frontend node_modules"
-    echo -e "  ${RED}•${NC} Frontend build (.next)"
-    echo -e "  ${RED}•${NC} Runtime cache (.runtime_cache)"
-    echo -e "  ${RED}•${NC} PID files (.pids)"
-    echo ""
-    echo -e "  ${GREEN}•${NC} Preserves: .env, logs/, storage/, manager.sh"
-    echo ""
-    echo -e "${YELLOW}WARNING: This cannot be undone. You will need to re-run setup.${NC}"
-    echo ""
-    read -rp "Type 'CLEAN' to confirm: " confirm
-    case "$confirm" in
-        CLEAN)
-            echo ""
-            echo -e "${BOLD}Cleaning...${NC}"
-            echo ""
-
-            # Stop services first
-            echo -e "  ${CYAN}Stopping services...${NC}"
-            bash scripts/stop.sh 2>/dev/null || true
-
-
-            # Remove backend venv
-            echo -e "  ${CYAN}Removing backend venv...${NC}"
-            rm -rf backend/.venv 2>/dev/null || true
-            echo -e "    ${GREEN}✔${NC} Backend venv removed"
-
-            # Remove frontend deps & build
-            echo -e "  ${CYAN}Removing frontend dependencies...${NC}"
-            rm -rf node_modules .next 2>/dev/null || true
-            echo -e "    ${GREEN}✔${NC} node_modules & .next removed"
-
-            # Remove runtime cache
-            echo -e "  ${CYAN}Removing runtime cache...${NC}"
-            rm -rf backend/.runtime_cache 2>/dev/null || true
-            echo -e "    ${GREEN}✔${NC} Runtime cache removed"
-
-            # Remove PID files
-            echo -e "  ${CYAN}Removing PID files...${NC}"
-            rm -rf .pids 2>/dev/null || true
-            echo -e "    ${GREEN}✔${NC} PID files removed"
-
-            # Remove install locks
-            echo -e "  ${CYAN}Removing install locks...${NC}"
-            find backend/third_party -name ".installing.lock" -delete 2>/dev/null || true
-            echo -e "    ${GREEN}✔${NC} Install locks removed"
-
-            echo ""
-            echo -e "  ${GREEN}${BOLD}✔ Clean complete!${NC}"
-            echo ""
-            echo -e "  Run ${BOLD}1) First-Time Setup${NC} to rebuild from scratch."
-            echo ""
-            ;;
-        *)
-            echo "Cancelled"
-            ;;
-    esac
-    echo ""
-    read -rp "Press Enter to continue..."
+    while true; do
+        banner
+        echo -e "${BOLD}${MAGENTA}  ╔════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}             ${BOLD}${WHITE}Clean Environments & Data${NC}                  ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ╠════════════════════════════════════════════════════════╣${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[1]${NC}  Standard Clean (Caches, Logs, PIDs, .next)      ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[2]${NC}  Dependencies Clean (.venv + node_modules)       ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[3]${NC}  Engine Clean (ENGINE/ComfyUI + 3D Pack)         ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${RED}[4]${NC}  Full Factory Reset (WIPE ALL generated data)   ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ╠════════════════════════════════════════════════════════╣${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${GRAY}[b]${NC}  Back to main menu                               ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ╚════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        read -rp "  Choice: " clean_choice || break
+        case "$clean_choice" in
+            1)
+                head_ "Running Standard Clean..."
+                echo -e "  ${CYAN}Stopping services...${NC}"
+                bash scripts/stop.sh 2>/dev/null || true
+                echo -e "  ${CYAN}Cleaning temporary runtime artifacts...${NC}"
+                rm -rf .pids logs/*.log .cloudflare_tunnels .next tsconfig.tsbuildinfo backend/.runtime_cache 2>/dev/null || true
+                find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+                find . -type f -name "*.py[co]" -delete 2>/dev/null || true
+                find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+                find backend/third_party -name ".installing.lock" -delete 2>/dev/null || true
+                echo -e "  ${GREEN}✔${NC} Standard clean completed (Caches, logs, PIDs, and build artifacts removed)"
+                echo ""
+                read -rp "Press Enter to continue..." || true
+                ;;
+            2)
+                head_ "Removing Virtual Environments & Dependencies..."
+                echo -e "  ${CYAN}Stopping services...${NC}"
+                bash scripts/stop.sh 2>/dev/null || true
+                echo -e "  ${CYAN}Removing backend virtualenv, frontend node_modules, and wheels...${NC}"
+                rm -rf backend/.venv node_modules .next tsconfig.tsbuildinfo .wheels 2>/dev/null || true
+                find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+                echo -e "  ${GREEN}✔${NC} Dependencies removed (backend/.venv, node_modules, .wheels)"
+                echo ""
+                read -rp "Press Enter to continue..." || true
+                ;;
+            3)
+                head_ "Removing ComfyUI Engine & 3D Pack..."
+                echo -e "  ${CYAN}Stopping ComfyUI if running...${NC}"
+                pkill -f "ENGINE/ComfyUI" 2>/dev/null || true
+                free_port 8188 2>/dev/null || true
+                echo -e "  ${CYAN}Deleting ENGINE/ directory and temporary clones...${NC}"
+                rm -rf ENGINE 2>/dev/null || true
+                echo -e "  ${GREEN}✔${NC} ENGINE/ComfyUI and ComfyUI-3D-Pack completely removed"
+                echo ""
+                read -rp "Press Enter to continue..." || true
+                ;;
+            4)
+                head_ "FULL FACTORY RESET"
+                echo -e "${YELLOW}WARNING: This will completely delete ALL installed components:${NC}"
+                echo -e "  ${RED}•${NC} Backend virtual environment (backend/.venv)"
+                echo -e "  ${RED}•${NC} Frontend dependencies (node_modules) and build (.next)"
+                echo -e "  ${RED}•${NC} Entire Execution Engine (ENGINE/ComfyUI + ComfyUI-3D-Pack)"
+                echo -e "  ${RED}•${NC} Prebuilt CUDA wheels (.wheels/)"
+                echo -e "  ${RED}•${NC} All logs, PID files, and Cloudflare tunnel credentials"
+                echo -e "  ${RED}•${NC} All Python bytecode (__pycache__) and pytest caches"
+                echo ""
+                echo -e "  ${GREEN}•${NC} Preserved: Git source code, docs, and .env configuration"
+                echo ""
+                read -rp "Type 'RESET' to confirm full wipe: " confirm_reset
+                if [[ "$confirm_reset" == "RESET" ]]; then
+                    echo -e "\n  ${CYAN}Stopping all services...${NC}"
+                    bash scripts/stop.sh 2>/dev/null || true
+                    pkill -f "ENGINE/ComfyUI" 2>/dev/null || true
+                    pkill -f "cloudflared" 2>/dev/null || true
+                    echo -e "  ${CYAN}Wiping environments, engine, dependencies, and caches...${NC}"
+                    rm -rf backend/.venv \
+                           node_modules \
+                           .next \
+                           ENGINE \
+                           .wheels \
+                           .pids \
+                           logs/*.log \
+                           .cloudflare_tunnels \
+                           tsconfig.tsbuildinfo \
+                           backend/.runtime_cache 2>/dev/null || true
+                    find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+                    find . -type f -name "*.py[co]" -delete 2>/dev/null || true
+                    find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+                    find backend/third_party -name ".installing.lock" -delete 2>/dev/null || true
+                    echo ""
+                    echo -e "  ${GREEN}${BOLD}✔ Full factory reset complete!${NC}"
+                    echo -e "  Run First-Time Setup (VPS: Option 1, Colab: Option 14) to reinstall cleanly."
+                else
+                    echo -e "  ${YELLOW}Factory reset cancelled.${NC}"
+                fi
+                echo ""
+                read -rp "Press Enter to continue..." || true
+                ;;
+            b|B)
+                return 0
+                ;;
+            *)
+                echo -e "${RED}Invalid choice${NC}"
+                sleep 1
+                ;;
+        esac
+    done
 }
 
 cmd_service() {
@@ -836,10 +875,10 @@ _main_menu_() {
         banner
         _status
         _menu_top
-        _menu_item "[1]" "First-Time Setup"
-        _menu_item "[2]" "Start all services"
-        _menu_item "[3]" "Stop all services"
-        _menu_item "[4]" "Restart all services"
+        _menu_item "[1]" "First-Time Setup (VPS / Local)"
+        _menu_item "[2]" "Start all services (VPS / Local)"
+        _menu_item "[3]" "Stop all services (VPS / Local)"
+        _menu_item "[4]" "Restart all services (VPS / Local)"
         _menu_item "[5]" "Service status"
         _menu_item "[6]" "View logs"
         _menu_item "[7]" "Health check"
@@ -849,8 +888,8 @@ _main_menu_() {
         _menu_item "[11]" "Clean old logs"
         _menu_item "[12]" "Cloudflare"
         _menu_item "[13]" "Update / install models"
-        _menu_item "[14]" "Google Colab launcher"
-        _menu_item "[15]" "Clean environments"
+        _menu_item "[14]" "Google Colab launcher (Dedicated Colab Menu)"
+        _menu_item "[15]" "Clean environments & data (Standard / Full Wipe)"
         _menu_item "[16]" "Manage individual service"
         _menu_item "[17]" "Build native CUDA wheels"
         _menu_separator

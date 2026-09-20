@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
+# [ENVIRONMENT: GOOGLE COLAB / CLOUD GPU ONLY]
+# ⚠️  THIS SCRIPT IS DEDICATED TO GOOGLE COLAB / JUPYTER GPU RUNTIMES.
+# For VPS / Local Linux servers, use: scripts/setup.sh & scripts/start.sh
+#
 # AI 3D Studio v6.0 — Google Colab Bootstrap + Start
 #
 # Complete Colab-specific flow in a single script:
@@ -12,7 +16,7 @@
 #   7. Cloudflare Tunnels (ports 8000 & 3000) & Foreground Supervision
 #
 # Usage:
-#   bash scripts/colab.sh                 # Full bootstrap + start
+#   bash scripts/colab.sh                 # Interactive Colab Manager
 #   bash scripts/colab.sh --setup         # Non-interactive bootstrap + start
 #   bash scripts/colab.sh --skip-start    # Setup only, don't start services
 #   bash scripts/colab.sh --start         # Start existing services

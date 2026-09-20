@@ -1,10 +1,27 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# AI 3D Studio v3.2 — Restart Services
+# [ENVIRONMENT: VPS / DEDICATED SERVER / LOCAL MACHINE ONLY]
+# ⚠️  DO NOT USE THIS SCRIPT ON GOOGLE COLAB!
+# For Google Colab, use: bash scripts/colab_restart.sh OR bash scripts/colab.sh --restart
+#
+# AI 3D Studio v3.2 — Restart Services (Non-Docker VPS)
 # Stops all services and starts them again
 # ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
+
+# ── SIGINT / Ctrl+C handler ───────────────────────────────────────────────
+_restart_on_sigint() {
+    echo ""
+    echo -e "\n\033[1;33m[!] Restart interrupted by user (Ctrl+C).\033[0m"
+    local child_pids
+    child_pids=$(jobs -p 2>/dev/null || true)
+    if [[ -n "$child_pids" ]]; then
+        kill -TERM $child_pids 2>/dev/null || true
+    fi
+    exit 130
+}
+trap '_restart_on_sigint' INT
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"

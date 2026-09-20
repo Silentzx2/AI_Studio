@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-# ============================================================
-# AI 3D Studio — Automatic Setup Script (Non-Docker)
+# ═══════════════════════════════════════════════════════════════════════════
+# [ENVIRONMENT: VPS / DEDICATED SERVER / LOCAL MACHINE ONLY]
+# ⚠️  DO NOT USE THIS SCRIPT ON GOOGLE COLAB!
+# For Google Colab, use: bash scripts/colab.sh --setup
+#
+# AI 3D Studio — Automatic Setup Script (Non-Docker VPS)
 # Direct system installation without Docker containers
 # Supports Ubuntu 20.04/22.04/24.04 with NVIDIA GPU
 # Usage: sudo bash scripts/setup.sh
-# ============================================================
+# ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
 

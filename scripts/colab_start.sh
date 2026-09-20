@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================================
+# [ENVIRONMENT: GOOGLE COLAB / CLOUD GPU ONLY]
+# ⚠️  DO NOT USE ON VPS / LOCAL PC. For VPS, use scripts/start.sh
+#
 # AI 3D Studio — Colab Start Services Script
 # Starts PostgreSQL, Redis, ComfyUI (8188), FastAPI (8000), Next.js (3000),
 # establishes Cloudflare tunnels, and attaches foreground supervisor.

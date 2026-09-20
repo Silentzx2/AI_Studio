@@ -1,10 +1,22 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# AI 3D Studio v3.2 — Stop Services (Non-Docker)
+# [ENVIRONMENT: VPS / DEDICATED SERVER / LOCAL MACHINE ONLY]
+# ⚠️  DO NOT USE THIS SCRIPT ON GOOGLE COLAB!
+# For Google Colab, use: bash scripts/colab_stop.sh OR bash scripts/colab.sh --stop
+#
+# AI 3D Studio v3.2 — Stop Services (Non-Docker VPS)
 # Gracefully stops all running services using process signatures
 # ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
+
+# ── SIGINT / Ctrl+C handler ───────────────────────────────────────────────
+_stop_on_sigint() {
+    echo ""
+    echo -e "\n\033[1;33m[!] Stop operation interrupted by user (Ctrl+C).\033[0m"
+    exit 130
+}
+trap '_stop_on_sigint' INT
 
 # ── Colors ────────────────────────────────────────────────────────
 RED='\033[0;31m'
