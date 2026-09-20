@@ -65,6 +65,7 @@ flowchart TD
 - **CUDA 12.4 Dedicated Runtime & Dev Header Auto-Linking**: Enforces PyTorch 2.5.1 with CUDA 12.4 (`cu124`) across T4, L4, V100, and A100 GPUs. Automatically bridges missing CUDA headers (`cusparse.h`, `cusolverDn.h`, `cufft.h`) from venv site-packages into `/usr/local/cuda-12.4/include` and sets `CPATH`, eliminating C++/CUDA extension compilation failures.
 - **Multi-Core Ninja Build System**: Preconfigures `MAX_JOBS="$(nproc)"`, `CMAKE_BUILD_PARALLEL_LEVEL`, and `CMAKE_GENERATOR="Ninja"`. Drops 3D extension compilation times from 25–40 minutes down to ~5 minutes.
 - **Pre-Compiled 3D Binary Wheels**: Pre-installs official binary wheels (`spconv-cu124`, `torch-scatter`, `kiui`, `nvdiffrast`) to bypass redundant native source builds.
+- **Python 3.12 & PyTorch 2.5 Runtime Compatibility**: Automatically resolves PEP 585 GenericAlias schema inspection issues (`torch._library.infer_schema` type checking for `list[int]`) in `comfy_kitchen` eager ops under Python 3.12, preventing ComfyUI startup crashes.
 - **Engine Performance Flags**: ComfyUI launches with `--mmap-torch-files` and `--enable-compress-response-body` to minimize RAM pressure and accelerate HTTP transfers. On GPU runtimes, `--async-offload 2` is enabled.
 - **Dedicated Colab Service Scripts**:
   - `bash scripts/colab_start.sh`: Start all daemons, establish Cloudflare tunnels, and attach foreground supervisor.

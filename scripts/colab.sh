@@ -498,6 +498,47 @@ _colab_show_status() {
     echo ""
 }
 
+patch_runtime_compatibility() {
+    "$PYTHON_BIN" -c "
+import os, sys, glob, typing
+# 1. Patch PyTorch infer_schema for Python 3.12 GenericAlias (list[int] -> typing.List[int])
+try:
+    import torch._library.infer_schema as m
+    p = m.__file__
+    with open(p, 'r') as f:
+        c = f.read()
+    if 'GENERIC_ALIAS_WORKAROUND' not in c:
+        c = c.replace(
+            'annotation_type, _ = unstringify_type(param.annotation)',
+            '''annotation_type, _ = unstringify_type(param.annotation)
+        # GENERIC_ALIAS_WORKAROUND
+        if typing.get_origin(annotation_type) is list:
+            _args = typing.get_args(annotation_type)
+            if _args:
+                annotation_type = typing.List[_args]'''
+        )
+        with open(p, 'w') as f:
+            f.write(c)
+except Exception:
+    pass
+
+# 2. Patch comfy_kitchen eager ops for typing compatibility
+for site in sys.path:
+    for f in glob.glob(os.path.join(site, 'comfy_kitchen/backends/eager/*.py')):
+        try:
+            with open(f, 'r') as fp:
+                c = fp.read()
+            if ': list[' in c:
+                c = c.replace(': list[int]', ': typing.Sequence[int]').replace(': list[bool]', ': typing.Sequence[bool]')
+                if 'import typing' not in c:
+                    c = 'import typing\n' + c
+                with open(f, 'w') as fp:
+                    fp.write(c)
+        except Exception:
+            pass
+" 2>/dev/null || true
+}
+
 colab_start_services() {
     head_ "Starting AI 3D Studio Services"
 
@@ -534,6 +575,7 @@ asyncio.run(init())
     step "Starting ComfyUI Execution Engine (http://localhost:8188)..."
     kill_by_pid_file "$PID_DIR/comfyui.pid"
     free_port 8188
+    patch_runtime_compatibility
     local COMFY_ARGS="--listen 0.0.0.0 --port 8188 --enable-compress-response-body --mmap-torch-files"
     if [[ "$(detect_gpu)" == "cpu" ]]; then
         COMFY_ARGS="$COMFY_ARGS --cpu --use-split-cross-attention"
@@ -572,7 +614,11 @@ asyncio.run(init())
         export HOSTNAME=0.0.0.0
         export PORT=3000
         export BACKEND_URL="${BACKEND_URL:-http://127.0.0.1:8000}"
-        nohup run_bun_or_npm "bun start" "npm start" > "$LOG_DIR/frontend.log" 2>&1 &
+        if command -v bun &>/dev/null; then
+            nohup bun start > "$LOG_DIR/frontend.log" 2>&1 &
+        else
+            nohup npm start > "$LOG_DIR/frontend.log" 2>&1 &
+        fi
         write_pid "$PID_DIR/frontend.pid" $!
     )
     log "Frontend started (PID: $(cat "$PID_DIR/frontend.pid"))"

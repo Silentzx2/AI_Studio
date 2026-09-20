@@ -142,11 +142,53 @@ wait_http() {
     done
 }
 
+patch_runtime_compatibility() {
+    "$PYTHON_BIN" -c "
+import os, sys, glob, typing
+# 1. Patch PyTorch infer_schema for Python 3.12 GenericAlias (list[int] -> typing.List[int])
+try:
+    import torch._library.infer_schema as m
+    p = m.__file__
+    with open(p, 'r') as f:
+        c = f.read()
+    if 'GENERIC_ALIAS_WORKAROUND' not in c:
+        c = c.replace(
+            'annotation_type, _ = unstringify_type(param.annotation)',
+            '''annotation_type, _ = unstringify_type(param.annotation)
+        # GENERIC_ALIAS_WORKAROUND
+        if typing.get_origin(annotation_type) is list:
+            _args = typing.get_args(annotation_type)
+            if _args:
+                annotation_type = typing.List[_args]'''
+        )
+        with open(p, 'w') as f:
+            f.write(c)
+except Exception:
+    pass
+
+# 2. Patch comfy_kitchen eager ops for typing compatibility
+for site in sys.path:
+    for f in glob.glob(os.path.join(site, 'comfy_kitchen/backends/eager/*.py')):
+        try:
+            with open(f, 'r') as fp:
+                c = fp.read()
+            if ': list[' in c:
+                c = c.replace(': list[int]', ': typing.Sequence[int]').replace(': list[bool]', ': typing.Sequence[bool]')
+                if 'import typing' not in c:
+                    c = 'import typing\n' + c
+                with open(f, 'w') as fp:
+                    fp.write(c)
+        except Exception:
+            pass
+" 2>/dev/null || true
+}
+
 start_comfyui() {
     stop_pid comfyui
     free_port 8188
     : > "${LOG_DIR}/comfyui.log"
     info "Starting ComfyUI Execution Engine..."
+    patch_runtime_compatibility
     local COMFY_ARGS="--listen 0.0.0.0 --port 8188 --enable-compress-response-body --mmap-torch-files"
     if ! command -v nvidia-smi &>/dev/null || ! nvidia-smi &>/dev/null; then
         COMFY_ARGS="$COMFY_ARGS --cpu --use-split-cross-attention"
@@ -228,7 +270,11 @@ start_frontend() {
         export HOSTNAME="$FRONTEND_HOST"
         export PORT=3000
         export BACKEND_URL="${BACKEND_URL:-http://127.0.0.1:8000}"
-        exec run_bun_or_npm "bun start" "npm start"
+        if command -v bun &>/dev/null; then
+            exec bun start
+        else
+            exec npm start
+        fi
     ) >> "${LOG_DIR}/frontend.log" 2>&1 &
     write_pid frontend "$!"
 

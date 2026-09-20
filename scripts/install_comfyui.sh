@@ -451,6 +451,44 @@ apply_compatibility_patches() {
         torchmetrics pytorch_msssim pytorch-lightning peft \
         imageio imageio-ffmpeg PyMCubes || true
 
+    # Patch PyTorch 2.5 infer_schema for Python 3.12 GenericAlias (list[int]) & comfy_kitchen eager backends
+    "${PYTHON_BIN}" -c "
+import os, sys, glob, typing
+try:
+    import torch._library.infer_schema as m
+    p = m.__file__
+    with open(p, 'r') as f:
+        c = f.read()
+    if 'GENERIC_ALIAS_WORKAROUND' not in c:
+        c = c.replace(
+            'annotation_type, _ = unstringify_type(param.annotation)',
+            '''annotation_type, _ = unstringify_type(param.annotation)
+        # GENERIC_ALIAS_WORKAROUND
+        if typing.get_origin(annotation_type) is list:
+            _args = typing.get_args(annotation_type)
+            if _args:
+                annotation_type = typing.List[_args]'''
+        )
+        with open(p, 'w') as f:
+            f.write(c)
+except Exception:
+    pass
+
+for site in sys.path:
+    for f in glob.glob(os.path.join(site, 'comfy_kitchen/backends/eager/*.py')):
+        try:
+            with open(f, 'r') as fp:
+                c = fp.read()
+            if ': list[' in c:
+                c = c.replace(': list[int]', ': typing.Sequence[int]').replace(': list[bool]', ': typing.Sequence[bool]')
+                if 'import typing' not in c:
+                    c = 'import typing\n' + c
+                with open(f, 'w') as fp:
+                    fp.write(c)
+        except Exception:
+            pass
+" 2>/dev/null || true
+
     log "Essential 3D libraries and compatibility patches verified"
 }
 
