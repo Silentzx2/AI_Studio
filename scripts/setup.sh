@@ -397,9 +397,9 @@ setup_cuda_124() {
 
   apt-get update -qq 2>/dev/null || true
 
-  # Install CUDA 12.4 toolkit / nvcc
+  # Install CUDA 12.4 toolkit / nvcc / dev libraries
   apt-get install -y --no-install-recommends cuda-toolkit-12-4 2>/dev/null || \
-  apt-get install -y --no-install-recommends cuda-nvcc-12-4 cuda-cudart-dev-12-4 libcublas-dev-12-4 2>/dev/null || {
+  apt-get install -y --no-install-recommends cuda-nvcc-12-4 cuda-cudart-dev-12-4 libcublas-dev-12-4 libcusparse-dev-12-4 libcusolver-dev-12-4 libcufft-dev-12-4 2>/dev/null || {
     warn "Failed to install CUDA 12.4 packages — falling back to existing CUDA ${CURRENT_CUDA:-unknown}"
   }
 
@@ -437,10 +437,20 @@ _persist_cuda_paths() {
     cuda_dir="/usr/local/cuda-12.4"
   fi
 
+  local nproc_count; nproc_count=$(nproc 2>/dev/null || echo 4)
+  export MAX_JOBS="$nproc_count"
+  export CMAKE_BUILD_PARALLEL_LEVEL="$nproc_count"
+  export CMAKE_GENERATOR="Ninja"
+  export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-7.5;8.0;8.6;8.9;9.0+PTX}"
+
   cat > /etc/profile.d/cuda.sh << CUDA_ENV
 export PATH=${cuda_dir}/bin:/usr/local/cuda/bin:\$PATH
 export LD_LIBRARY_PATH=${cuda_dir}/lib64:/usr/local/cuda/lib64:\${LD_LIBRARY_PATH:-}
 export CUDA_HOME=${cuda_dir}
+export MAX_JOBS=${nproc_count}
+export CMAKE_BUILD_PARALLEL_LEVEL=${nproc_count}
+export CMAKE_GENERATOR=Ninja
+export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}"
 CUDA_ENV
   chmod +x /etc/profile.d/cuda.sh
 
@@ -448,6 +458,9 @@ CUDA_ENV
   export PATH="${cuda_dir}/bin:/usr/local/cuda/bin:$PATH"
   export LD_LIBRARY_PATH="${cuda_dir}/lib64:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
   export CUDA_HOME="${cuda_dir}"
+  if [[ -d "${cuda_dir}/include" ]]; then
+    export CPATH="${cuda_dir}/include:${CPATH:-}"
+  fi
 
   # Also write to /etc/ld.so.conf.d for persistent library loading
   if [[ -d "${cuda_dir}/lib64" ]]; then
@@ -455,7 +468,31 @@ CUDA_ENV
     ldconfig 2>/dev/null || true
   fi
 
+  _ensure_cuda_dev_headers "$cuda_dir"
+
   ok "CUDA environment configured (persisted to /etc/profile.d/cuda.sh)"
+}
+
+_ensure_cuda_dev_headers() {
+  local cuda_root="${1:-/usr/local/cuda-12.4}"
+  [[ -d "$cuda_root" ]] || cuda_root="/usr/local/cuda"
+  if [[ -d "$cuda_root/include" ]]; then
+    python3 -c "
+import glob, os, shutil
+cuda_inc = '${cuda_root}/include'
+venv_dirs = ['${PROJECT_ROOT}/backend/.venv', '/content/AI_Studio/backend/.venv', '${HOME}/.venv']
+for vd in venv_dirs:
+    for inc in glob.glob(os.path.join(vd, 'lib/python*/site-packages/nvidia/*/include')):
+        for f in os.listdir(inc):
+            s = os.path.join(inc, f)
+            d = os.path.join(cuda_inc, f)
+            if not os.path.exists(d):
+                try:
+                    shutil.copy2(s, d) if not os.path.isdir(s) else shutil.copytree(s, d)
+                except Exception:
+                    pass
+" 2>/dev/null || true
+  fi
 }
 
 # ── Verify CUDA is working ─────────────────────────────────────────────────────
