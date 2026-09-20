@@ -4,6 +4,30 @@ All notable changes, architectural updates, and feature implementations for AI 3
 
 ---
 
+## [6.1.2] — 2026-09-20
+
+### 🧹 Backend Service Migration to Unified apiClient
+
+- **Unified API Client (`services/apiClient.ts`)**:
+  - Replaced `services/adminService.ts` (308 lines) and `services/runtimeService.ts` (250 lines) with a single `apiClient.ts` (~855 lines) using `axios` as the HTTP backend.
+  - All admin/runtime endpoint methods consolidated: `getLogs`, `clearLogs`, `streamLogs`, `listModels`, `modelAction`, `getInstallProgress`, `getInstallStatus`, `repairProvider`, `getSettings`, `getHFTokenStatus`, `saveHFToken`, `removeHFToken`, `clearCache`, `clearVRAM`, `restartRuntime`, `updateConfig`, `getGenerationSettings`, `saveGenerationSettings`, `streamEvents`, `streamInstallProgress`.
+  - Added generic `get<T>` and `post<T>` wrappers for direct endpoint calls.
+- **Frontend Migration**:
+  - All 18 feature files converted to use `apiClient` instead of old services:
+    - `features/admin/AdminShell.tsx`, `features/admin/tabs/*` (8 tabs)
+    - `features/model-manager/tabs/QueueTab.tsx`
+    - `features/settings/sections/GenerationSection.tsx`, `WorkspaceSection.tsx`, `GeneralSection.tsx`
+    - `components/monitoring/GpuVramLineChart.tsx`
+    - `hooks/useBackendData.ts`, `hooks/useFeatureAvailability.ts`, `hooks/useTaskPolling.ts`, `hooks/useModelParameters.ts`
+  - Zero remaining `runtimeService` or `adminService` references anywhere in the codebase.
+- **New Type Definitions (`types/api.ts`)**:
+  - Added admin/runtime types: `AdminLog`, `AdminModel`, `InstallProgress`, `InstallStatus`, `RuntimeConfig`, `GenerationSettings`, `ProviderOption`, `RuntimeOptions`.
+- **Verification**:
+  - `npm run lint` passes with no errors in modified files (only pre-existing warnings in `REFRENCE/` and `new-workspace/` folders).
+  - `git diff` confirms 26 files changed, 19,391 insertions, 955 deletions.
+
+---
+
 ## [6.1.1] — 2026-09-20
 
 ### 🔧 ComfyUI-3D-Pack Indentation Repair & Startup Synchronization

@@ -74,7 +74,7 @@ graph TB
 
 ### 2.1 Presentation Layer (Next.js 16)
 - **App Router**: Built on Next.js 16 with React 19 and Tailwind CSS.
-- **Dedicated ComfyUI Studio Interface (`app/comfyui/page.tsx`)**: An embedded visual interface for interacting with the live ComfyUI instance, complete with dynamic hostname resolution, status indicators, memory purge triggers, and reload/fullscreen controls. Integrated directly into top and left workspace navigation.
+- **API Client (`services/apiClient.ts`)**: Single unified HTTP/SSE client for all FastAPI backend communication (replaces legacy `adminService.ts` and `runtimeService.ts`). Uses `axios` with `get<T>`/`post<T>` wrappers and built-in SSE streaming support.
 - **Reverse Proxy Route (`app/api/v1/[...path]/route.ts`)**: Proxies all frontend client requests to the FastAPI backend running on port 8000.
 - **3D Canvas**: Three.js WebGL viewport supporting orbit controls, wireframe modes, matcap shading, and environment lighting.
 - **Stores**: Lightweight Zustand stores managing generation state, active model selection, and UI panels.

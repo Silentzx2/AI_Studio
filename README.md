@@ -674,7 +674,16 @@ AI_Studio/
 │   └── admin/                         # System monitoring & diagnostics
 │
 ├── components/                        # Shared UI component library
-├── hooks/                             # React hooks (API client, telemetry)
+├── hooks/                             # React hooks (telemetry, tasks, feature availability)
+├── services/                          # Shared service layer
+│   ├── apiClient.ts                   # Unified FastAPI REST/SSE client (all endpoints)
+│   ├── authPersistence.ts             # Authentication token persistence helpers
+│   ├── settingsPersistence.ts         # Workspace settings persistence helpers
+│   └── taskPersistence.ts             # Task/job persistence helpers
+├── types/                             # Shared TypeScript type definitions
+│   ├── api.ts                         # Backend API request/response types
+│   ├── index.ts                       # Re-exported public types
+│   └── state.ts                       # Application state types
 ├── stores/                            # Zustand stores (generation, project, UI state)
 │
 ├── backend/                           # Clean FastAPI Python backend
@@ -716,6 +725,8 @@ AI_Studio/
 ├── README.md                          # Single authoritative project documentation
 └── LICENSE                            # MIT License
 ```
+
+> **Service Architecture**: The frontend uses a single unified `services/apiClient.ts` for all FastAPI communication. Legacy service files (`adminService.ts`, `runtimeService.ts`) have been removed; all feature modules now import directly from `apiClient`.
 
 ---
 

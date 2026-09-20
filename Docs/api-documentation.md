@@ -1,6 +1,6 @@
 # AI 3D Studio - Complete API Documentation
 
-> **Version**: 4.7.2
+> **Version**: 6.1.2
 > **Base URL**: `http://localhost:8000` (Backend API)  
 > **API Prefix**: `/api/v1`  
 > **Documentation**: Interactive docs at `/docs` (Swagger UI)
@@ -1817,6 +1817,8 @@ print(f"Job ID: {job['job_id']}")
 ```
 
 ### JavaScript/TypeScript Client
+
+**Note**: As of v6.1.2, the frontend uses a unified `services/apiClient.ts` for all backend communication (legacy `adminService.ts` and `runtimeService.ts` have been removed).
 
 ```typescript
 // services/apiClient.ts is already implemented

@@ -57,7 +57,19 @@ backend/
 └── requirements.txt         # Core dependencies (FastAPI, SQLAlchemy, aiohttp, etc.)
 ```
 
-### 2.2 Adding or Modifying ComfyUI Workflows
+### 2.2 Frontend API Client (`services/apiClient.ts`)
+
+The frontend uses a **single unified `apiClient`** for all FastAPI communication. This is the only service layer the frontend depends on.
+
+- **Constructor**: `createApiClient(config: ApiConfig)` initializes the singleton with baseURL, timeout, and optional Bearer auth token.
+- **HTTP Methods**: `get<T>(path, ...args)`, `post<T>(path, data?, ...args)` — thin wrappers over `axios` that return `response.data` directly.
+- **Admin/Runtime Methods**: `getLogs`, `clearLogs`, `streamLogs`, `listModels`, `modelAction`, `getInstallProgress`, `getInstallStatus`, `repairProvider`, `getSettings`, `getHFTokenStatus`, `saveHFToken`, `removeHFToken`, `clearCache`, `clearVRAM`, `restartRuntime`, `updateConfig`, `getGenerationSettings`, `saveGenerationSettings`, `streamEvents`, `streamInstallProgress`.
+- **Generation Methods**: `textToRawMesh`, `textToTexturedMesh`, `imageToRawMesh`, `imageToTexturedMesh`, `textMeshPainting`, `imageMeshPainting`, `partCompletion`, `segmentMesh`, `generateRig`, `retopologizeMesh`, `unwrapMeshUV`, `textMeshEditing`, `imageMeshEditing`.
+- **Streaming**: `streamEvents(path, onEvent, onDone)` for SSE, `streamLogs(onEntry, lastN)` for log streaming, `streamInstallProgress(modelId, onProgress, onDone)` for install progress.
+- **Export Helpers**: `getApiClient()` returns the singleton; `getApiUrl()` returns the configured baseURL.
+- **Legacy Services Removed**: `services/adminService.ts` and `services/runtimeService.ts` were deleted; all callers migrated to `apiClient`.
+
+### 2.3 Adding or Modifying ComfyUI Workflows
 ComfyUI workflows are managed in `backend/app/core/comfy/client.py` by `WorkflowManager`:
 1. **Templates**: Built-in templates exist for `text_to_3d`, `image_to_3d`, `texture`, and `remesh`.
 2. **Dynamic Workflows**: To add a new workflow, place a ComfyUI API-format JSON export into `ENGINE/ComfyUI/user/default/workflows/<workflow_name>.json`.

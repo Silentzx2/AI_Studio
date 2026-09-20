@@ -1,12 +1,24 @@
 # AI 3D Studio - Pipeline Implementation Status
 
-> **Version**: 6.0.0 (ComfyUI 0.36.0 Execution Core & ComfyUI-3D-Pack Integration)
-> **Status**: Verified and operational; backend e2e self-check passes, Next.js frontend intact.
+> **Version**: 6.1.2 (Unified apiClient Migration)
+> **Status**: Verified and operational; all frontend service calls routed through `services/apiClient.ts`; zero legacy service references.
 > **Last Updated**: September 20, 2026
 
 ---
 
-## v6.0.0 — Production-Ready Autonomous 3D Generation & Tripo AI Parity (2026-09-20)
+## v6.1.2 — Unified Frontend Service Layer & apiClient Migration (2026-09-20)
+
+### Frontend Architecture
+1. **Unified `apiClient.ts`**:
+   - Replaced `services/adminService.ts` (308 lines) and `services/runtimeService.ts` (250 lines) with a single `services/apiClient.ts` (~855 lines) using `axios` as the HTTP backend.
+   - All admin/runtime endpoint methods consolidated: `getLogs`, `clearLogs`, `streamLogs`, `listModels`, `modelAction`, `getInstallProgress`, `getInstallStatus`, `repairProvider`, `getSettings`, `getHFTokenStatus`, `saveHFToken`, `removeHFToken`, `clearCache`, `clearVRAM`, `restartRuntime`, `updateConfig`, `getGenerationSettings`, `saveGenerationSettings`, `streamEvents`, `streamInstallProgress`.
+   - Added generic `get<T>` and `post<T>` wrappers for direct endpoint calls.
+2. **Frontend Migration**: All 18 feature files converted to use `apiClient`; zero remaining `runtimeService` or `adminService` references anywhere in the codebase.
+3. **New Types** (`types/api.ts`): Added `AdminLog`, `AdminModel`, `InstallProgress`, `InstallStatus`, `RuntimeConfig`, `GenerationSettings`, `ProviderOption`, `RuntimeOptions`.
+
+---
+
+## v6.0.0 — ComfyUI 0.36.0 Execution Core & ComfyUI-3D-Pack Integration (2026-09-20)
 
 ### Key Architectural Enhancements
 1. **Tripo-Style Autonomous Image Conditioning**:
@@ -1166,9 +1178,7 @@ The existing `_patch_numpy_legacy_aliases()` only patched missing *attribute nam
 - `backend/app/api/v1/system.py` — use `settings.storage_local_path` instead of hardcoded `./storage`
 - `backend/app/core/managers/compatibility_manager.py` — use `settings.storage_local_path`
 - `scripts/colab.sh` — replaced broken nohup keepalive with browser JS auto-inject + service watchdog
-- `services/adminService.ts` — SSE connection cleanup
-- `stores/useAppStore.ts` — CORS origin restriction
-- `services/adminService.ts` — SSE connection cleanup
+- `services/apiClient.ts` — SSE connection cleanup
 - `stores/useAppStore.ts` — CORS origin restriction
 
 ---
