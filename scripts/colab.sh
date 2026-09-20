@@ -628,7 +628,7 @@ asyncio.run(init())
     kill_by_pid_file "$PID_DIR/comfyui.pid"
     free_port 8188
     patch_runtime_compatibility
-    local COMFY_ARGS="--listen 0.0.0.0 --port 8188 --enable-cors-header * --enable-compress-response-body --mmap-torch-files"
+    local COMFY_ARGS="--listen 0.0.0.0 --port 8188 --enable-cors-header --enable-compress-response-body --mmap-torch-files"
     if [[ "$(detect_gpu)" == "cpu" ]]; then
         COMFY_ARGS="$COMFY_ARGS --cpu --use-split-cross-attention"
     else

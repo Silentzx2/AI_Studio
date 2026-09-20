@@ -16,8 +16,8 @@ All notable changes, architectural updates, and feature implementations for AI 3
   - Added startup readiness polling (waiting up to 20s for `http://127.0.0.1:8188/system_stats` to respond) before launching FastAPI, preventing `ComfyUI health check failed: Connect call failed ('127.0.0.1', 8188)` during backend startup.
 - **Pydantic Settings Compatibility (`backend/requirements.txt`, `backend/pyproject.toml`)**:
   - Upgraded `pydantic-settings` to `>=2.2.1` to support `TomlConfigSettingsSource`, resolving the ComfyUI pyproject parsing warning on startup.
-- **Cross-Script CORS Configuration (`scripts/colab_watch.sh`)**:
-  - Added `--enable-cors-header *` to ComfyUI launch parameters in `colab_watch.sh` to prevent CORS issues when restarting the engine from the interactive watcher.
+- **Cross-Script CORS Configuration (`scripts/start.sh`, `scripts/colab.sh`, `scripts/colab_watch.sh`, `manager.sh`)**:
+  - Configured `--enable-cors-header` properly as a standalone flag without unquoted wildcard `*` to prevent bash expansion of directory files into ComfyUI cli arguments.
 
 ---
 

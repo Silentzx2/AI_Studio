@@ -240,7 +240,7 @@ start_comfyui() {
     : > "${LOG_DIR}/comfyui.log"
     info "Starting ComfyUI Execution Engine..."
     patch_runtime_compatibility
-    local COMFY_ARGS="--listen 0.0.0.0 --port 8188 --enable-cors-header * --enable-compress-response-body --mmap-torch-files"
+    local COMFY_ARGS="--listen 0.0.0.0 --port 8188 --enable-cors-header --enable-compress-response-body --mmap-torch-files"
     if ! command -v nvidia-smi &>/dev/null || ! nvidia-smi &>/dev/null; then
         COMFY_ARGS="$COMFY_ARGS --cpu --use-split-cross-attention"
     else

@@ -1106,7 +1106,7 @@ redis-cli ping
 
 #### "Access Denied" or Refused to Connect in ComfyUI Canvas
 If accessing ComfyUI through the web UI shows "Access Denied", "Refused to frame", or WebSocket disconnection:
-1. **CORS Headers**: ComfyUI must be started with `--enable-cors-header *` (configured in `scripts/colab.sh` and `scripts/start.sh`).
+1. **CORS Headers**: ComfyUI must be started with `--enable-cors-header` (configured in `scripts/colab.sh`, `scripts/start.sh`, and `manager.sh`).
 2. **Cloudflare Tunnel Iframe Restrictions**: Cloudflare Quick Tunnels (`trycloudflare.com`) send `X-Frame-Options: SAMEORIGIN`. Modern browsers block cross-subdomain embedding inside iframes.
    - The embedded iframe uses same-origin `/comfyui-frame` which is proxied by Next.js rewrites to `http://127.0.0.1:8188`.
    - For direct, zero-restriction canvas access with hardware acceleration and full keyboard shortcuts, use the **"Launch Dedicated Tab"** button in `/comfyui` or click the direct ComfyUI tunnel link rendered in Colab Step 3 (`.cloudflare_tunnels/8188.url`).
