@@ -96,29 +96,26 @@ detect_gpu() {
 }
 
 detect_cuda_version() {
-    if command -v nvidia-smi &>/dev/null; then
-        local driver_ver
-        driver_ver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | awk -F. '{print $1}')
-        if [[ "$driver_ver" -ge 550 ]]; then
-            echo "124"
-        elif [[ "$driver_ver" -ge 535 ]]; then
-            echo "121"
-        elif [[ "$driver_ver" -ge 525 ]]; then
-            echo "118"
-        else
-            echo "121"
-        fi
+    # If explicitly passed via environment, honor it
+    if [[ -n "${CUDA_VERSION:-}" ]]; then
+        echo "$CUDA_VERSION"
         return
     fi
-    if command -v nvcc &>/dev/null; then
-        local cuda_full
-        cuda_full=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
-        if [[ -n "$cuda_full" ]]; then
-            echo "$cuda_full" | awk -F. '{print $1$2}'
-            return
-        fi
-    fi
+    # Always enforce CUDA 12.4 (cu124) on GPU for modern 3D packages (spconv, ComfyUI-3D-Pack)
+    # and driver forward compatibility across Colab T4, L4, V100, A100.
     echo "124"
+}
+
+setup_cuda_env() {
+    if [[ -d "/usr/local/cuda-12.4" ]]; then
+        export CUDA_HOME="/usr/local/cuda-12.4"
+        export PATH="/usr/local/cuda-12.4/bin:${PATH}"
+        export LD_LIBRARY_PATH="/usr/local/cuda-12.4/lib64:${LD_LIBRARY_PATH:-}"
+    elif [[ -d "/usr/local/cuda" ]]; then
+        export CUDA_HOME="/usr/local/cuda"
+        export PATH="/usr/local/cuda/bin:${PATH}"
+        export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+    fi
 }
 
 # ── Clean up conflicting CUDA APT sources ──────────────────────────────────
@@ -275,6 +272,11 @@ colab_stop_services() {
     kill_by_pid_file "$PID_DIR/supervisor.pid"
     pkill -KILL -f "colab_watch.sh" 2>/dev/null || true
 
+    info "Stopping Cloudflare Tunnels..."
+    pkill -f "cloudflared tunnel" 2>/dev/null || true
+    rm -f "${CF_DIR}"/*.pid 2>/dev/null || true
+    log "Cloudflare tunnels stopped"
+
     info "Stopping Frontend..."
     kill_by_pid_file "$PID_DIR/frontend.pid"
     pkill -TERM -f "next start" 2>/dev/null || true
@@ -301,18 +303,30 @@ colab_stop_services() {
 _colab_show_status() {
     echo ""
     echo -e "${CYAN}Service Status:${NC}"
-    curl -sf http://127.0.0.1:8188/system_stats >/dev/null 2>&1 && echo -e "  ${GREEN}●${NC} ComfyUI Engine  (port 8188)" || echo -e "  ${RED}●${NC} ComfyUI Engine  (port 8188)"
-    curl -sf http://127.0.0.1:8000/api/v1/health >/dev/null 2>&1 && echo -e "  ${GREEN}●${NC} Backend API     (port 8000)" || echo -e "  ${RED}●${NC} Backend API     (port 8000)"
-    curl -sf http://127.0.0.1:3000/ >/dev/null 2>&1 && echo -e "  ${GREEN}●${NC} Frontend        (port 3000)" || echo -e "  ${RED}●${NC} Frontend        (port 3000)"
+    curl -sf http://127.0.0.1:8188/system_stats >/dev/null 2>&1 && echo -e "  ${GREEN}●${NC} ComfyUI Engine       (port 8188)" || echo -e "  ${RED}●${NC} ComfyUI Engine       (port 8188)"
+    curl -sf http://127.0.0.1:8000/api/v1/health >/dev/null 2>&1 && echo -e "  ${GREEN}●${NC} Backend API          (port 8000)" || echo -e "  ${RED}●${NC} Backend API          (port 8000)"
+    curl -sf http://127.0.0.1:3000/ >/dev/null 2>&1 && echo -e "  ${GREEN}●${NC} Frontend             (port 3000)" || echo -e "  ${RED}●${NC} Frontend             (port 3000)"
     if command -v pg_isready &>/dev/null && pg_isready -q 2>/dev/null; then
-        echo -e "  ${GREEN}●${NC} PostgreSQL      (port 5432)"
+        echo -e "  ${GREEN}●${NC} PostgreSQL           (port 5432)"
     else
         echo -e "  ${RED}●${NC} PostgreSQL"
     fi
     if command -v redis-cli &>/dev/null && redis-cli ping &>/dev/null; then
-        echo -e "  ${GREEN}●${NC} Redis           (port 6379)"
+        echo -e "  ${GREEN}●${NC} Redis                (port 6379)"
     else
         echo -e "  ${RED}●${NC} Redis"
+    fi
+    if [[ -f "$PID_DIR/supervisor.pid" ]] && kill -0 "$(cat "$PID_DIR/supervisor.pid" 2>/dev/null)" 2>/dev/null; then
+        echo -e "  ${GREEN}●${NC} Supervisor/Watchdog  (PID: $(cat "$PID_DIR/supervisor.pid"))"
+    else
+        echo -e "  ${YELLOW}●${NC} Supervisor/Watchdog  (inactive)"
+    fi
+    echo ""
+    if [[ -f "$CF_DIR/3000.url" ]]; then
+        echo -e "  ${CYAN}Public Frontend:${NC} $(cat "$CF_DIR/3000.url")"
+    fi
+    if [[ -f "$CF_DIR/8000.url" ]]; then
+        echo -e "  ${CYAN}Public API Docs:${NC} $(cat "$CF_DIR/8000.url")/docs"
     fi
     echo ""
 }
@@ -407,6 +421,37 @@ asyncio.run(init())
         fi
         sleep 2
     done
+
+    # ── Cloudflare Tunnels ───────────────────────────────────────────────────
+    head_ "Setting up Cloudflare Tunnels for External Access"
+    local cf_api_url=""
+    local cf_frontend_url=""
+    if install_cloudflared; then
+        cf_api_url=$(start_tunnel 8000 "Backend API")
+        cf_frontend_url=$(start_tunnel 3000 "Frontend")
+    fi
+
+    echo ""
+    echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}  ${GREEN}✅ AI 3D Studio Services Active${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "  ${BOLD}Local Services:${NC}"
+    echo -e "    Frontend       ${CYAN}http://localhost:3000${NC}"
+    echo -e "    Backend API    ${CYAN}http://localhost:8000${NC}"
+    echo -e "    ComfyUI Engine ${CYAN}http://localhost:8188${NC}"
+    echo -e "    API Docs       ${CYAN}http://localhost:8000/docs${NC}"
+    echo ""
+
+    if [[ -n "$cf_frontend_url" ]]; then
+        echo -e "  ${BOLD}Cloudflare Public URLs:${NC}"
+        echo -e "    Frontend       ${GREEN}${cf_frontend_url}${NC}"
+    fi
+    if [[ -n "$cf_api_url" ]]; then
+        echo -e "    Backend API    ${GREEN}${cf_api_url}${NC}"
+        echo -e "    API Docs       ${GREEN}${cf_api_url}/docs${NC}"
+    fi
+    echo ""
 }
 
 colab_restart_services() {
@@ -501,8 +546,8 @@ RUNTIME_MODE=comfyui
 BACKEND_URL=http://localhost:8000
 
 # ── Storage ────────────────────────────────────────────────
-STORAGE_LOCAL_PATH=./backend/storage
-RUNTIME_CACHE_DIR=./backend/.runtime_cache
+STORAGE_LOCAL_PATH=backend/storage
+RUNTIME_CACHE_DIR=backend/.runtime_cache
 
 # ── GPU ───────────────────────────────────────────────────
 CUDA_VISIBLE_DEVICES=0
@@ -538,28 +583,34 @@ done
 log "Storage & Engine directories created"
 
 # ── Step 3: Backend Python Environment ───────────────────────────────────
-step "3/6 Setting Up Python Virtual Environment & PyTorch"
+step "3/6 Setting Up Python Virtual Environment & PyTorch (CUDA 12.4)"
 if [[ ! -d "backend/.venv" || ! -x "$PYTHON_BIN" ]]; then
     info "Creating Python 3.12 virtual environment..."
     uv venv backend/.venv --python 3.12 2>/dev/null || python3 -m venv backend/.venv
 fi
 
-# Install PyTorch matching GPU / CUDA
-CUDA_VER=$(detect_cuda_version)
+# Install PyTorch matching GPU / CUDA — always target CUDA 12.4 (cu124) on GPU
 if [[ "$(detect_gpu)" == "gpu" ]]; then
-    info "Installing PyTorch with CUDA ${CUDA_VER}..."
-    uv pip install --python "$PYTHON_BIN" torch torchvision torchaudio \
-        --index-url "https://download.pytorch.org/whl/cu${CUDA_VER}" -q || {
-        warn "Direct cu${CUDA_VER} wheel fallback to cu124..."
-        uv pip install --python "$PYTHON_BIN" torch torchvision torchaudio \
-            --index-url https://download.pytorch.org/whl/cu124 -q
-    }
+    setup_cuda_env
+    has_cu124=$("$PYTHON_BIN" -c "import torch; print(torch.cuda.is_available() and '12.4' in str(torch.version.cuda or ''))" 2>/dev/null || echo "False")
+    if [[ "$has_cu124" == "True" ]]; then
+        log "PyTorch CUDA 12.4 already active: $($PYTHON_BIN -c 'import torch; print(torch.__version__)')"
+    else
+        info "Installing PyTorch 2.5.1 with CUDA 12.4 (cu124) via uv..."
+        uv pip install --python "$PYTHON_BIN" \
+            torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+            --index-url "https://download.pytorch.org/whl/cu124" -q || {
+            warn "Direct cu124 pinned install had warnings, trying unpinned cu124..."
+            uv pip install --python "$PYTHON_BIN" torch torchvision torchaudio \
+                --index-url https://download.pytorch.org/whl/cu124 -q
+        }
+    fi
 else
     info "Installing PyTorch CPU..."
     uv pip install --python "$PYTHON_BIN" torch torchvision torchaudio \
         --index-url https://download.pytorch.org/whl/cpu -q
 fi
-log "PyTorch runtime installed: $($PYTHON_BIN -c 'import torch; print(torch.__version__)')"
+log "PyTorch runtime ready: $($PYTHON_BIN -c 'import torch; print(f\"{torch.__version__} (CUDA: {torch.cuda.is_available()})\")')"
 
 # ── Step 4: Backend Dependencies ─────────────────────────────────────────
 step "4/6 Installing Backend API Dependencies"
@@ -591,38 +642,6 @@ if [[ "$SKIP_START" == "true" ]]; then
     exit 0
 fi
 
-# ── Start Services ───────────────────────────────────────────────────────
+# ── Start Services & Hand off to Foreground Supervisor ─────────────────────
 colab_start_services
-
-# ── Cloudflare Tunnels ───────────────────────────────────────────────────
-head_ "Setting up Cloudflare Tunnels for External Access"
-CF_API_URL=""
-CF_FRONTEND_URL=""
-if install_cloudflared; then
-    CF_API_URL=$(start_tunnel 8000 "Backend API")
-    CF_FRONTEND_URL=$(start_tunnel 3000 "Frontend")
-fi
-
-echo ""
-echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}  ${GREEN}✅ AI 3D Studio v6.0 Started in Google Colab${NC}"
-echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "  ${BOLD}Local Services:${NC}"
-echo -e "    Frontend       ${CYAN}http://localhost:3000${NC}"
-echo -e "    Backend API    ${CYAN}http://localhost:8000${NC}"
-echo -e "    ComfyUI Engine ${CYAN}http://localhost:8188${NC}"
-echo -e "    API Docs       ${CYAN}http://localhost:8000/docs${NC}"
-echo ""
-
-if [[ -n "$CF_FRONTEND_URL" ]]; then
-    echo -e "  ${BOLD}Cloudflare Tunnel URLs:${NC}"
-    echo -e "    Frontend       ${GREEN}${CF_FRONTEND_URL}${NC}"
-fi
-if [[ -n "$CF_API_URL" ]]; then
-    echo -e "    Backend API    ${GREEN}${CF_API_URL}${NC}"
-fi
-echo ""
-
-# Hand off to foreground supervisor
 exec bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground

@@ -62,9 +62,17 @@ flowchart TD
 
 - **8GB Swapfile Safety Net**: Colab free-tier instances provide only 12.7GB CPU RAM with 0 swap. Loading heavy 3D diffusion weights (e.g., Hunyuan3D or TRELLIS) can trigger the Linux kernel Out-Of-Memory (OOM) killer. The bootstrap script automatically allocates an 8GB `/swapfile` to ensure uninterrupted operation.
 - **Engine Performance Flags**: ComfyUI launches with `--mmap-torch-files` and `--enable-compress-response-body` to minimize RAM pressure and accelerate HTTP transfers. On GPU runtimes, `--async-offload 2` is enabled.
+- **CUDA 12.4 Dedicated Runtime**: Enforces PyTorch 2.5.1 with CUDA 12.4 (`cu124`) on all GPU environments. CUDA 12.4 guarantees backward/forward driver compatibility across NVIDIA T4, L4, V100, and A100 GPUs while providing binary wheel compatibility with specialized 3D libraries (`spconv`, `diffusers`, `ComfyUI-3D-Pack`).
+- **Dedicated Colab Service Scripts**:
+  - `bash scripts/colab_start.sh`: Start all daemons, establish Cloudflare tunnels, and attach foreground supervisor.
+  - `bash scripts/colab_stop.sh`: Cleanly stop Next.js, FastAPI, ComfyUI, and all active tunnels.
+  - `bash scripts/colab_restart.sh`: Gracefully cycle services and refresh public URLs.
+  - `bash scripts/colab_status.sh`: Quick terminal health inspection of all services and tunnel URLs.
 - **Single Execution Core**: Eliminates multiple conflicting virtual environments by running all 3D generation workloads through ComfyUI 0.36.0 and ComfyUI-3D-Pack.
 - **Browser Keepalive Guard**: An embedded JavaScript keepalive prevents browser tab inactivity disconnects.
 - **Maintenance Cell**: Helper routines:
   - `check_status()`: Inspect running daemon PIDs and listening ports (3000, 8000, 8188).
   - `view_logs(service="comfyui")`: Tail live logs from `comfyui`, `api`, or `frontend`.
   - `restart_services()`: Gracefully cycle all background daemons.
+  - `stop_services()`: Terminate services and free ports.
+  - `refresh_tunnels()`: Re-generate fresh public Cloudflare tunnel URLs.

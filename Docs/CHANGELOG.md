@@ -23,6 +23,10 @@ All notable changes, architectural updates, and feature implementations for AI 3
   - Patched `ComfyUI-3D-Pack/nodes.py:run_TSR` to handle mismatched spatial dimensions between reference images and ComfyUI LoadImage dummy masks.
   - Fixed storage root path resolution in `backend/app/config.py` using canonical `workspace_root()`, preventing double-nested `backend/backend/storage` directory bugs.
   - Preserved logging in `alembic/env.py` using `disable_existing_loggers=False`.
+- **Colab Automation & Dedicated Scripts**:
+  - Enforced CUDA 12.4 (`cu124`) PyTorch runtime across GPU hosts in `scripts/colab.sh`, matching binary wheels for modern 3D packages (`spconv`, `diffusers`, `ComfyUI-3D-Pack`).
+  - Added dedicated Colab lifecycle scripts: `scripts/colab_start.sh`, `scripts/colab_stop.sh`, `scripts/colab_restart.sh`, and `scripts/colab_status.sh`.
+  - Integrated Cloudflare tunnel orchestration directly into `colab_start_services()` and tunnel cleanup into `colab_stop_services()`.
 
 ---
 
