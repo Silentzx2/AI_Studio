@@ -194,6 +194,7 @@ c = c.replace('cuda_version: \"12.8\"', 'cuda_version: \"12.4\"')
 c = c.replace(\"cuda_version: '12.8'\", 'cuda_version: \"12.4\"')
 c = c.replace('version: \"2.7.0\"', 'version: \"2.5.1\"')
 c = c.replace('version: \"0.22.0\"', 'version: \"0.20.1\"')
+c = c.replace('version: \"0.0.30\"', 'version: \"0.0.28.post3\"')
 with open(p, 'w') as f:
     f.write(c)
 " 2>/dev/null || true
@@ -286,6 +287,44 @@ if 'spconv-cu126' in c:
 " 2>/dev/null || true
     fi
 
+    # 6. dependencies.txt: keep only diff-gaussian-rasterization (pre-install others as binary wheels, skip broken pytorch3d)
+    local dep_txt="${pack_dir}/_Pre_Builds/_Build_Scripts/dependencies.txt"
+    if [[ -f "$dep_txt" ]]; then
+        python3 -c "
+p = '${dep_txt}'
+with open(p, 'r') as f:
+    lines = f.readlines()
+# Exclude pytorch3d (takes 25 mins and fails on py312), spconv (pre-built on PyPI), kiuikit, and pytorch_scatter
+filtered = [l for l in lines if 'pytorch3d' not in l and 'spconv' not in l and 'kiuikit' not in l and 'pytorch_scatter' not in l]
+with open(p, 'w') as f:
+    f.writelines(filtered)
+" 2>/dev/null || true
+    fi
+
+    # 7. Unhide compilation output in install.py and auto_build_all.py
+    if [[ -f "${pack_dir}/install.py" ]]; then
+        python3 -c "
+p = '${pack_dir}/install.py'
+with open(p, 'r') as f:
+    c = f.read()
+c = c.replace('capture_output=True', 'capture_output=False')
+with open(p, 'w') as f:
+    f.write(c)
+" 2>/dev/null || true
+    fi
+
+    local auto_build="${pack_dir}/_Pre_Builds/_Build_Scripts/auto_build_all.py"
+    if [[ -f "$auto_build" ]]; then
+        python3 -c "
+p = '${auto_build}'
+with open(p, 'r') as f:
+    c = f.read()
+c = c.replace('capture_output=True', 'capture_output=False')
+with open(p, 'w') as f:
+    f.write(c)
+" 2>/dev/null || true
+    fi
+
     log "ComfyUI-3D-Pack compatibility patches applied successfully"
 }
 
@@ -324,6 +363,12 @@ install_3d_pack() {
     # Ensure pip, ninja, setuptools, wheel, and PyGithub are available in the Python runtime
     info "Ensuring pip, setuptools, wheel, ninja, and PyGithub are installed in Python runtime..."
     pip_install pip setuptools wheel ninja PyGithub || true
+
+    # Pre-install official binary wheels to bypass 30-min slow source compilations
+    info "Installing pre-compiled 3D binary wheels (spconv-cu124, torch-scatter, kiui, nvdiffrast)..."
+    pip_install "spconv-cu124" "kiui" || true
+    pip_install torch-scatter -f "https://data.pyg.org/whl/torch-2.5.1+cu124.html" || true
+    pip_install "git+https://github.com/NVlabs/nvdiffrast.git" || true
 
     # Execute official install.py if available
     if [[ -f "${THREE_D_PACK_DIR}/install.py" ]]; then
