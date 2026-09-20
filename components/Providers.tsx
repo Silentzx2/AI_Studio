@@ -1,7 +1,7 @@
 "use client";
 
 import { ActivityLogger } from "@/components/ActivityLogger";
-import { WorkspaceProvider } from "@/features/new-workspace/store/WorkspaceContext";
+import { WorkspaceProvider } from "@/features/workspace/store/WorkspaceContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
