@@ -13,7 +13,7 @@ import { GlassCard } from '@/components/premium/GlassCard';
 import { ProgressBar } from '@/components/premium/ProgressBar';
 import { Badge } from '@/components/premium/Badge';
 import { Switch } from '@/components/ui/switch';
-import { adminService } from '@/services/adminService';
+import { apiClient } from '@/services/apiClient';
 import { useTaskManager } from '@/hooks/useTaskManager';
 import { useUIStore } from '@/stores/useUIStore';
 import type { AdminModel, InstallProgress } from '@/types';
@@ -191,7 +191,7 @@ export function ModelsTab() {
     setLoading(true);
     setError(null);
     try {
-      const data = await adminService.listModels();
+      const data = await apiClient.listModels();
       if (data.length > 0) {
         const seen = new Set<string>();
         const uniqueModels: AdminModel[] = [];
@@ -224,7 +224,7 @@ export function ModelsTab() {
       if (!active) return;
       if (typeof document !== 'undefined' && document.hidden) return;
       try {
-        const status = await adminService.getInstallStatus();
+        const status = await apiClient.getInstallStatus();
         if (!status) return;
         setModels(prev => prev.map(m => {
           const entry = status[m.id];
@@ -262,7 +262,7 @@ export function ModelsTab() {
       for (const model of models) {
         if (!installProgress[model.id]) {
           try {
-            const snap = await adminService.getInstallProgress(model.id);
+            const snap = await apiClient.getInstallProgress(model.id);
             if (snap && snap.status && snap.status !== 'idle' && snap.status !== 'completed') {
               setInstallProgress((prev) => ({ ...prev, [model.id]: snap }));
               // Reconnect SSE to resume streaming
@@ -327,11 +327,11 @@ export function ModelsTab() {
     let stopStream: (() => void) | null = null;
 
     try {
-      await adminService.modelAction(model.id, 'install', { include_auxiliary: includeAuxiliary });
+      await apiClient.modelAction(model.id, 'install', { include_auxiliary: includeAuxiliary });
 
       await new Promise((resolve) => setTimeout(resolve, 300));
 
-      stopStream = adminService.streamInstallProgress(
+      stopStream = apiClient.streamInstallProgress(
         model.id,
         (progress) => {
           setInstallProgress((prev) => ({ ...prev, [model.id]: progress }));
@@ -385,11 +385,11 @@ export function ModelsTab() {
     let stopStream: (() => void) | null = null;
 
     try {
-      await adminService.modelAction(model.id, 'download_auxiliary');
+      await apiClient.modelAction(model.id, 'download_auxiliary');
 
       await new Promise((resolve) => setTimeout(resolve, 300));
 
-      stopStream = adminService.streamInstallProgress(
+      stopStream = apiClient.streamInstallProgress(
         model.id,
         (progress) => {
           setInstallProgress((prev) => ({ ...prev, [model.id]: progress }));
@@ -418,7 +418,7 @@ export function ModelsTab() {
   };
 
   const handleCancel = (modelId: string) => {
-    adminService.modelAction(modelId, 'cancel').catch(() => {});
+    apiClient.modelAction(modelId, 'cancel').catch(() => {});
     if (streamCleanups.current[modelId]) {
       streamCleanups.current[modelId]();
       delete streamCleanups.current[modelId];
@@ -432,7 +432,7 @@ export function ModelsTab() {
 
   const handleUninstall = async (model: AdminModel) => {
     try {
-      await adminService.modelAction(model.id, 'uninstall');
+      await apiClient.modelAction(model.id, 'uninstall');
       setModels((prev) => prev.map((m) => m.id === model.id ? { ...m, installed: false, status: 'not-installed' } : m));
       toast.success(`${model.name} uninstalled`);
     } catch {
@@ -718,14 +718,14 @@ export function ModelsTab() {
                         )}
                         {model.loaded ? (
                           <button
-                            onClick={() => adminService.modelAction(model.id, 'unload')}
+                            onClick={() => apiClient.modelAction(model.id, 'unload')}
                             className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl glass border border-[hsl(var(--border))] text-xs text-muted-foreground hover:text-[hsl(var(--muted-foreground))] transition-colors"
                           >
                             <Pause className="w-3.5 h-3.5" /> Unload
                           </button>
                         ) : (
                           <button
-                            onClick={() => adminService.modelAction(model.id, 'load')}
+                            onClick={() => apiClient.modelAction(model.id, 'load')}
                             className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[hsl(var(--green-500)/0.08)] border border-[hsl(var(--green-500)/0.2)] text-xs text-[hsl(var(--green-500))] hover:bg-[hsl(var(--green-500)/0.15)] transition-colors"
                           >
                             <Play className="w-3.5 h-3.5" /> Load

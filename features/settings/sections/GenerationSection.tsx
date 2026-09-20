@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/premium/Spinner';
 import { Cpu, Sliders, Box, Sparkles, Zap, Gauge, ListOrdered } from 'lucide-react';
-import { runtimeService } from '@/services/runtimeService';
+import { apiClient } from '@/services/apiClient';
 import { toast } from 'sonner';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useAppStore } from '@/stores/useAppStore';
@@ -40,8 +40,8 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
       localStorage.setItem('batchGenerationEnabled', JSON.stringify(data.batchEnabled));
       localStorage.setItem('lowVramMode', JSON.stringify(data.lowVram));
       await Promise.all([
-        runtimeService.updateConfig(config),
-        runtimeService.saveGenerationSettings({
+        apiClient.updateConfig(config),
+        apiClient.saveGenerationSettings({
           default_provider: data.provider,
           render_quality: data.quality,
           output_format: data.outputFormat,
@@ -75,7 +75,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
     // Load saved settings from backend first, fallback to localStorage
     const loadSettings = async () => {
       try {
-        const backendGen = await runtimeService.getGenerationSettings();
+        const backendGen = await apiClient.getGenerationSettings();
         if (backendGen) {
           if (backendGen.default_provider) setProvider(backendGen.default_provider);
           if (backendGen.render_quality) setQuality(backendGen.render_quality);

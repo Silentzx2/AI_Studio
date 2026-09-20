@@ -12,7 +12,7 @@ import {
   Legend,
 } from 'recharts';
 import { Cpu, Zap, Activity, RefreshCw, Flame } from 'lucide-react';
-import { runtimeService } from '@/services/runtimeService';
+import { apiClient } from '@/services/apiClient';
 import { useWorkspace } from '@/features/new-workspace/store/WorkspaceContext';
 import type { RealtimeGpuData } from '@/hooks/useRealtime';
 
@@ -120,7 +120,7 @@ export function GpuVramLineChart({
   const recordSample = useCallback(async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
     try {
-      const status = await runtimeService.getStatus();
+      const status = await apiClient.getSystemStatus();
       const now = new Date();
       const timeStr = now.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 

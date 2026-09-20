@@ -16,8 +16,7 @@ import { StatusDot } from '@/components/premium/StatusDot';
 import { NeonButton } from '@/components/premium/NeonButton';
 import { Spinner } from '@/components/premium/Spinner';
 import { GpuVramLineChart } from '@/components/monitoring/GpuVramLineChart';
-import { runtimeService } from '@/services/runtimeService';
-import { adminService } from '@/services/adminService';
+import { apiClient } from '@/services/apiClient';
 import type { RuntimeStatus, AdminLog } from '@/types';
 import { toast } from 'sonner';
 
@@ -31,8 +30,8 @@ export function RuntimeTab() {
   const load = useCallback(async () => {
     try {
       const [st, lg] = await Promise.all([
-        runtimeService.getStatus(),
-        adminService.getLogs(10),
+        apiClient.getSystemStatus(),
+        apiClient.getLogs(10),
       ]);
       if (st) setStatus(st);
       if (lg.length > 0) setLogs(lg);
@@ -66,7 +65,7 @@ export function RuntimeTab() {
   const handleClearCache = async () => {
     toast.info('Clearing cache...');
     try {
-      await runtimeService.clearCache();
+      await apiClient.post('/api/v1/runtime/clear-cache', {});
       toast.success('Cache cleared');
     } catch {
       toast.error('Failed to clear cache');
@@ -76,7 +75,7 @@ export function RuntimeTab() {
   const handleClearVRAM = async () => {
     toast.info('Clearing VRAM...');
     try {
-      await runtimeService.clearVRAM();
+      await apiClient.post('/api/v1/runtime/clear-vram', {});
       toast.success('VRAM cleared');
     } catch {
       toast.error('Failed to clear VRAM');
@@ -86,7 +85,7 @@ export function RuntimeTab() {
   const handleRestart = async () => {
     toast.info('Restarting runtime...');
     try {
-      await runtimeService.restartRuntime();
+      await apiClient.post('/api/v1/runtime/restart', {});
       toast.success('Runtime restarted');
       load();
     } catch {

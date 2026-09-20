@@ -12,8 +12,7 @@ import { Badge } from '@/components/premium/Badge';
 import { NeonButton } from '@/components/premium/NeonButton';
 import { StatusDot } from '@/components/premium/StatusDot';
 import { Spinner } from '@/components/premium/Spinner';
-import { adminService } from '@/services/adminService';
-import { runtimeService } from '@/services/runtimeService';
+import { apiClient } from '@/services/apiClient';
 import type { RuntimeStatus } from '@/types';
 import { toast } from 'sonner';
 
@@ -90,12 +89,12 @@ export function SettingsTab({ initialSection }: { initialSection?: string }) {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
 
-  const load = useCallback(async () => {
+const load = useCallback(async () => {
     try {
       const [status, rt, st] = await Promise.all([
-        adminService.getHFTokenStatus(),
-        runtimeService.getStatus(),
-        adminService.getSettings(),
+        apiClient.getHFTokenStatus(),
+        apiClient.getSystemStatus(),
+        apiClient.getSettings(),
       ]);
       setHfStatus(status);
       setRuntime(rt);
@@ -115,7 +114,7 @@ export function SettingsTab({ initialSection }: { initialSection?: string }) {
     if (!hfToken.trim()) return;
     setSaving(true);
     try {
-      await adminService.saveHFToken(hfToken);
+      await apiClient.saveHFToken(hfToken);
       setHfStatus({ configured: true, valid: true });
       setHfToken('');
       toast.success('HuggingFace token saved successfully');
@@ -128,7 +127,7 @@ export function SettingsTab({ initialSection }: { initialSection?: string }) {
 
   const handleRemoveToken = async () => {
     try {
-      await runtimeService.removeHFToken();
+      await apiClient.removeHFToken();
       setHfStatus({ configured: false, valid: false });
       toast.success('HuggingFace token removed');
     } catch {

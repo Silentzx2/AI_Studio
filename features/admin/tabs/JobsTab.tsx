@@ -19,7 +19,7 @@ import { GlassCard } from '@/components/premium/GlassCard';
 import { Badge } from '@/components/premium/Badge';
 import { ProgressBar } from '@/components/premium/ProgressBar';
 import { Spinner } from '@/components/premium/Spinner';
-import { adminService } from '@/services/adminService';
+import { apiClient } from '@/services/apiClient';
 import { diagnoseJobError, type JobDiagnostic } from '@/lib/jobDiagnostics';
 import type { AdminJob } from '@/types';
 import { cn } from '@/lib/utils';
@@ -42,9 +42,19 @@ export function JobsTab() {
 
   const load = useCallback(async () => {
     try {
-      const data = await adminService.listJobs();
-      setJobs(data);
-      setError(data.length === 0 ? 'No jobs found' : null);
+      const data = await apiClient.getJobsHistory({ limit: 50 });
+      setJobs((data.jobs ?? []).map((j: any) => ({
+        id: j.job_id ?? j.id,
+        status: j.status === 'processing' ? 'generating' : j.status,
+        type: j.feature ?? 'generation',
+        progress: j.status === 'completed' ? 100 : j.status === 'failed' ? 0 : 50,
+        created_at: j.created_at,
+        completed_at: j.completed_at,
+        error: j.error,
+        mode: j.feature,
+        provider: j.model_preference,
+      })));
+      setError(data.jobs.length === 0 ? 'No jobs found' : null);
     } catch (e: any) {
       setError(e?.message || 'Failed to load jobs');
     } finally {
@@ -63,30 +73,14 @@ export function JobsTab() {
     return () => clearInterval(interval);
   }, [load]);
 
-  const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
-    const key = job.id;
-    setRepairingJobs(prev => ({ ...prev, [key]: true }));
-
-    toast.info(`Initiating repair for ${diag.providerLabel}...`, {
-      description: 'Re-initializing runtime environment, dependencies, and running preflight check.',
-    });
-
-    try {
-      await adminService.repairProvider(diag.providerId);
-      setRepairedJobs(prev => ({ ...prev, [key]: true }));
-      toast.success(`${diag.providerLabel} runtime repair task queued`, {
-        description: 'Virtualenv and preflight are being re-initialized. Status will update shortly.',
-      });
-      // Immediately refresh jobs
-      await load();
-    } catch (err: any) {
-      toast.error(`Repair failed for ${diag.providerLabel}`, {
-        description: err?.message || 'Unable to trigger provider repair.',
-      });
-    } finally {
-      setRepairingJobs(prev => ({ ...prev, [key]: false }));
-    }
-  };
+const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
+  const key = job.id;
+  setRepairingJobs(prev => ({ ...prev, [key]: true }));
+  toast.info(`Repair for ${diag.providerLabel} not available in this backend.`, {
+    description: 'The new backend does not support provider repair operations.',
+  });
+  setRepairingJobs(prev => ({ ...prev, [key]: false }));
+};
 
   const filtered = jobs.filter((j) => filter === 'all' || j.status === filter);
   const repairableJobsCount = jobs.filter(j => diagnoseJobError(j) !== null).length;

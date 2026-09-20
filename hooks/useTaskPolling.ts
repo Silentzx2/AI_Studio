@@ -1,0 +1,148 @@
+import { useEffect, useCallback, useRef } from 'react';
+import { getApiClient } from '@/services/apiClient';
+import { useAppStore } from '@/stores/useAppStore';
+import type { JobStatus, JobInfo } from '@/types/api';
+
+export interface UseTaskPollingOptions {
+  pollingInterval?: number;
+  enabled?: boolean;
+}
+
+const BACKEND_STATUS: Record<JobStatus, 'queued' | 'running' | 'completed' | 'failed'> = {
+  queued: 'queued',
+  processing: 'running',
+  completed: 'completed',
+  failed: 'failed',
+};
+
+export const useTaskPolling = (options: UseTaskPollingOptions = {}) => {
+  const {
+    pollingInterval = 5000,
+    enabled = true,
+  } = options;
+
+  const tasks = useAppStore((state) => state.tasks);
+  const setTask = useAppStore((state) => state.setTask);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isPollingRef = useRef(false);
+
+  const pollTaskStatus = useCallback(async (task: (typeof tasks)[string]) => {
+    if (!task.id || task.status === 'completed' || task.status === 'failed') {
+      return;
+    }
+
+    try {
+      const apiClient = getApiClient();
+      const jobInfo: JobInfo = await apiClient.getJobStatus(task.id);
+      const status = BACKEND_STATUS[jobInfo.status];
+
+      const needsUpdate =
+        status !== task.status ||
+        (jobInfo.input_image_url && !task.metadata?.inputImageUrl) ||
+        (jobInfo.model_preference && !task.metadata?.modelPreference);
+
+      if (!needsUpdate) {
+        return;
+      }
+
+      const metadata = {
+        ...(task.metadata ?? {}),
+        ...(jobInfo.input_image_url ? { inputImageUrl: jobInfo.input_image_url } : {}),
+        ...(jobInfo.model_preference ? { modelPreference: jobInfo.model_preference } : {}),
+      };
+
+      const updatedTask = {
+        ...task,
+        status,
+        progress: status === 'completed' ? 100 : status === 'failed' ? 0 : task.progress,
+        updatedAt: Date.now(),
+        metadata,
+      };
+
+      if (jobInfo.status === 'completed') {
+        updatedTask.metadata = {
+          ...metadata,
+          ...(jobInfo.processing_time !== undefined ? { processingTime: jobInfo.processing_time } : {}),
+        };
+        if (jobInfo.result) {
+          updatedTask.metadata = {
+            ...updatedTask.metadata,
+            ...(jobInfo.result.mesh_url ? { outputPath: jobInfo.result.mesh_url } : {}),
+            ...(jobInfo.result.thumbnail_url ? { previewImageUrl: jobInfo.result.thumbnail_url } : {}),
+          };
+          try {
+            const resultInfo = await apiClient.getJobResultInfo(task.id);
+            if (resultInfo.mesh_download_urls?.direct_download) {
+              updatedTask.metadata = {
+                ...updatedTask.metadata,
+                downloadUrl: resultInfo.mesh_download_urls.direct_download,
+                fileSize: resultInfo.file_info.file_size_mb,
+                format: resultInfo.file_info.file_extension,
+              };
+            }
+          } catch (err) {
+            console.warn('[TaskPolling] Failed to get result info:', err);
+          }
+        }
+      }
+
+      if (jobInfo.status === 'failed') {
+        updatedTask.metadata = { ...updatedTask.metadata, error: 'Task failed during processing' };
+      }
+
+      setTask(updatedTask);
+    } catch (error) {
+      console.error('[TaskPolling] Failed to poll task status:', error);
+    }
+  }, [setTask]);
+
+  const pollAllActiveTasks = useCallback(async () => {
+    if (isPollingRef.current) {
+      return;
+    }
+
+    isPollingRef.current = true;
+
+    try {
+      const activeTasks = Object.values(tasks).filter(
+        (task) => task.id && (task.status === 'queued' || task.status === 'running'),
+      );
+
+      if (activeTasks.length === 0) {
+        return;
+      }
+
+      await Promise.allSettled(activeTasks.map((task) => pollTaskStatus(task)));
+    } catch (error) {
+      console.error('[TaskPolling] Error during polling cycle:', error);
+    } finally {
+      isPollingRef.current = false;
+    }
+  }, [tasks, pollTaskStatus]);
+
+  useEffect(() => {
+    if (!enabled) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
+
+    intervalRef.current = setInterval(pollAllActiveTasks, pollingInterval);
+    void pollAllActiveTasks();
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [enabled, pollingInterval, pollAllActiveTasks]);
+
+  return {
+    isPolling: isPollingRef.current,
+    pollTask: pollTaskStatus,
+    pollAllTasks: pollAllActiveTasks,
+  };
+};

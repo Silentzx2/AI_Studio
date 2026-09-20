@@ -1,271 +1,761 @@
-import type { ApiResponse } from '@/types';
-import { dedupedGet, invalidateDedup } from '@/lib/requestDedup';
+import axios, { AxiosInstance, AxiosError } from 'axios';
+import { 
+  ApiConfig, 
+  BaseApiResponse, 
+  HealthStatus,
+  SystemStatus,
+  SchedulerStatus,
+  AvailableModels,
+  FeaturesResponse,
+  JobInfo,
+  JobResultInfo,
+  JobsHistoryResponse,
+  JobsHistoryParams,
+  TextToMeshRequest,
+  TextToTexturedMeshRequest,
+  ImageToMeshRequest,
+  ImageToTexturedMeshRequest,
+  MeshPaintingRequest,
+  PartCompletionRequest,
+  MeshSegmentationRequest,
+  AutoRiggingRequest,
+  MeshRetopologyRequest,
+  RetopologyAvailableModels,
+  MeshUVUnwrappingRequest,
+  UVUnwrappingAvailableModels,
+  UVPackMethods,
+  FileUploadResponse,
+  FileMetadata,
+  SupportedFormats,
+  ApiError,
+  AuthStatus,
+  RegisterRequest,
+  LoginRequest,
+  AuthResponse,
+  ModelParametersResponse,
+  TextMeshEditingRequest,
+  ImageMeshEditingRequest,
+  QueueStatsResponse
+} from '@/types/api';
 
-// Simple in-memory cache for GET responses — replaces the null cache service
-const _responseCache = new Map<string, { data: unknown; expiresAt: number }>();
+class ApiClient {
+  private client: AxiosInstance;
+  private config: ApiConfig;
 
-function getCacheService(): { get: <T>(k: string) => T | null; set: <T>(k: string, v: T) => void; keys: () => string[]; delete: (k: string) => void; clear: () => void } {
-  return {
-    get: <T>(k: string) => {
-      const entry = _responseCache.get(k);
-      if (entry && entry.expiresAt > Date.now()) return entry.data as T;
-      if (entry) _responseCache.delete(k);
-      return null;
-    },
-    set: <T>(k: string, v: T) => {
-      _responseCache.set(k, { data: v, expiresAt: Date.now() + 30_000 });
-    },
-    keys: () => Array.from(_responseCache.keys()),
-    delete: (k: string) => { _responseCache.delete(k); },
-    clear: () => { _responseCache.clear(); },
-  };
-}
-
-/**
- * API Client for backend communication
- *
- * IMPORTANT: NEXT_PUBLIC_API_URL should be EMPTY for proper Docker networking.
- *
- * When empty, all requests use relative URLs (e.g., /api/v1/...), which are:
- * 1. Sent from browser to Next.js frontend server
- * 2. Intercepted by the API proxy route at app/api/v1/[...path]/route.ts
- * 3. Forwarded to the backend using BACKEND_URL (read at runtime)
- *
- * This ensures:
- * - Docker: requests go to http://api:8000 (service name)
- * - Local dev: requests go to http://localhost:8000
- *
- * The proxy reads BACKEND_URL at REQUEST time, not build time.
- */
-const PLACEHOLDER_API_URLS = new Set([
-  'undefined',
-  'null',
-  'your-api-url',
-  'your-api-url-here',
-  'https://your-api-url.com',
-  'http://your-api-url.com',
-]);
-
-function normalizeApiUrl(value: string | undefined): string {
-  const trimmed = value?.trim() ?? '';
-  if (!trimmed || PLACEHOLDER_API_URLS.has(trimmed.toLowerCase())) return '';
-  // If running in browser and the configured API_URL is localhost/127.0.0.1 while
-  // the page is accessed from a remote host (e.g. Colab tunnel, remote IP),
-  // return empty string so calls go through the Next.js same-origin API proxy.
-  if (typeof window !== 'undefined') {
-    const isLocalApi = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?$/i.test(trimmed);
-    const isPageLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocalApi && !isPageLocal) {
-      return '';
-    }
-  }
-  return trimmed.replace(/\/+$/, '');
-}
-
-// Base URL for API calls - mutable for runtime updates
-let API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL);
-
-// Export for use in components that need to resolve URLs
-export const getApiUrl = () => API_URL;
-
-async function parseErrorMessage(res: Response): Promise<string> {
-  const contentType = res.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    try {
-      const json = await res.json();
-      return json?.message || json?.detail || `HTTP ${res.status}`;
-    } catch {
-      // fall through
-    }
-  }
-  return `HTTP ${res.status}: ${res.statusText || 'Request failed'}`;
-}
-
-// Default timeout for API requests (10m)
-// Generation tasks and large uploads can take several minutes
-const DEFAULT_TIMEOUT_MS = 600000;
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const controller = new AbortController();
-  // Support external abort signals (merge with internal timeout signal)
-  const signals = [controller.signal];
-  if (init?.signal) signals.push(init.signal);
-  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
-  try {
-    const res = await fetch(`${API_URL}${path}`, {
-      ...init,
-      signal: AbortSignal.any(signals),
-      headers: { 'Content-Type': 'application/json', ...init?.headers },
+  constructor(config: ApiConfig) {
+    this.config = config;
+    this.client = axios.create({
+      baseURL: config.baseURL,
+      timeout: config.timeout || 30000,
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
-    clearTimeout(timeoutId);
-    if (!res.ok) {
-      const msg = await parseErrorMessage(res);
-      throw new Error(msg);
-    }
-    // Handle empty responses
-    const text = await res.text();
-    if (!text) return {} as T;
-    const json = JSON.parse(text);
-    if (json?.success === false) {
-      throw new Error(json?.message || 'Request failed');
-    }
-    return json;
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('Request timed out – backend may be unreachable');
-    }
-    throw err;
-  }
-}
 
-// Request with retry logic and exponential backoff
-async function requestWithRetry<T>(
-  path: string,
-  init?: RequestInit,
-  maxRetries: number = 3,
-  signal?: AbortSignal,
-): Promise<T> {
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      return await request<T>(path, { ...init, signal });
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-
-      // Don't retry on 4xx errors (except 429)
-      if (lastError.message.includes('HTTP 4') && !lastError.message.includes('429')) {
-        throw lastError;
-      }
-
-      // Exponential backoff with jitter: 100ms, 200ms, 400ms
-      if (attempt < maxRetries - 1) {
-        const delay = 100 * Math.pow(2, attempt) + Math.random() * 100;
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
+    // Set auth token if provided
+    if (config.apiKey) {
+      this.client.defaults.headers.common['Authorization'] = `Bearer ${config.apiKey}`;
     }
+
+    this.setupInterceptors();
   }
 
-  throw lastError || new Error('Max retries exceeded');
-}
-
-// Request with circuit breaker pattern for critical operations
-async function requestWithCircuitBreaker<T>(
-  path: string,
-  init?: RequestInit,
-  maxRetries: number = 3,
-  timeout: number = 5000
-): Promise<T> {
-  const controller = new AbortController();
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  // Create a promise that rejects after timeout
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      controller.abort();
-      reject(new Error('Request timeout'));
-    }, timeout);
-  });
-
-  try {
-    // Race the request against the timeout
-    return await Promise.race([
-      requestWithRetry<T>(path, init, maxRetries, controller.signal),
-      timeoutPromise
-    ]);
-  } finally {
-    // FE-011 FIX: the loser of the race would otherwise keep a timer alive
-    // until timeout after the winner resolved — clear it as soon as the race settles.
-    if (timeoutId !== undefined) clearTimeout(timeoutId);
-  }
-}
-
-export const apiClient = {
-  get: <T>(path: string, useCache: boolean = true, retry: boolean = true) => {
-    const cache = getCacheService();
-    const cacheKey = `GET:${path}`;
-    if (useCache && cache) {
-      const cached = cache.get<T>(cacheKey);
-      if (cached !== null) return Promise.resolve(cached);
-    }
-    // Use dedupedGet for status/info endpoints to coalesce concurrent requests
-    const isDedupable = /\/api\/v1\/(runtime\/status|runtime\/health|runtime\/options|system\/info|system\/gpu|admin\/install\/status)/.test(path);
-    const makeRequest = isDedupable
-      ? () => dedupedGet<T>(path)
-      : (retry ? requestWithRetry : request);
-    return makeRequest<T>(path).then((data) => {
-      if (useCache && cache) cache.set(cacheKey, data);
-      return data;
-    });
-  },
-  post: <T>(path: string, body?: unknown) =>
-    requestWithRetry<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
-  put: <T>(path: string, body?: unknown) =>
-    requestWithRetry<T>(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
-  delete: <T>(path: string) => requestWithRetry<T>(path, { method: 'DELETE' }),
-
-  // Methods with circuit breaker for critical operations
-  getCritical: <T>(path: string) => requestWithCircuitBreaker<T>(path),
-  postCritical: <T>(path: string, body?: unknown) =>
-    requestWithCircuitBreaker<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
-
-  // uploadFile: Omit Content-Type header so browser sets multipart boundary
-  // Uses XMLHttpRequest for real-time upload progress support
-  uploadFile: <T>(
-    path: string,
-    file: File,
-    onProgress?: (loaded: number, total: number) => void
-  ): Promise<T> => {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      const formData = new FormData();
-      formData.append('file', file);
-
-      // Progress tracking
-      if (onProgress) {
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            onProgress(e.loaded, e.total);
-          }
-        };
+  private setupInterceptors() {
+    // Request interceptor
+    this.client.interceptors.request.use(
+      (config) => {
+        console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+        return config;
+      },
+      (error) => {
+        console.error('[API] Request error:', error);
+        return Promise.reject(error);
       }
+    );
 
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const text = xhr.responseText;
-            if (!text) return resolve({} as T);
-            const json = JSON.parse(text);
-            if (json?.success === false) {
-              return reject(new Error(json.message || 'Upload failed'));
-            }
-            const result = json?.data ?? json;
-            return resolve(result);
-          } catch (err) {
-            return reject(new Error('Invalid JSON response'));
-          }
-        } else {
-          reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText || 'Upload failed'}`));
+    // Response interceptor
+    this.client.interceptors.response.use(
+      (response) => {
+        console.log(`[API] ${response.status} ${response.config.url}`);
+        return response;
+      },
+      (error: AxiosError) => {
+        const apiError = this.handleError(error);
+        console.error('[API] Response error:', apiError);
+        return Promise.reject(apiError);
+      }
+    );
+  }
+
+  private handleError(error: AxiosError): ApiError {
+    const apiError = new Error() as ApiError;
+    
+    if (error.response) {
+      // Server responded with error status
+      const errorData = error.response.data as any; // Use any to handle different error response formats
+      
+      // Extract error message with priority: detail > message > default
+      let errorMessage = 'An error occurred';
+      let errorCode = 'API_ERROR';
+      
+      if (errorData) {
+        // Handle FastAPI style errors with detail field
+        if (errorData.detail) {
+          errorMessage = typeof errorData.detail === 'string' 
+            ? errorData.detail 
+            : JSON.stringify(errorData.detail);
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
         }
-      };
+        
+        // Extract error code
+        if (errorData.error) {
+          errorCode = errorData.error;
+        } else if (errorData.code) {
+          errorCode = errorData.code;
+        }
+      }
+      
+      // Fallback to HTTP status text if no detailed message
+      if (errorMessage === 'An error occurred' && error.response.statusText) {
+        errorMessage = `${error.response.status} ${error.response.statusText}`;
+      }
+      
+      apiError.message = errorMessage;
+      apiError.code = errorCode;
+      apiError.status = error.response.status;
+      apiError.response = errorData;
+    } else if (error.request) {
+      // Request was made but no response received
+      apiError.message = 'No response from server. Please check your internet connection and try again.';
+      apiError.code = 'NETWORK_ERROR';
+    } else {
+      // Something else happened
+      apiError.message = error.message || 'Unknown error occurred';
+      apiError.code = 'UNKNOWN_ERROR';
+    }
 
-      xhr.onerror = () => reject(new Error('Upload failed - network error'));
-      xhr.ontimeout = () => reject(new Error('Upload timeout - file may be too large'));
+    return apiError;
+  }
 
-      xhr.open('POST', `${API_URL}${path}`);
-      xhr.timeout = 600000; // 10 minutes for large files
-      xhr.send(formData);
+  private async retry<T>(
+    operation: () => Promise<T>,
+    retries: number = this.config.retries || 2
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (retries > 0) {
+        console.log(`[API] Retrying... ${retries} attempts left`);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        return this.retry(operation, retries - 1);
+      }
+      throw error;
+    }
+  }
+
+  // Update configuration
+  updateConfig(newConfig: Partial<ApiConfig>) {
+    this.config = { ...this.config, ...newConfig };
+    
+    // Update base URL if changed
+    if (newConfig.baseURL) {
+      this.client.defaults.baseURL = newConfig.baseURL;
+    }
+    
+    // Update auth header if API key changed
+    if (newConfig.apiKey !== undefined) {
+      if (newConfig.apiKey) {
+        this.client.defaults.headers.common['Authorization'] = `Bearer ${newConfig.apiKey}`;
+      } else {
+        delete this.client.defaults.headers.common['Authorization'];
+      }
+    }
+  }
+
+  // Set authentication token for all requests
+  setAuthToken(token: string | null) {
+    if (token) {
+      this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      this.config.apiKey = token;
+      console.log('[API Client] Auth token set:', token.substring(0, 20) + '...');
+      console.log('[API Client] Authorization header:', this.client.defaults.headers.common['Authorization']);
+    } else {
+      delete this.client.defaults.headers.common['Authorization'];
+      this.config.apiKey = undefined;
+      console.log('[API Client] Auth token cleared');
+    }
+  }
+
+  // Authentication Endpoints
+  async getAuthStatus(): Promise<AuthStatus> {
+    const response = await this.retry(() => 
+      this.client.get<AuthStatus>('/api/v1/system/auth-status')
+    );
+    return response.data;
+  }
+
+  async register(request: RegisterRequest): Promise<AuthResponse> {
+    const response = await this.client.post<AuthResponse>(
+      '/api/v1/users/register',
+      request
+    );
+    return response.data;
+  }
+
+  async login(request: LoginRequest): Promise<AuthResponse> {
+    const response = await this.client.post<AuthResponse>(
+      '/api/v1/users/login',
+      request
+    );
+    return response.data;
+  }
+
+  // System Management Endpoints
+  async getHealthStatus(): Promise<HealthStatus> {
+    const response = await this.retry(() => 
+      this.client.get<HealthStatus>('/health')
+    );
+    return response.data;
+  }
+
+  async getSystemStatus(): Promise<SystemStatus> {
+    const response = await this.retry(() => 
+      this.client.get<SystemStatus>('/api/v1/system/status')
+    );
+    return response.data;
+  }
+
+  async getSchedulerStatus(): Promise<SchedulerStatus> {
+    const response = await this.retry(() => 
+      this.client.get<SchedulerStatus>('/api/v1/system/scheduler-status')
+    );
+    return response.data;
+  }
+
+  async getAvailableModels(feature?: string): Promise<AvailableModels> {
+    const params = feature ? { feature } : {};
+    const response = await this.retry(() => 
+      this.client.get<AvailableModels>('/api/v1/system/models', { params })
+    );
+    return response.data;
+  }
+
+  async getAvailableFeatures(): Promise<FeaturesResponse> {
+    const response = await this.retry(() => 
+      this.client.get<FeaturesResponse>('/api/v1/system/features')
+    );
+    return response.data;
+  }
+
+  // Job Management Endpoints
+  async getJobStatus(jobId: string): Promise<JobInfo> {
+    const response = await this.retry(() => 
+      this.client.get<JobInfo>(`/api/v1/system/jobs/${jobId}`)
+    );
+    return response.data;
+  }
+
+  async getJobResultInfo(jobId: string): Promise<JobResultInfo> {
+    const response = await this.retry(() => 
+      this.client.get<JobResultInfo>(`/api/v1/system/jobs/${jobId}/info`)
+    );
+    return response.data;
+  }
+
+  async downloadJobResult(jobId: string, format: 'file' | 'base64' = 'file', filename?: string): Promise<Blob | string> {
+    const params: any = { format };
+    if (filename) params.filename = filename;
+
+    const response = await this.retry(() => 
+      this.client.get(`/api/v1/system/jobs/${jobId}/download`, {
+        params,
+        responseType: format === 'file' ? 'blob' : 'json'
+      })
+    );
+
+    return response.data;
+  }
+
+  async getJobsHistory(params?: JobsHistoryParams): Promise<JobsHistoryResponse> {
+    const response = await this.retry(() => 
+      this.client.get<JobsHistoryResponse>('/api/v1/system/jobs/history', { params })
+    );
+    return response.data;
+  }
+
+  async deleteJob(jobId: string): Promise<BaseApiResponse> {
+    const response = await this.client.delete<BaseApiResponse>(
+      `/api/v1/system/jobs/${jobId}`
+    );
+    return response.data;
+  }
+
+  async getQueueStats(): Promise<QueueStatsResponse> {
+    const response = await this.retry(() => 
+      this.client.get<QueueStatsResponse>('/api/v1/system/jobs/queue/stats')
+    );
+    return response.data;
+  }
+
+  // NEW File Upload Endpoints
+  async uploadImageFile(file: File, onProgress?: (progress: number) => void): Promise<FileUploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await this.client.post<FileUploadResponse>(
+      '/api/v1/file-upload/image',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          if (onProgress && progressEvent.total) {
+            const progress = (progressEvent.loaded / progressEvent.total) * 100;
+            onProgress(progress);
+          }
+        }
+      }
+    );
+    return response.data;
+  }
+
+  async uploadMeshFile(file: File, onProgress?: (progress: number) => void): Promise<FileUploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await this.client.post<FileUploadResponse>(
+      '/api/v1/file-upload/mesh',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          if (onProgress && progressEvent.total) {
+            const progress = (progressEvent.loaded / progressEvent.total) * 100;
+            onProgress(progress);
+          }
+        }
+      }
+    );
+    return response.data;
+  }
+
+  async getFileMetadata(fileId: string): Promise<FileMetadata> {
+    const response = await this.retry(() => 
+      this.client.get<FileMetadata>(`/api/v1/file-upload/metadata/${fileId}`)
+    );
+    return response.data;
+  }
+
+  // Mesh Generation Endpoints
+  async textToRawMesh(request: TextToMeshRequest): Promise<BaseApiResponse> {
+    const response = await this.client.post<BaseApiResponse>(
+      '/api/v1/mesh-generation/text-to-raw-mesh',
+      request
+    );
+    return response.data;
+  }
+
+  async textToTexturedMesh(request: TextToTexturedMeshRequest): Promise<BaseApiResponse> {
+    const response = await this.client.post<BaseApiResponse>(
+      '/api/v1/mesh-generation/text-to-textured-mesh',
+      request
+    );
+    return response.data;
+  }
+
+  async imageToRawMesh(request: ImageToMeshRequest): Promise<BaseApiResponse> {
+    const response = await this.client.post<BaseApiResponse>(
+      '/api/v1/mesh-generation/image-to-raw-mesh',
+      request
+    );
+    return response.data;
+  }
+
+  async imageToTexturedMesh(request: ImageToTexturedMeshRequest): Promise<BaseApiResponse> {
+    const response = await this.client.post<BaseApiResponse>(
+      '/api/v1/mesh-generation/image-to-textured-mesh',
+      request
+    );
+    return response.data;
+  }
+
+  async textMeshPainting(request: MeshPaintingRequest): Promise<BaseApiResponse> {
+    const response = await this.client.post<BaseApiResponse>(
+      '/api/v1/mesh-generation/text-mesh-painting',
+      request
+    );
+    return response.data;
+  }
+
+  async imageMeshPainting(request: MeshPaintingRequest): Promise<BaseApiResponse> {
+    const response = await this.client.post<BaseApiResponse>(
+      '/api/v1/mesh-generation/image-mesh-painting',
+      request
+    );
+    return response.data;
+  }
+
+  async partCompletion(request: PartCompletionRequest): Promise<BaseApiResponse> {
+    const response = await this.client.post<BaseApiResponse>(
+      '/api/v1/mesh-generation/part-completion',
+      request
+    );
+    return response.data;
+  }
+
+
+  // Mesh Segmentation Endpoints
+  async segmentMesh(request: MeshSegmentationRequest): Promise<BaseApiResponse> {
+    const response = await this.client.post<BaseApiResponse>(
+      '/api/v1/mesh-segmentation/segment-mesh',
+      request
+    );
+    return response.data;
+  }
+
+
+  // Auto Rigging Endpoints
+  async generateRig(request: AutoRiggingRequest): Promise<BaseApiResponse> {
+    const response = await this.client.post<BaseApiResponse>(
+      '/api/v1/auto-rigging/generate-rig',
+      request
+    );
+    return response.data;
+  }
+
+
+  // Supported Formats Endpoints
+  async getMeshGenerationSupportedFormats(): Promise<SupportedFormats> {
+    const response = await this.retry(() => 
+      this.client.get<SupportedFormats>('/api/v1/mesh-generation/supported-formats')
+    );
+    return response.data;
+  }
+
+  async getMeshSegmentationSupportedFormats(): Promise<SupportedFormats> {
+    const response = await this.retry(() => 
+      this.client.get<SupportedFormats>('/api/v1/mesh-segmentation/supported-formats')
+    );
+    return response.data;
+  }
+
+  async getAutoRiggingSupportedFormats(): Promise<SupportedFormats> {
+    const response = await this.retry(() => 
+      this.client.get<SupportedFormats>('/api/v1/auto-rigging/supported-formats')
+    );
+    return response.data;
+  }
+
+  // Mesh Retopology Endpoints
+  async retopologizeMesh(request: MeshRetopologyRequest): Promise<BaseApiResponse> {
+    const response = await this.client.post<BaseApiResponse>(
+      '/api/v1/mesh-retopology/retopologize-mesh',
+      request
+    );
+    return response.data;
+  }
+
+  async getRetopologyAvailableModels(): Promise<RetopologyAvailableModels> {
+    const response = await this.retry(() => 
+      this.client.get<RetopologyAvailableModels>('/api/v1/mesh-retopology/available-models')
+    );
+    return response.data;
+  }
+
+  async getMeshRetopologySupportedFormats(): Promise<SupportedFormats> {
+    const response = await this.retry(() => 
+      this.client.get<SupportedFormats>('/api/v1/mesh-retopology/supported-formats')
+    );
+    return response.data;
+  }
+
+  // Mesh UV Unwrapping Endpoints
+  async unwrapMeshUV(request: MeshUVUnwrappingRequest): Promise<BaseApiResponse> {
+    const response = await this.client.post<BaseApiResponse>(
+      '/api/v1/mesh-uv-unwrapping/unwrap-mesh',
+      request
+    );
+    return response.data;
+  }
+
+  async getUVUnwrappingAvailableModels(): Promise<UVUnwrappingAvailableModels> {
+    const response = await this.retry(() => 
+      this.client.get<UVUnwrappingAvailableModels>('/api/v1/mesh-uv-unwrapping/available-models')
+    );
+    return response.data;
+  }
+
+  async getUVUnwrappingPackMethods(): Promise<UVPackMethods> {
+    const response = await this.retry(() => 
+      this.client.get<UVPackMethods>('/api/v1/mesh-uv-unwrapping/pack-methods')
+    );
+    return response.data;
+  }
+
+  async getMeshUVUnwrappingSupportedFormats(): Promise<SupportedFormats> {
+    const response = await this.retry(() => 
+      this.client.get<SupportedFormats>('/api/v1/mesh-uv-unwrapping/supported-formats')
+    );
+    return response.data;
+  }
+
+  // Model Parameters Endpoints
+  async getModelParameters(modelId: string): Promise<ModelParametersResponse> {
+    const response = await this.retry(() => 
+      this.client.get<ModelParametersResponse>(`/api/v1/system/models/${modelId}/parameters`)
+    );
+    return response.data;
+  }
+
+  // Mesh Editing Endpoints
+  async textMeshEditing(request: TextMeshEditingRequest): Promise<BaseApiResponse> {
+    const response = await this.client.post<BaseApiResponse>(
+      '/api/v1/mesh-editing/text-mesh-editing',
+      request
+    );
+    return response.data;
+  }
+
+  async imageMeshEditing(request: ImageMeshEditingRequest): Promise<BaseApiResponse> {
+    const response = await this.client.post<BaseApiResponse>(
+      '/api/v1/mesh-editing/image-mesh-editing',
+      request
+    );
+    return response.data;
+  }
+
+  // ─── Admin / Runtime Endpoints ──────────────────────────────────────────────
+
+  async getLogs(limit: number = 100, level?: string): Promise<any[]> {
+    try {
+      const params: any = { lines: String(limit) };
+      if (level) params.level = level.toUpperCase();
+      const response = await this.client.get('/api/v1/system/logs', { params });
+      const rawLogs = response?.data?.logs || response?.logs || [];
+      return rawLogs.map((log: any, index: number) => ({
+        id: log.id || `log-${index}-${Date.now()}`,
+        timestamp: log.timestamp || log.ts || new Date().toISOString(),
+        level: (log.level || 'info').toLowerCase(),
+        source: log.source || log.logger || 'system',
+        message: log.message || '',
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  async clearLogs(): Promise<void> {
+    await this.client.delete('/api/v1/system/logs/files/app.log');
+  }
+
+  streamLogs(onEntry: (log: any) => void, lastN: number = 100): () => void {
+    return this.streamEvents(
+      `/api/v1/system/logs/stream?last_n=${lastN}`,
+      (raw: any) => {
+        const d = raw as Record<string, unknown>;
+        if (d.level === 'HEARTBEAT' && !d.message) return;
+        const entry = {
+          id: String(d.id ?? `log-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+          timestamp: String(d.timestamp || d.ts || new Date().toISOString()),
+          level: (String(d.level || 'info').toLowerCase()).replace(/[^a-z]/g, '') || 'info',
+          source: String(d.source || d.logger || 'system'),
+          message: String(d.message || ''),
+        };
+        onEntry(entry);
+      }
+    );
+  }
+
+  async listModels(): Promise<any[]> {
+    try {
+      const response: any = await this.client.get('/api/v1/system/models', { params: { feature: undefined } });
+      if (Array.isArray(response)) return response;
+      if (Array.isArray(response?.data?.models)) return response.data.models;
+      if (Array.isArray(response?.models)) return response.models;
+      if (Array.isArray(response?.data)) return response.data;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  async modelAction(
+    modelId: string,
+    action: string,
+    options?: { include_auxiliary?: boolean; auxiliary_names?: string[] },
+  ): Promise<void> {
+    await this.client.post('/api/v1/system/models/action', {
+      model_id: modelId,
+      action,
+      ...options,
     });
-  },
+  }
 
-  // streamEvents: SSE via API proxy route
-  // The proxy forwards SSE connections to backend and streams responses back
-  streamEvents: (path: string, onEvent: (data: unknown) => void, onDone?: () => void) => {
+  async getInstallProgress(modelId: string): Promise<any | null> {
+    try {
+      const response = await this.client.get(`/api/v1/system/install/progress/${modelId}`);
+      return response?.data || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async getInstallStatus(): Promise<Record<string, any> | null> {
+    try {
+      const response = await this.client.get('/api/v1/system/install/status');
+      return response?.data || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async repairProvider(providerName: string): Promise<any> {
+    try {
+      const response: any = await this.client.post(`/api/v1/system/repair/${encodeURIComponent(providerName)}`);
+      return response?.data || response;
+    } catch {
+      try {
+        const response2: any = await this.client.post('/api/v1/system/models/action', {
+          model_id: providerName,
+          action: 'repair',
+        });
+        return response2?.data || response2;
+      } catch {
+        const response3: any = await this.client.post('/api/v1/runtime/repair', { repo: providerName });
+        return response3?.data || response3;
+      }
+    }
+  }
+
+  async getSettings(): Promise<Record<string, unknown> | null> {
+    try {
+      const response = await this.client.get('/api/v1/system/settings');
+      return response?.data || response || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async getHFTokenStatus(): Promise<{ configured: boolean; valid: boolean }> {
+    try {
+      const response = await this.client.get('/api/v1/system/settings/hf-token');
+      return { configured: Boolean(response?.data?.configured), valid: Boolean(response?.data?.valid) };
+    } catch {
+      return { configured: false, valid: false };
+    }
+  }
+
+  async saveHFToken(token: string): Promise<void> {
+    await this.client.post('/api/v1/system/settings/hf-token', { token });
+  }
+
+  async removeHFToken(): Promise<void> {
+    await this.client.delete('/api/v1/system/settings/hf-token');
+  }
+
+  async clearCache(): Promise<void> {
+    await this.client.post('/api/v1/runtime/clear-cache', {});
+  }
+
+  async clearVRAM(): Promise<void> {
+    await this.client.post('/api/v1/runtime/clear-vram', {});
+  }
+
+  async restartRuntime(): Promise<void> {
+    await this.client.post('/api/v1/runtime/restart', {});
+  }
+
+  async updateConfig(config: Record<string, unknown>): Promise<void> {
+    await this.client.post('/api/v1/runtime/config', config);
+  }
+
+  async getGenerationSettings(): Promise<any> {
+    try {
+      const response = await this.client.get('/api/v1/settings/generation');
+      return response?.data || response || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async saveGenerationSettings(config: any): Promise<void> {
+    await this.client.post('/api/v1/settings/generation', config);
+  }
+
+  streamInstallProgress(
+    modelId: string,
+    onProgress: (progress: any) => void,
+    onDone?: () => void,
+    timeout: number = 3600000
+  ): () => void {
+    let timeoutId: NodeJS.Timeout | null = null;
+    let eventSourceClosed = false;
+
+    const cleanup = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      eventSourceClosed = true;
+      unsubscribe();
+      if (onDone) onDone();
+    };
+
+    timeoutId = setTimeout(() => {
+      if (!eventSourceClosed) {
+        console.warn(`Install stream for ${modelId} timed out`);
+        cleanup();
+      }
+    }, timeout);
+
+    const unsubscribe = this.streamEvents(
+      `/api/v1/system/install/stream/${modelId}`,
+      (raw: any) => {
+        if (eventSourceClosed) return;
+
+        const d = raw as Record<string, unknown>;
+        const bytesToMB = (b?: number) => ((b ?? 0) / (1024 * 1024));
+        const progress = {
+          model_id: String(d.model_id ?? modelId),
+          phase: String(d.phase ?? ''),
+          progress: Number(d.percent ?? d.progress ?? 0),
+          percent: Number(d.percent ?? 0),
+          speed_mbps: d.speed_mbps != null ? Number(d.speed_mbps) : bytesToMB(Number(d.speed_bps)),
+          speed_bps: d.speed_bps != null ? Number(d.speed_bps) : undefined,
+          downloaded_mb: d.downloaded_mb != null ? Number(d.downloaded_mb) : bytesToMB(Number(d.bytes_downloaded)),
+          bytes_downloaded: d.bytes_downloaded != null ? Number(d.bytes_downloaded) : undefined,
+          total_mb: d.total_mb != null ? Number(d.total_mb) : bytesToMB(Number(d.bytes_total)),
+          bytes_total: d.bytes_total != null ? Number(d.bytes_total) : undefined,
+          eta_seconds: Number(d.eta_seconds ?? 0),
+          status: d.status as 'queued' | 'downloading' | 'installing' | 'completed' | 'failed',
+          log: d.log != null ? String(d.log) : undefined,
+          error: d.error != null ? String(d.error) : undefined,
+        };
+
+        onProgress(progress);
+
+        if (progress.status === 'completed' || progress.status === 'failed') {
+          cleanup();
+        }
+      },
+      cleanup
+    );
+
+    return () => {
+      eventSourceClosed = true;
+      unsubscribe();
+      cleanup();
+    };
+  }
+
+  // SSE streaming helper
+  streamEvents(path: string, onEvent: (data: unknown) => void, onDone?: () => void): () => void {
     let es: EventSource | null = null;
     let isClosed = false;
 
     try {
-      const url = API_URL ? `${API_URL}${path}` : path;
+      const url = path.startsWith('/') ? path : `/${path}`;
       es = new EventSource(url);
 
       es.onmessage = (e) => {
@@ -279,8 +769,6 @@ export const apiClient = {
 
       es.onerror = () => {
         if (isClosed) return;
-        // EventSource auto-reconnects when readyState is CONNECTING (0).
-        // Only mark closed if the browser actually transitioned to CLOSED (2).
         if (es && es.readyState === EventSource.CLOSED) {
           isClosed = true;
           es.close();
@@ -294,7 +782,6 @@ export const apiClient = {
       console.error('Failed to create EventSource:', err);
     }
 
-    // Return cleanup function
     return () => {
       if (!isClosed && es) {
         isClosed = true;
@@ -302,27 +789,67 @@ export const apiClient = {
         es = null;
       }
     };
-  },
+  }
 
-  // Invalidate cache for a given path prefix
-  invalidateCache: (pathPrefix?: string) => {
-    const cache = getCacheService();
-    if (!cache) return;
-    if (pathPrefix) {
-      const prefix = `GET:${pathPrefix}`;
-      for (const key of cache.keys()) {
-        if (key.startsWith(prefix)) {
-          cache.delete(key);
-        }
-      }
-    } else {
-      cache.clear();
+  // Utility methods
+  async checkConnection(): Promise<boolean> {
+    try {
+      await this.getHealthStatus();
+      return true;
+    } catch (error) {
+      return false;
     }
-  },
+  }
 
-  // Get/set base URL for API calls
-  getBaseUrl: () => API_URL,
-  setBaseUrl: (url: string) => {
-    API_URL = normalizeApiUrl(url || undefined);
-  },
+  /**
+   * Fast health check with minimal timeout and retries for app initialization
+   */
+  async quickHealthCheck(): Promise<boolean> {
+    try {
+      // Create a quick health check with minimal timeout and no retries
+      const response = await this.client.get<HealthStatus>('/health', {
+        timeout: 5000, // 5 second timeout
+        // No retry wrapper - fail fast
+      });
+      return response.data.status === 'healthy';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  getConfig(): ApiConfig {
+    return { ...this.config };
+  }
+
+  get<T = any>(path: string, ...args: any[]): Promise<T> {
+    return this.client.get(path, ...args).then((response) => response.data);
+  }
+
+  post<T = any>(path: string, data?: any, ...args: any[]): Promise<T> {
+    return this.client.post(path, data, ...args).then((response) => response.data);
+  }
+}
+
+// Create singleton instance
+let apiClient: ApiClient;
+
+export const createApiClient = (config: ApiConfig): ApiClient => {
+  apiClient = new ApiClient(config);
+  return apiClient;
 };
+
+export const getApiClient = (): ApiClient => {
+  if (!apiClient) {
+    throw new Error('API client not initialized. Call createApiClient() first.');
+  }
+  return apiClient;
+};
+
+export const getApiUrl = (): string => {
+  if (!apiClient) {
+    return '';
+  }
+  return apiClient.getConfig().baseURL;
+};
+
+export default ApiClient; 

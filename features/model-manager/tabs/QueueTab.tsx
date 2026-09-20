@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Activity, AlertTriangle, Wrench, Loader2, CheckCircle2 } from 'lucide-react';
-import { adminService } from '@/services/adminService';
+import { apiClient } from '@/services/apiClient';
 import { toast } from 'sonner';
 
 export function QueueTab({ models }: { models: any[] }) {
@@ -21,7 +21,7 @@ export function QueueTab({ models }: { models: any[] }) {
     });
 
     try {
-      await adminService.repairProvider(model.id);
+      await apiClient.repairProvider(model.id);
       setRepairedIds(prev => ({ ...prev, [key]: true }));
       toast.success(`${model.label || model.id} repair initiated`);
     } catch (err: any) {

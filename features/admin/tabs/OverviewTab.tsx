@@ -15,8 +15,7 @@ import { StatusDot } from '@/components/premium/StatusDot';
 import { Badge } from '@/components/premium/Badge';
 import { Spinner } from '@/components/premium/Spinner';
 import { GpuVramLineChart } from '@/components/monitoring/GpuVramLineChart';
-import { adminService } from '@/services/adminService';
-import { runtimeService } from '@/services/runtimeService';
+import { apiClient } from '@/services/apiClient';
 import type { AdminOverview, RuntimeStatus } from '@/types';
 
 export function OverviewTab() {
@@ -27,13 +26,31 @@ export function OverviewTab() {
 
   const load = useCallback(async () => {
     try {
-      const [ov, rt] = await Promise.all([
-        adminService.overview(),
-        runtimeService.getStatus(),
+      const [status, queueStats] = await Promise.all([
+        apiClient.getSystemStatus(),
+        apiClient.getQueueStats().catch(() => null),
       ]);
-      setOverview(ov);
-      setRuntime(rt);
-      setError(!ov && !rt ? 'Failed to load system data' : null);
+      setRuntime(status);
+      const queue = queueStats?.data;
+      setOverview({
+        status: 'online',
+        uptime: '—',
+        active_jobs: queue?.processing_jobs ?? 0,
+        queued_jobs: queue?.pending_jobs ?? 0,
+        completed_today: 0,
+        success_rate: 0,
+        gpu_utilization: status.gpu_utilization ?? 0,
+        vram_used_mb: status.vram_used_mb ?? 0,
+        vram_total_mb: status.vram_total_mb ?? 1,
+        cpu_usage: status.cpu_usage ?? 0,
+        ram_usage: status.ram_usage ?? 0,
+        storage_used_gb: status.storage_used_gb ?? 0,
+        storage_total_gb: status.storage_total_gb ?? 1,
+        gpu_temp: status.gpu_temp ?? 0,
+        cuda_available: status.cuda_available ?? false,
+        queue_running: (queue?.processing_jobs ?? 0) > 0,
+      } as any);
+      setError(null);
     } catch { /* ignore */ }
     setLoading(false);
   }, []);

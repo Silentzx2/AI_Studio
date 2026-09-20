@@ -22,7 +22,7 @@ import { Badge } from '@/components/premium/Badge';
 import { NeonButton } from '@/components/premium/NeonButton';
 import { StatusDot } from '@/components/premium/StatusDot';
 import { Spinner } from '@/components/premium/Spinner';
-import { adminService } from '@/services/adminService';
+import { apiClient } from '@/services/apiClient';
 import { diagnoseJobError, type JobDiagnostic } from '@/lib/jobDiagnostics';
 import type { QueueStatus, AdminJob } from '@/types';
 import { toast } from 'sonner';
@@ -38,19 +38,26 @@ export function QueueTab() {
   const load = useCallback(async () => {
     try {
       const [queueData, jobsData] = await Promise.allSettled([
-        adminService.queueStatus(),
-        adminService.listJobs(),
+        apiClient.getQueueStats(),
+        apiClient.getJobsHistory({ limit: 50 }),
       ]);
 
       if (queueData.status === 'fulfilled' && queueData.value) {
-        setQueue(queueData.value);
+        const queue = queueData.value.data;
+        setQueue({
+          active: queue.processing_jobs ?? 0,
+          queued: queue.pending_jobs ?? 0,
+          reserved: 0,
+          workers: 0,
+          scheduler_running: queue.processing_jobs > 0,
+        } as any);
         setError(null);
       } else {
         setError('Failed to load queue status');
       }
 
       if (jobsData.status === 'fulfilled') {
-        setFailedJobs((jobsData.value || []).filter(j => j.status === 'failed'));
+        setFailedJobs((jobsData.value?.jobs ?? []).filter((j: any) => j.status === 'failed'));
       }
     } catch { /* ignore */ }
     setLoading(false);
@@ -65,39 +72,18 @@ export function QueueTab() {
     return () => clearInterval(interval);
   }, [load]);
 
-  const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
-    const key = job.id;
-    setRepairingJobs(prev => ({ ...prev, [key]: true }));
+const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
+  const key = job.id;
+  setRepairingJobs(prev => ({ ...prev, [key]: true }));
+  toast.info(`Repair for ${diag.providerLabel} not available in this backend.`, {
+    description: 'The new backend does not support provider repair operations.',
+  });
+  setRepairingJobs(prev => ({ ...prev, [key]: false }));
+};
 
-    toast.info(`Initiating repair for ${diag.providerLabel}...`, {
-      description: 'Re-initializing runtime environment, dependencies, and running preflight check.',
-    });
-
-    try {
-      await adminService.repairProvider(diag.providerId);
-      setRepairedJobs(prev => ({ ...prev, [key]: true }));
-      toast.success(`${diag.providerLabel} repair initiated`, {
-        description: 'Runtime environment is being re-initialized in the background.',
-      });
-      await load();
-    } catch (err: any) {
-      toast.error(`Failed to repair ${diag.providerLabel}`, {
-        description: err?.message || 'Unable to trigger provider repair.',
-      });
-    } finally {
-      setRepairingJobs(prev => ({ ...prev, [key]: false }));
-    }
-  };
-
-  const handlePurge = async () => {
-    try {
-      await adminService.purgeQueue();
-      toast.success('Queue purged');
-      setQueue((prev) => prev ? { ...prev, queued: 0 } : null);
-    } catch {
-      toast.error('Failed to purge queue');
-    }
-  };
+const handlePurge = async () => {
+  toast.info('Purge not available in this backend');
+};
 
   const repairableJobs = failedJobs
     .map(job => ({ job, diag: diagnoseJobError(job) }))

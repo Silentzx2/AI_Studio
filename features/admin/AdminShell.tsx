@@ -14,7 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { APP_NAME, ADMIN_NAV_ITEMS } from '@/constants';
 import { StatusDot } from '@/components/premium/StatusDot';
-import { runtimeService } from '@/services/runtimeService';
+import { apiClient } from '@/services/apiClient';
 import { useBackendStatus } from '@/hooks/useBackendData';
 import type { RuntimeStatus } from '@/types';
 
@@ -48,8 +48,10 @@ export function AdminShell({ activeTab, onTabChange, children }: AdminShellProps
   const pathname = usePathname();
 
   const loadRuntime = useCallback(async () => {
-    const status = await runtimeService.getStatus();
-    if (status) setRuntime(status);
+    try {
+      const status = await apiClient.getSystemStatus();
+      if (status) setRuntime(status);
+    } catch { /* ignore */ }
   }, []);
 
   useEffect(() => {

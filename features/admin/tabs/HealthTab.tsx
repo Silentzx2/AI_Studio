@@ -8,7 +8,7 @@ import { GlassCard } from '@/components/premium/GlassCard';
 import { Badge } from '@/components/premium/Badge';
 import { NeonButton } from '@/components/premium/NeonButton';
 import { Spinner } from '@/components/premium/Spinner';
-import { adminService } from '@/services/adminService';
+import { apiClient } from '@/services/apiClient';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -30,29 +30,38 @@ export function HealthTab() {
     setLoading(true);
     setError(null);
     try {
-      const result = await adminService.deepHealth();
-      const rawChecks = result.checks || {};
-
-      // The new backend returns rich objects: { status, latency, detail, extra }
-      const healthChecks: HealthCheck[] = Object.entries(rawChecks).map(([name, data]) => {
-        const d = data as Record<string, unknown>;
-        // Handle both old boolean format and new rich format
-        if (typeof d === 'boolean') {
-          return {
-            name,
-            status: d ? 'healthy' as const : 'down' as const,
-            latency: 0,
-            detail: d ? 'Service responding' : 'Service not responding',
-          };
-        }
-        return {
-          name,
-          status: (d.status as HealthCheck['status']) || (d.available ? 'healthy' : 'down'),
-          latency: (d.latency as number) || 0,
-          detail: (d.detail as string) || (d.available ? 'Service responding' : 'Service not responding'),
-          extra: (d.extra as string) || '',
-        };
-      });
+      const [systemStatus, healthStatus] = await Promise.all([
+        apiClient.getSystemStatus(),
+        apiClient.getHealthStatus(),
+      ]);
+      
+      // Create health checks from available data
+      const healthChecks: HealthCheck[] = [
+        {
+          name: 'System',
+          status: systemStatus.status === 'healthy' ? 'healthy' as const : 'degraded',
+          latency: 0,
+          detail: systemStatus.status,
+        },
+        {
+          name: 'Health Endpoint',
+          status: healthStatus.status === 'healthy' ? 'healthy' as const : 'degraded',
+          latency: 0,
+          detail: healthStatus.status,
+        },
+        {
+          name: 'GPU',
+          status: (systemStatus.gpu_utilization !== undefined && systemStatus.gpu_utilization !== null) ? 'healthy' : 'down',
+          latency: 0,
+          detail: systemStatus.gpu_utilization !== undefined ? `GPU Utilization: ${systemStatus.gpu_utilization}%` : 'GPU not detected',
+        },
+        {
+          name: 'CUDA',
+          status: systemStatus.cuda_available ? 'healthy' : 'down',
+          latency: 0,
+          detail: systemStatus.cuda_available ? 'CUDA available' : 'CUDA not available',
+        },
+      ];
 
       setChecks(healthChecks);
       setLastChecked(new Date());
