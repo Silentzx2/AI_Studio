@@ -14,6 +14,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+from pydantic import BaseModel
 from app.config import get_settings
 from app.core import get_comfyui_client, get_workflow_manager
 from app.schemas import SuccessResponse
@@ -21,6 +22,19 @@ from app.schemas import SuccessResponse
 router = APIRouter()
 settings = get_settings()
 logger = logging.getLogger(__name__)
+
+
+class ClientLogPayload(BaseModel):
+    ts: str | None = None
+    type: str = "activity"
+    detail: str = ""
+
+
+@router.post("/log", response_model=SuccessResponse)
+async def log_client_activity(entry: ClientLogPayload):
+    """Receive client activity logs from frontend ActivityLogger."""
+    logger.debug("Client activity [%s]: %s", entry.type, entry.detail)
+    return SuccessResponse(data={"logged": True}, message="Client activity logged")
 
 
 @router.get("/info", response_model=SuccessResponse)

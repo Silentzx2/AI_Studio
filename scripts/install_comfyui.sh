@@ -360,6 +360,34 @@ with open(p, 'w') as f:
 " 2>/dev/null || true
     fi
 
+    # 8. nodes.py: guard TriplaneGaussian and Unique3D imports against missing optional dependencies
+    local nodes_file="${pack_dir}/nodes.py"
+    if [[ -f "$nodes_file" ]]; then
+        python3 -c "
+p = '${nodes_file}'
+with open(p, 'r') as f:
+    c = f.read()
+if 'from TriplaneGaussian.triplane_gaussian_transformers import TGS' in c:
+    c = c.replace(
+        'from TriplaneGaussian.triplane_gaussian_transformers import TGS',
+        'try:\n    from TriplaneGaussian.triplane_gaussian_transformers import TGS'
+    ).replace(
+        'from TriplaneGaussian.utils.misc import todevice, get_device',
+        'from TriplaneGaussian.utils.misc import todevice, get_device\nexcept Exception:\n    TGS = None; ExperimentConfigTGS = None; load_config_tgs = None; CustomImageOrbitDataset = None; todevice = None; get_device = None'
+    )
+if 'from Unique3D.custum_3d_diffusion.custum_pipeline.unifield_pipeline_img2mvimg import StableDiffusionImage2MVCustomPipeline' in c:
+    c = c.replace(
+        'from Unique3D.custum_3d_diffusion.custum_pipeline.unifield_pipeline_img2mvimg import StableDiffusionImage2MVCustomPipeline',
+        'try:\n    from Unique3D.custum_3d_diffusion.custum_pipeline.unifield_pipeline_img2mvimg import StableDiffusionImage2MVCustomPipeline'
+    ).replace(
+        'from Unique3D.mesh_reconstruction.refine import run_mesh_refine',
+        'from Unique3D.mesh_reconstruction.refine import run_mesh_refine\nexcept Exception:\n    StableDiffusionImage2MVCustomPipeline = None'
+    )
+with open(p, 'w') as f:
+    f.write(c)
+" 2>/dev/null || true
+    fi
+
     log "ComfyUI-3D-Pack compatibility patches applied successfully"
 }
 
@@ -422,10 +450,11 @@ for vd in venv_dirs:
     fi
 
     # Pre-install official binary wheels to bypass 30-min slow source compilations
-    info "Installing pre-compiled 3D binary wheels (spconv-cu124, torch-scatter, kiui, nvdiffrast)..."
-    pip_install "spconv-cu124" "kiui" || true
+    info "Installing pre-compiled 3D binary wheels (spconv-cu124, torch-scatter, kiui, nvdiffrast, pytorch3d)..."
+    pip_install "spconv-cu124" "kiui" "fvcore" "iopath" || true
     pip_install torch-scatter -f "https://data.pyg.org/whl/torch-2.5.1+cu124.html" || true
     pip_install --no-build-isolation "git+https://github.com/NVlabs/nvdiffrast.git" || true
+    pip_install --no-deps "https://github.com/MiroPsota/torch_packages_builder/releases/download/pytorch3d-0.7.8/pytorch3d-0.7.8%2Bpt2.5.1cu124-cp312-cp312-linux_x86_64.whl" || true
 
     # Execute official install.py if available
     if [[ -f "${THREE_D_PACK_DIR}/install.py" ]]; then

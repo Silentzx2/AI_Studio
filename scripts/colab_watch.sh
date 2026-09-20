@@ -181,6 +181,42 @@ for site in sys.path:
         except Exception:
             pass
 " 2>/dev/null || true
+
+    # 3. Ensure pytorch3d binary wheel is installed for ComfyUI-3D-Pack
+    if ! "$PYTHON_BIN" -c "import pytorch3d" &>/dev/null; then
+        echo "[INFO] Installing pre-compiled pytorch3d wheel for Python 3.12..."
+        "$PYTHON_BIN" -m pip install -q fvcore iopath || true
+        "$PYTHON_BIN" -m pip install -q --no-deps "https://github.com/MiroPsota/torch_packages_builder/releases/download/pytorch3d-0.7.8/pytorch3d-0.7.8%2Bpt2.5.1cu124-cp312-cp312-linux_x86_64.whl" || true
+    fi
+
+    # 4. Guard TriplaneGaussian and Unique3D imports in ComfyUI-3D-Pack nodes.py
+    for pack_nodes in "${PROJECT_ROOT}/ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/nodes.py" "/content/AI_Studio/ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/nodes.py"; do
+        if [[ -f "$pack_nodes" ]]; then
+            "$PYTHON_BIN" -c "
+p = '${pack_nodes}'
+with open(p, 'r') as f:
+    c = f.read()
+if 'from TriplaneGaussian.triplane_gaussian_transformers import TGS' in c:
+    c = c.replace(
+        'from TriplaneGaussian.triplane_gaussian_transformers import TGS',
+        'try:\n    from TriplaneGaussian.triplane_gaussian_transformers import TGS'
+    ).replace(
+        'from TriplaneGaussian.utils.misc import todevice, get_device',
+        'from TriplaneGaussian.utils.misc import todevice, get_device\nexcept Exception:\n    TGS = None; ExperimentConfigTGS = None; load_config_tgs = None; CustomImageOrbitDataset = None; todevice = None; get_device = None'
+    )
+if 'from Unique3D.custum_3d_diffusion.custum_pipeline.unifield_pipeline_img2mvimg import StableDiffusionImage2MVCustomPipeline' in c:
+    c = c.replace(
+        'from Unique3D.custum_3d_diffusion.custum_pipeline.unifield_pipeline_img2mvimg import StableDiffusionImage2MVCustomPipeline',
+        'try:\n    from Unique3D.custum_3d_diffusion.custum_pipeline.unifield_pipeline_img2mvimg import StableDiffusionImage2MVCustomPipeline'
+    ).replace(
+        'from Unique3D.mesh_reconstruction.refine import run_mesh_refine',
+        'from Unique3D.mesh_reconstruction.refine import run_mesh_refine\nexcept Exception:\n    StableDiffusionImage2MVCustomPipeline = None'
+    )
+with open(p, 'w') as f:
+    f.write(c)
+" 2>/dev/null || true
+        fi
+    done
 }
 
 start_comfyui() {
