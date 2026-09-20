@@ -7,7 +7,6 @@ import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 
 const OverviewTab = dynamic(() => import('@/features/admin/tabs/OverviewTab').then(m => m.OverviewTab), { ssr: false });
-const ModelsTab = dynamic(() => import('@/features/admin/tabs/ModelsTab').then(m => m.ModelsTab), { ssr: false });
 const RuntimeTab = dynamic(() => import('@/features/admin/tabs/RuntimeTab').then(m => m.RuntimeTab), { ssr: false });
 const LogsTab = dynamic(() => import('@/features/admin/tabs/LogsTab').then(m => m.LogsTab), { ssr: false });
 const JobsTab = dynamic(() => import('@/features/admin/tabs/JobsTab').then(m => m.JobsTab), { ssr: false });
@@ -19,7 +18,6 @@ const SettingsTab = dynamic(() => import('@/features/admin/tabs/SettingsTab').th
 
 const VALID_TABS = new Set([
   'overview',
-  'models',
   'runtime',
   'logs',
   'jobs',
@@ -27,10 +25,9 @@ const VALID_TABS = new Set([
   'health',
   'storage',
   'settings',
-]);
+  ]);
 
 const SECTION_TO_TAB: Record<string, string> = {
-  models: 'models',
   runtime: 'runtime',
   logs: 'logs',
   queue: 'queue',
@@ -87,7 +84,6 @@ function AdminPageContent() {
   const renderTab = () => {
     switch (activeTab) {
       case 'overview': return <OverviewTab />;
-      case 'models': return <ModelsTab />;
       case 'runtime': return <RuntimeTab />;
       case 'logs': return <LogsTab />;
       case 'jobs': return <JobsTab />;

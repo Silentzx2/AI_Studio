@@ -33,7 +33,6 @@ import { StudioDashboard } from './Dashboard/StudioDashboard';
 
 import { ExportModal } from './Modals/ExportModal';
 import { SettingsModal } from './Modals/SettingsModal';
-import { DccBridgeModal } from './Modals/DccBridgeModal';
 import { FolderOpen, Sliders, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Menu, X } from 'lucide-react';
 import type { ToolType } from './types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
@@ -482,7 +481,6 @@ export const WorkspaceShell: React.FC = () => {
         </AnimatePresence>
       </div>
       <SettingsModal />
-      <DccBridgeModal />
       <ExportModal />
     </div>
   );

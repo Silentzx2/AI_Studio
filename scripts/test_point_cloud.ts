@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import * as THREE from 'three';
-import { createFallbackPointCloud, disposePointCloud } from '../features/new-workspace/Viewport/ImagePointCloud';
+import { createFallbackPointCloud, disposePointCloud } from '../features/workspace/Viewport/ImagePointCloud';
 
 function runSelfCheck() {
   console.log('Running interactive 3D point cloud generation self-check...');

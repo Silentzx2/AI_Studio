@@ -6,7 +6,7 @@ import {
   RefreshCw, Copy, Pause, WrapText, Download,
   ArrowDown, X
 } from "lucide-react";
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import type { AdminLog } from "@/types";
 import { toast } from "sonner";
 
@@ -57,7 +57,7 @@ export function LogsTab() {
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiClient.getLogs(1000, level === "all" ? undefined : level);
+      const data = await getApiClient().getLogs(1000, level === "all" ? undefined : level);
       setLogs(data);
       seenIds.current = new Set(data.map((l) => l.id || `${l.timestamp}-${l.source}-${l.message}`));
     } catch {
@@ -75,7 +75,7 @@ export function LogsTab() {
   // Live SSE stream handler
   useEffect(() => {
     if (!live) return;
-    const unsubscribe = apiClient.streamLogs((entry) => {
+    const unsubscribe = getApiClient().streamLogs((entry) => {
       const key = entry.id || `${entry.timestamp}-${entry.source}-${entry.message}`;
       if (seenIds.current.has(key)) return;
       seenIds.current.add(key);
@@ -195,7 +195,7 @@ export function LogsTab() {
   const handleClear = async () => {
     setIsClearing(true);
     try {
-      await apiClient.clearLogs();
+      await getApiClient().clearLogs();
       setLogs([]);
       seenIds.current.clear();
       toast.success("All logs cleared successfully");

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { GenerationConfig, GenerationJob, GenerationMode, QualityPreset, ViewerState, ViewerMode, LogEntry, RecentPrompt, UploadedImage, InstallProgress, AdminJob, ProjectAsset, ProjectLayer, BatchQueueItem, GenerationResult } from '@/types';
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 
 export interface AppState {
   // ── Generation ──
@@ -279,7 +279,7 @@ export const useAppStore = create<AppState>()(
       loadHistory: async () => {
         set({ isLoadingHistory: true, loadingError: null });
         try {
-          const data = await apiClient.get<{ jobs?: Array<Record<string, unknown>> }>('/api/v1/generation/history?limit=50');
+          const data = await getApiClient().get<{ jobs?: Array<Record<string, unknown>> }>('/api/v1/generation/history?limit=50');
           const jobs: GenerationJob[] = (data.jobs ?? []).map((j) => ({
             id: (j.id ?? j.job_id ?? '') as string,
             status: (j.status ?? 'unknown') as GenerationJob['status'],

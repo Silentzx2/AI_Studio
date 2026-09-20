@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
-import { AnimatedTabs } from '@/components/animate-ui';
 
 // Import panels
 import { RightPropertyPanel } from './RightPropertyPanel';
@@ -54,25 +53,31 @@ export const RightWorkspacePanel: React.FC = () => {
       {/* Top Segmented Header (Clean Technical Inspector Navigation) */}
       <div className="h-10 px-2.5 flex items-center justify-between border-b border-white/[0.08] bg-[hsl(var(--surface-1))] flex-shrink-0">
         <div className="flex-1 min-w-0 mr-2">
-          <AnimatedTabs
-            size="sm"
-            className="w-full p-0.5 bg-[hsl(var(--surface-0))] border-white/[0.06]"
-            activeTab={currentActiveTab}
-            onChange={(tab) => setRightPanelMode(tab as any)}
-            tabs={[
-              { id: 'properties', label: 'Properties', icon: Sliders },
-              {
-                id: 'prompt',
-                label: isRunning ? 'Executing' : 'Console',
-                icon: Activity,
-                badge: isRunning ? '●' : undefined,
-              },
-              { id: 'assets', label: 'Assets', icon: FolderOpen },
-            ]}
-            activeIndicatorClassName="bg-[hsl(var(--surface-2))] border-white/[0.1]"
-            activeTabClassName="text-white font-bold"
-          />
-        </div>
+            <div className="flex gap-1 p-0.5 bg-[hsl(var(--surface-0))] border border-white/[0.06] rounded-lg">
+              {([
+                { id: 'properties', label: 'Properties', icon: Sliders },
+                { id: 'prompt', label: isRunning ? 'Executing' : 'Console', icon: Activity, badge: isRunning ? '●' : undefined },
+                { id: 'assets', label: 'Assets', icon: FolderOpen },
+              ] as Array<{ id: string; label: string; icon: any; badge?: string }>).map((tab) => {
+                const Icon = tab.icon;
+                const isActive = currentActiveTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setRightPanelMode(tab.id as any)}
+                    className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                      isActive ? 'bg-[hsl(var(--surface-2))] text-white font-bold' : 'text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-2))]'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{tab.label}</span>
+                    {tab.badge && <span className="text-[9px] text-primary">{tab.badge}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
         {/* Collapse Panel Button */}
         <SimpleTooltip label="Collapse panel (maximize 3D viewer)" side="left">

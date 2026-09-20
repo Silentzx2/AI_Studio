@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, Loader2, RefreshCw, CheckCircle, XCircle, Activity, Save } from 'lucide-react';
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import { Switch } from '@/components/ui/switch';
 
 interface SystemInfoData {
@@ -75,7 +75,7 @@ export function GeneralSection() {
       setLoading(true);
       setError(null);
       
-      const response = await apiClient.get<{ success: boolean; data: SystemInfoData }>('/api/v1/system/info');
+      const response = await getApiClient().get<{ success: boolean; data: SystemInfoData }>('/api/v1/system/info');
       if (response && response.data) {
         setSystemInfo(response.data);
       }
@@ -99,7 +99,7 @@ export function GeneralSection() {
     // 1. Backend API Connection
     setInitSteps(prev => prev.map(s => s.id === 'api' ? { ...s, status: 'loading' } : s));
     try {
-      await apiClient.get('/api/v1/system/info');
+      await getApiClient().get('/api/v1/system/info');
       setInitSteps(prev => prev.map(s => s.id === 'api' ? { ...s, status: 'success' } : s));
     } catch (e) {
       setInitSteps(prev => prev.map(s => s.id === 'api' ? { ...s, status: 'error', message: e instanceof Error ? e.message : 'Failed to connect' } : s));
@@ -114,7 +114,7 @@ export function GeneralSection() {
     // 2. Database & Redis Connections
     setInitSteps(prev => prev.map(s => s.id === 'connections' ? { ...s, status: 'loading' } : s));
     try {
-      const connResponse = await apiClient.post<{ success: boolean; message?: string }>('/api/v1/system/test/connection', {});
+      const connResponse = await getApiClient().post<{ success: boolean; message?: string }>('/api/v1/system/test/connection', {});
       if (connResponse?.success) {
         setInitSteps(prev => prev.map(s => s.id === 'connections' ? { ...s, status: 'success', message: connResponse.message || 'All connections verified' } : s));
       } else {
@@ -134,7 +134,7 @@ export function GeneralSection() {
     // 3. Dependencies
     setInitSteps(prev => prev.map(s => s.id === 'dependencies' ? { ...s, status: 'loading' } : s));
     try {
-      const depsResponse = await apiClient.get<{ success: boolean; data?: any }>('/api/v1/system/dependencies');
+      const depsResponse = await getApiClient().get<{ success: boolean; data?: any }>('/api/v1/system/dependencies');
       if (depsResponse?.success && depsResponse.data?.all_critical_satisfied) {
         setInitSteps(prev => prev.map(s => s.id === 'dependencies' ? { ...s, status: 'success', message: 'All critical dependencies satisfied' } : s));
       } else {

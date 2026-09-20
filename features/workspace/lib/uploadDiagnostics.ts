@@ -1,4 +1,4 @@
-import { apiClient, getApiUrl } from '@/services/apiClient';
+import { getApiUrl } from '@/services/apiClient';
 
 export interface DiagnosticResult {
   success: boolean;

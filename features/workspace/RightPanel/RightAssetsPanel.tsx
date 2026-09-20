@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { apiClient, getApiUrl } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import {
   MoreVertical,
   ChevronLeft,
@@ -23,7 +23,6 @@ import { useUploadProgress } from '@/hooks/useUploadProgress';
 import { UploadDiagnosticModal } from '../Modals/UploadDiagnosticModal';
 import { validate3DFile } from '../lib/fileValidation';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
-import { ImageZoom } from '@/components/animate-ui';
 
 export const RightAssetsPanel: React.FC = () => {
   const { 
@@ -107,7 +106,9 @@ export const RightAssetsPanel: React.FC = () => {
 
     try {
       // Upload file to backend with real-time progress
-      const result = await apiClient.uploadFile<{
+      const formData = new FormData();
+      formData.append('file', file);
+      const result = await getApiClient().post<{
         url: string;
         thumbnail_url?: string;
         id?: string;
@@ -115,11 +116,7 @@ export const RightAssetsPanel: React.FC = () => {
         stored_filename?: string;
         size: number;
         mesh_stats?: { polygon_count: number; vertex_count: number };
-      }>(
-        '/api/v1/upload/model',
-        file,
-        (loaded, total) => updateProgress(loaded)
-      );
+      }>('/api/v1/file-upload/image', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
       finishUpload();
 
@@ -413,16 +410,20 @@ export const RightAssetsPanel: React.FC = () => {
                     </div>
                   )}
 
-                  {asset.thumbnail && (
-                    <div 
+{asset.thumbnail && (
+                    <div
                       className="absolute top-1.5 left-1.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <ImageZoom src={asset.thumbnail} alt={asset.name}>
-                        <div className="p-1 rounded-md bg-black/70 hover:bg-black text-zinc-300 hover:text-primary border border-white/20 shadow transition-colors" title="Zoom preview">
-                          <ZoomIn className="w-3 h-3" />
-                        </div>
-                      </ImageZoom>
+                      <a
+                        href={asset.thumbnail}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1 rounded-md bg-black/70 hover:bg-black text-zinc-300 hover:text-primary border border-white/20 shadow transition-colors"
+                        title="Zoom preview"
+                      >
+                        <ZoomIn className="w-3 h-3" />
+                      </a>
                     </div>
                   )}
 

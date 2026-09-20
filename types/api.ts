@@ -121,6 +121,7 @@ export interface JobsHistoryParams {
 // System Status Types
 export interface SystemStatus {
   timestamp: string;
+  status?: string;
   system: {
     cpu_usage: number;
     memory: {
@@ -156,6 +157,28 @@ export interface SystemStatus {
     processing_jobs: number;
     completed_jobs: number;
   };
+  // Flat properties used by admin/runtime components
+  gpu_utilization?: number;
+  vram_used_mb?: number;
+  vram_total_mb?: number;
+  cpu_usage?: number;
+  cpu_name?: string;
+  cpu_cores?: number;
+  cpu_threads?: number;
+  ram_usage?: number;
+  ram_total?: number;
+  storage_used_gb?: number;
+  storage_total_gb?: number;
+  gpu_temp?: number;
+  cuda_available?: boolean;
+  gpus?: Array<{
+    index: number;
+    name: string;
+    vram_mb: number;
+    vram_used_mb: number;
+    utilization: number;
+    temperature: number;
+  }>;
 }
 
 export interface SchedulerStatus {

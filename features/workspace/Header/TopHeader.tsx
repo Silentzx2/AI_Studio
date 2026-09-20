@@ -17,7 +17,6 @@ import {
 import { useRouter, usePathname } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
-import { AnimatedStatusBadge } from '@/components/animate-ui';
 import { motion } from 'motion/react';
 
 interface TopHeaderProps {
@@ -252,10 +251,13 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
             onClick={() => navigateToMain('system')}
             className="cursor-pointer transition-transform active:scale-95"
           >
-            <AnimatedStatusBadge
-              status={systemStats.status === 'online' ? 'online' : 'offline'}
-              label={systemStats.status === 'online' ? 'FastAPI Online' : 'FastAPI Offline'}
-            />
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+              systemStats.status === 'online'
+                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+            }`}>
+              {systemStats.status === 'online' ? 'FastAPI Online' : 'FastAPI Offline'}
+            </span>
           </button>
         </SimpleTooltip>
 

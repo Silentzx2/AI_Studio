@@ -19,7 +19,7 @@ import { GlassCard } from '@/components/premium/GlassCard';
 import { Badge } from '@/components/premium/Badge';
 import { ProgressBar } from '@/components/premium/ProgressBar';
 import { Spinner } from '@/components/premium/Spinner';
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import { diagnoseJobError, type JobDiagnostic } from '@/lib/jobDiagnostics';
 import type { AdminJob } from '@/types';
 import { cn } from '@/lib/utils';
@@ -42,7 +42,7 @@ export function JobsTab() {
 
   const load = useCallback(async () => {
     try {
-      const data = await apiClient.getJobsHistory({ limit: 50 });
+      const data = await getApiClient().getJobsHistory({ limit: 50 });
       setJobs((data.jobs ?? []).map((j: any) => ({
         id: j.job_id ?? j.id,
         status: j.status === 'processing' ? 'generating' : j.status,

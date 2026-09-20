@@ -9,4 +9,3 @@ export {
   NetworkSection,
   AdvancedSection,
 } from './PreferencesSections';
-export { ModelInstallProgress } from './ModelInstallProgress';

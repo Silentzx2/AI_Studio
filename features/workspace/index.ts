@@ -11,7 +11,6 @@ export { RightAssetsPanel } from './RightPanel/RightAssetsPanel';
 export { RightPropertyPanel } from './RightPanel/RightPropertyPanel';
 export { RightPromptPanel } from './RightPanel/RightPromptPanel';
 export { ExportModal } from './Modals/ExportModal';
-export { DccBridgeModal } from './Modals/DccBridgeModal';
 export { SettingsModal } from './Modals/SettingsModal';
 export { ProgressOverlay } from './Notifications/ProgressOverlay';
 export { StudioDashboard } from './Dashboard/StudioDashboard';

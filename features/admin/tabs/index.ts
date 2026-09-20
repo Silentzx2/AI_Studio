@@ -2,7 +2,6 @@
 export { HealthTab } from './HealthTab';
 export { JobsTab } from './JobsTab';
 export { QueueTab } from './QueueTab';
-export { ModelsTab } from './ModelsTab';
 export { RuntimeTab } from './RuntimeTab';
 export { LogsTab } from './LogsTab';
 export { OverviewTab } from './OverviewTab';

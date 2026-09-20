@@ -1,8 +1,7 @@
 import React from 'react';
 import { Cpu, HardDrive, Server, Activity, Terminal } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
-import { GpuVramLineChart } from '@/components/monitoring/GpuVramLineChart';
-import { SlidingNumber } from '@/components/animate-ui';
+import { GpuVramLineChart } from '@/components/premium/GpuVramLineChart';
 
 const value = (v: unknown) => v == null ? 'Unavailable' : String(v);
 
@@ -37,23 +36,23 @@ export const SystemPage: React.FC = () => {
           <div className="rounded-2xl border border-white/[0.08] bg-[hsl(var(--surface-1))] p-4 shadow-lg space-y-1">
             <Activity className="mb-2 h-4 w-4 text-primary" />
             <div className="text-[10px] uppercase font-bold text-zinc-500">VRAM Allocation</div>
-            <div className="mt-1 text-sm font-black text-primary font-mono">
-              {systemStats.vramUsedGb != null && systemStats.vramTotalGb != null ? (
-                <div className="flex items-center gap-1">
-                  <SlidingNumber value={systemStats.vramUsedGb} decimalPlaces={1} />
-                  <span>/ {systemStats.vramTotalGb} GB</span>
-                </div>
-              ) : (
-                'Unavailable'
-              )}
-            </div>
+<div className="mt-1 text-sm font-black text-primary font-mono">
+                {systemStats.vramUsedGb != null && systemStats.vramTotalGb != null ? (
+                  <div className="flex items-center gap-1">
+                    <span>{systemStats.vramUsedGb.toFixed(1)}</span>
+                    <span>/ {systemStats.vramTotalGb} GB</span>
+                  </div>
+                ) : (
+                  'Unavailable'
+                )}
+              </div>
           </div>
 
           <div className="rounded-2xl border border-white/[0.08] bg-[hsl(var(--surface-1))] p-4 shadow-lg space-y-1">
             <HardDrive className="mb-2 h-4 w-4 text-primary" />
             <div className="text-[10px] uppercase font-bold text-zinc-500">Outputs Cached</div>
             <div className="mt-1 text-sm font-black text-white font-mono flex items-center gap-1">
-              <SlidingNumber value={assets.length} /> <span>Assets</span>
+              <span>{assets.length}</span> <span>Assets</span>
             </div>
           </div>
         </div>

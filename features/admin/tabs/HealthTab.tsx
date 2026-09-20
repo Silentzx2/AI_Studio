@@ -8,7 +8,7 @@ import { GlassCard } from '@/components/premium/GlassCard';
 import { Badge } from '@/components/premium/Badge';
 import { NeonButton } from '@/components/premium/NeonButton';
 import { Spinner } from '@/components/premium/Spinner';
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -31,8 +31,8 @@ export function HealthTab() {
     setError(null);
     try {
       const [systemStatus, healthStatus] = await Promise.all([
-        apiClient.getSystemStatus(),
-        apiClient.getHealthStatus(),
+        getApiClient().getSystemStatus(),
+        getApiClient().getHealthStatus(),
       ]);
       
       // Create health checks from available data
@@ -41,7 +41,7 @@ export function HealthTab() {
           name: 'System',
           status: systemStatus.status === 'healthy' ? 'healthy' as const : 'degraded',
           latency: 0,
-          detail: systemStatus.status,
+          detail: systemStatus.status || 'unknown',
         },
         {
           name: 'Health Endpoint',

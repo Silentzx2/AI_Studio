@@ -8,10 +8,7 @@ const nextConfig: NextConfig = {
     optimizePackageImports: [
       'lucide-react',
       'three',
-      '@react-three/drei',
-      '@react-three/fiber',
       'framer-motion',
-      'motion',
     ],
   },
   typescript: {
@@ -139,7 +136,7 @@ const nextConfig: NextConfig = {
   // `next start` when output is 'standalone', so leaving it on unconditionally
   // broke the standard production workflow. Toggle via AI_STUDIO_STANDALONE=1.
   ...(process.env.AI_STUDIO_STANDALONE === '1' ? { output: 'standalone' } : {}),
-  transpilePackages: ['motion', 'three'],
+  transpilePackages: ['three'],
 
   // Prevents turbopack from resolving workspace root to a parent directory
   // that contains a different lockfile, which causes dev server instability.

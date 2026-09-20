@@ -4,13 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useRuntimeOptions, useSystemSettings } from '@/hooks/useBackendData';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Spinner } from '@/components/premium/Spinner';
 import { Cpu, Sliders, Box, Sparkles, Zap, Gauge, ListOrdered } from 'lucide-react';
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import { toast } from 'sonner';
-import { useAutoSave } from '@/hooks/useAutoSave';
 import { useAppStore } from '@/stores/useAppStore';
-import { AnimatedSwitch } from '@/components/animate-ui';
 
 export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: () => Promise<void>) => void }) {
   const { options, loading: optionsLoading, error: optionsError } = useRuntimeOptions();
@@ -27,41 +26,31 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
   const [batchEnabled, setBatchEnabled] = useState<boolean>(batchGenerationEnabled);
   const [saving, setSaving] = useState(false);
 
-  const { Indicator, save } = useAutoSave({ provider, quality, outputFormat, resolution, steps, lowVram, batchEnabled }, async (data) => {
-    if (!data.provider) return;
-    try {
-      const config = {
-        render_quality: data.quality,
-        output_format: data.outputFormat,
-        resolution: data.resolution,
-        low_vram: data.lowVram,
-      };
-      localStorage.setItem('generationSettings', JSON.stringify(data));
-      localStorage.setItem('batchGenerationEnabled', JSON.stringify(data.batchEnabled));
-      localStorage.setItem('lowVramMode', JSON.stringify(data.lowVram));
-      await Promise.all([
-        apiClient.updateConfig(config),
-        apiClient.saveGenerationSettings({
-          default_provider: data.provider,
-          render_quality: data.quality,
-          output_format: data.outputFormat,
-          resolution: data.resolution,
-          steps: data.steps,
-          low_vram: data.lowVram,
-          batch_generation_enabled: data.batchEnabled,
-        }),
-      ]);
-    } catch {
-      // Fallback: just local storage
-    }
-  }, 1000, true, false);
-
   // Register save function with parent for section-switch saving
   useEffect(() => {
     if (onSaveRegister) {
-      onSaveRegister(save);
+      onSaveRegister(async () => {
+        if (!provider) return;
+        try {
+          localStorage.setItem('generationSettings', JSON.stringify({ provider, quality, outputFormat, resolution, steps, lowVram, batchEnabled }));
+          localStorage.setItem('batchGenerationEnabled', JSON.stringify(batchEnabled));
+          localStorage.setItem('lowVramMode', JSON.stringify(lowVram));
+          await Promise.all([
+            getApiClient().updateConfig({ render_quality: quality, output_format: outputFormat, resolution, low_vram: lowVram } as any),
+            getApiClient().saveGenerationSettings({
+              default_provider: provider,
+              render_quality: quality,
+              output_format: outputFormat,
+              resolution,
+              steps,
+              low_vram: lowVram,
+              batch_generation_enabled: batchEnabled,
+            }),
+          ]);
+        } catch { /* ignore */ }
+      });
     }
-  }, [save, onSaveRegister]);
+  }, [onSaveRegister, provider, quality, outputFormat, resolution, steps, lowVram, batchEnabled]);
 
   const rawList = options?.three_d_models || options?.providers || [
     { id: 'hunyuan3d-2.1', label: 'Hunyuan3D 2.1' },
@@ -75,7 +64,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
     // Load saved settings from backend first, fallback to localStorage
     const loadSettings = async () => {
       try {
-        const backendGen = await apiClient.getGenerationSettings();
+        const backendGen = await getApiClient().getGenerationSettings();
         if (backendGen) {
           if (backendGen.default_provider) setProvider(backendGen.default_provider);
           if (backendGen.render_quality) setQuality(backendGen.render_quality);
@@ -156,7 +145,6 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
 
   return (
     <div className="p-6 space-y-6 max-w-4xl">
-      <Indicator />
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Generation Settings</h1>
         <p className="text-muted-foreground mt-2">
@@ -287,10 +275,9 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
                 Low VRAM Execution Mode (&lt;8GB GPUs)
               </CardTitle>
               <div className="flex items-center gap-2">
-                <AnimatedSwitch
+                <Switch
                   checked={lowVram}
                   onCheckedChange={(checked) => handleToggleLowVram(checked)}
-                  activeColor="bg-primary"
                 />
               </div>
             </div>
@@ -330,10 +317,9 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
               Batch Generation &amp; Queue Pipelining
             </CardTitle>
             <div className="flex items-center gap-2">
-              <AnimatedSwitch
+              <Switch
                 checked={batchEnabled}
                 onCheckedChange={(checked) => handleToggleBatch(checked)}
-                activeColor="bg-primary"
               />
             </div>
           </div>

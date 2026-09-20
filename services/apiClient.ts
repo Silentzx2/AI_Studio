@@ -535,7 +535,7 @@ class ApiClient {
       const params: any = { lines: String(limit) };
       if (level) params.level = level.toUpperCase();
       const response = await this.client.get('/api/v1/system/logs', { params });
-      const rawLogs = response?.data?.logs || response?.logs || [];
+      const rawLogs = response?.data?.logs || (response as any)?.logs || [];
       return rawLogs.map((log: any, index: number) => ({
         id: log.id || `log-${index}-${Date.now()}`,
         timestamp: log.timestamp || log.ts || new Date().toISOString(),
@@ -667,10 +667,6 @@ class ApiClient {
 
   async restartRuntime(): Promise<void> {
     await this.client.post('/api/v1/runtime/restart', {});
-  }
-
-  async updateConfig(config: Record<string, unknown>): Promise<void> {
-    await this.client.post('/api/v1/runtime/config', config);
   }
 
   async getGenerationSettings(): Promise<any> {

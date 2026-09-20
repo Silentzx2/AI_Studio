@@ -22,7 +22,7 @@ import { Badge } from '@/components/premium/Badge';
 import { NeonButton } from '@/components/premium/NeonButton';
 import { StatusDot } from '@/components/premium/StatusDot';
 import { Spinner } from '@/components/premium/Spinner';
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import { diagnoseJobError, type JobDiagnostic } from '@/lib/jobDiagnostics';
 import type { QueueStatus, AdminJob } from '@/types';
 import { toast } from 'sonner';
@@ -38,8 +38,8 @@ export function QueueTab() {
   const load = useCallback(async () => {
     try {
       const [queueData, jobsData] = await Promise.allSettled([
-        apiClient.getQueueStats(),
-        apiClient.getJobsHistory({ limit: 50 }),
+        getApiClient().getQueueStats(),
+        getApiClient().getJobsHistory({ limit: 50 }),
       ]);
 
       if (queueData.status === 'fulfilled' && queueData.value) {
@@ -57,7 +57,7 @@ export function QueueTab() {
       }
 
       if (jobsData.status === 'fulfilled') {
-        setFailedJobs((jobsData.value?.jobs ?? []).filter((j: any) => j.status === 'failed'));
+        setFailedJobs((jobsData.value?.jobs ?? []).filter((j: any) => j.status === 'failed') as unknown as AdminJob[]);
       }
     } catch { /* ignore */ }
     setLoading(false);

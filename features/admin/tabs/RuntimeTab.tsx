@@ -15,8 +15,8 @@ import { ProgressBar } from '@/components/premium/ProgressBar';
 import { StatusDot } from '@/components/premium/StatusDot';
 import { NeonButton } from '@/components/premium/NeonButton';
 import { Spinner } from '@/components/premium/Spinner';
-import { GpuVramLineChart } from '@/components/monitoring/GpuVramLineChart';
-import { apiClient } from '@/services/apiClient';
+import { GpuVramLineChart } from '@/components/premium/GpuVramLineChart';
+import { getApiClient } from '@/services/apiClient';
 import type { RuntimeStatus, AdminLog } from '@/types';
 import { toast } from 'sonner';
 
@@ -30,10 +30,10 @@ export function RuntimeTab() {
   const load = useCallback(async () => {
     try {
       const [st, lg] = await Promise.all([
-        apiClient.getSystemStatus(),
-        apiClient.getLogs(10),
+        getApiClient().getSystemStatus(),
+        getApiClient().getLogs(10),
       ]);
-      if (st) setStatus(st);
+      if (st) setStatus(st as unknown as RuntimeStatus);
       if (lg.length > 0) setLogs(lg);
       setError(!st ? 'Failed to load runtime status' : null);
     } catch { /* ignore */ }
@@ -65,7 +65,7 @@ export function RuntimeTab() {
   const handleClearCache = async () => {
     toast.info('Clearing cache...');
     try {
-      await apiClient.post('/api/v1/runtime/clear-cache', {});
+      await getApiClient().post('/api/v1/runtime/clear-cache', {});
       toast.success('Cache cleared');
     } catch {
       toast.error('Failed to clear cache');
@@ -75,7 +75,7 @@ export function RuntimeTab() {
   const handleClearVRAM = async () => {
     toast.info('Clearing VRAM...');
     try {
-      await apiClient.post('/api/v1/runtime/clear-vram', {});
+      await getApiClient().post('/api/v1/runtime/clear-vram', {});
       toast.success('VRAM cleared');
     } catch {
       toast.error('Failed to clear VRAM');
@@ -85,7 +85,7 @@ export function RuntimeTab() {
   const handleRestart = async () => {
     toast.info('Restarting runtime...');
     try {
-      await apiClient.post('/api/v1/runtime/restart', {});
+      await getApiClient().post('/api/v1/runtime/restart', {});
       toast.success('Runtime restarted');
       load();
     } catch {

@@ -12,8 +12,8 @@ import {
   Legend,
 } from 'recharts';
 import { Cpu, Zap, Activity, RefreshCw, Flame } from 'lucide-react';
-import { apiClient } from '@/services/apiClient';
-import { useWorkspace } from '@/features/new-workspace/store/WorkspaceContext';
+import { getApiClient } from '@/services/apiClient';
+import { useWorkspace } from '@/features/workspace/store/WorkspaceContext';
 import type { RealtimeGpuData } from '@/hooks/useRealtime';
 
 export interface TelemetryPoint {
@@ -120,7 +120,7 @@ export function GpuVramLineChart({
   const recordSample = useCallback(async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
     try {
-      const status = await apiClient.getSystemStatus();
+      const status = await getApiClient().getSystemStatus();
       const now = new Date();
       const timeStr = now.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 

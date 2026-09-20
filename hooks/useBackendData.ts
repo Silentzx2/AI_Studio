@@ -9,7 +9,7 @@
  * @WARNING Using this hook inside WorkspaceContext subtree duplicates polling.
  */
 import { useEffect, useState, useRef } from 'react';
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import { useRealtime } from '@/hooks/useRealtime';
 import { dedupedGet, TTL } from '@/lib/requestDedup';
 
@@ -33,7 +33,7 @@ export function useBackendStatus(): BackendStatus {
     let active = true;
     const check = async () => {
       try {
-        await apiClient.get('/api/v1/runtime/health', false, false);
+        await getApiClient().get('/api/v1/runtime/health', false, false);
         if (active) setPolledStatus('online');
       } catch {
         if (active) setPolledStatus('offline');
@@ -117,7 +117,7 @@ export function useSystemSettings() {
     const fetchSettings = async () => {
       try {
         setLoading(true);
-        const data = await apiClient.get<any>('/api/v1/admin/settings');
+        const data = await getApiClient().get<any>('/api/v1/admin/settings');
         const payload = data?.data ?? data ?? {};
         setSettings({
           ...payload,

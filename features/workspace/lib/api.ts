@@ -1,5 +1,5 @@
-import type { SystemStats } from '@/features/new-workspace/types';
-import { apiClient as baseApiClient } from '@/services/apiClient';
+import type { SystemStats } from '@/features/workspace/types';
+import { getApiClient as baseApiClient } from '@/services/apiClient';
 import { dedupedGet } from '@/lib/requestDedup';
 
 export interface HistoryItem {
@@ -278,7 +278,7 @@ export const apiClient = Object.create(baseApiClient, {
   connectWebSocket: { value: wsApiClient.connectWebSocket.bind(wsApiClient) },
   disconnectWebSocket: { value: wsApiClient.disconnectWebSocket.bind(wsApiClient) },
   getBaseUrl: { value: wsApiClient.getBaseUrl.bind(wsApiClient) },
-  setBaseUrl: { value: baseApiClient.setBaseUrl },
+  setBaseUrl: { value: (baseApiClient as any).setBaseUrl },
 }) as unknown as WorkspaceApiClient;
 
 export async function fetchSystemStats(): Promise<SystemStats> {

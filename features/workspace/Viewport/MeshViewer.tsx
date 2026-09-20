@@ -30,7 +30,7 @@ import {
 import { useWorkspace } from '../store/WorkspaceContext';
 import { CameraViewPreset, ModelAsset } from '../types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import { useAnimationStore, BoneItem } from '@/stores/useAnimationStore';
 import { useViewerStore } from '@/stores/useViewerStore';
 
@@ -2406,13 +2406,15 @@ export const MeshViewer: React.FC<MeshViewerProps> = ({
 
       // Persist to backend storage (/backend/storage/models)
       try {
-        const uploadRes = await apiClient.uploadFile<{
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', file);
+        const uploadRes = await getApiClient().post<{
           url: string;
           id?: string;
           filename: string;
           stored_filename?: string;
           size: number;
-        }>('/api/v1/upload/model', file);
+        }>('/api/v1/file-upload/image', uploadFormData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
         const serverUrl = uploadRes?.url || `/static/models/${uploadRes?.stored_filename || file.name}`;
         const finalAsset: ModelAsset = {

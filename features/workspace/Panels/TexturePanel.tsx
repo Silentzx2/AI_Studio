@@ -21,7 +21,6 @@ import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
-import { useManifestModels } from '@/hooks/useManifestModels';
 
 export const TexturePanel: React.FC = () => {
   const router = useRouter();
@@ -39,7 +38,9 @@ export const TexturePanel: React.FC = () => {
   const [panelTab, setPanelTab] = useState<'texture' | 'maps' | 'settings'>('texture');
 
   // Manifest-driven: only texture-capable models with weights + repo present
-  const { textureCapableModels } = useManifestModels();
+  const meshCapableModels: any[] = [];
+  const optionsLoading = false;
+  const textureCapableModels: any[] = [];
   const [textureModelDropdownOpen, setTextureModelDropdownOpen] = useState(false);
   const [meshDropdownOpen, setMeshDropdownOpen] = useState(false);
 

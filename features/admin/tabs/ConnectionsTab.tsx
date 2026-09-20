@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Database, Network, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import { Button } from '@/components/ui/button';
 
 interface ConnectionInfo {
@@ -24,7 +24,7 @@ export function ConnectionsTab() {
   const fetchConnections = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.post<{ success: boolean; data: TestResults }>('/api/v1/system/test/connection');
+      const res = await getApiClient().post<{ success: boolean; data: TestResults }>('/api/v1/system/test/connection');
       if (res.data) {
         setData(res.data);
       }

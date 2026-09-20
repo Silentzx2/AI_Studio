@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Download, X, FileBox, Check, Layers, Archive, Box, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { AnimatedSwitch, RippleButton } from '@/components/animate-ui';
 
 export const ExportModal: React.FC = () => {
   const { isExportModalOpen, setIsExportModalOpen, currentAsset } = useWorkspace();
@@ -262,19 +261,24 @@ export const ExportModal: React.FC = () => {
 
           {/* Section 3: Packaging Options */}
           <div className="space-y-2 p-3.5 rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-2))]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Archive className="w-4 h-4 text-primary" />
-                <div>
-                  <span className="text-zinc-200 font-bold block text-xs">Structured ZIP Package</span>
-                  <span className="text-[10px] text-zinc-400">Bundles source, variants, LODs, collision, and QA report</span>
+<div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Archive className="w-4 h-4 text-primary" />
+                  <div>
+                    <span className="text-zinc-200 font-bold block text-xs">Structured ZIP Package</span>
+                    <span className="text-[10px] text-zinc-400">Bundles source, variants, LODs, collision, and QA report</span>
+                  </div>
                 </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={packageZip}
+                    onChange={e => setPackageZip(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-[hsl(var(--surface-2))] rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                </label>
               </div>
-              <AnimatedSwitch
-                checked={packageZip}
-                onCheckedChange={setPackageZip}
-              />
-            </div>
 
             <AnimatePresence>
               {packageZip && (
@@ -333,30 +337,29 @@ export const ExportModal: React.FC = () => {
             {packageZip ? 'ZIP Archive' : `${exportFormat.toUpperCase()} Single Asset`}
           </span>
           <div className="flex items-center justify-end gap-2.5">
-            <button
-              onClick={() => setIsExportModalOpen(false)}
-              className="flex-1 sm:flex-initial rounded-xl px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <RippleButton
-              onClick={() => void handleExport()}
-              disabled={isExporting}
-              variant="primary"
-              className="flex-1 sm:flex-initial px-5 sm:px-6 py-2 text-xs font-extrabold"
-            >
-              {isExporting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Packaging…</span>
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4 stroke-[2.5]" />
-                  <span>Export {packageZip ? 'ZIP' : exportFormat.toUpperCase()}</span>
-                </>
-              )}
-            </RippleButton>
+<button
+            onClick={() => setIsExportModalOpen(false)}
+            className="flex-1 sm:flex-initial rounded-xl px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => void handleExport()}
+            disabled={isExporting}
+            className="flex-1 sm:flex-initial px-5 sm:px-6 py-2 text-xs font-extrabold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {isExporting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Packaging…</span>
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 stroke-[2.5]" />
+                <span>Export {packageZip ? 'ZIP' : exportFormat.toUpperCase()}</span>
+              </>
+            )}
+          </button>
           </div>
         </div>
       </div>

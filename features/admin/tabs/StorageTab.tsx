@@ -7,7 +7,7 @@ import {
   HardDrive, Loader2, AlertCircle, Trash2, RefreshCw, CheckCircle2,
   FolderArchive, Database, Layers, Sparkles
 } from 'lucide-react';
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import { toast } from 'sonner';
 
 interface StorageDirectory {
@@ -40,7 +40,7 @@ export function StorageTab() {
     if (!quiet) setLoading(true);
     setError(null);
     try {
-      const res = await apiClient.get<{ success: boolean; data?: any; storage?: any }>('/api/v1/system/storage');
+      const res = await getApiClient().get<{ success: boolean; data?: any; storage?: any }>('/api/v1/system/storage');
       const storage = (res as any)?.data ?? (res as any)?.storage ?? res;
       if (storage) {
         const dirs = storage.directories ?? {};
@@ -78,7 +78,7 @@ export function StorageTab() {
   const handleClearCache = async () => {
     setClearing(true);
     try {
-      const res = await apiClient.post<{ success: boolean; freed_mb?: number; files_removed?: number; message?: string }>(
+      const res = await getApiClient().post<{ success: boolean; freed_mb?: number; files_removed?: number; message?: string }>(
         '/api/v1/system/cache/clear',
         {}
       );

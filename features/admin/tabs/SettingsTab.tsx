@@ -12,7 +12,7 @@ import { Badge } from '@/components/premium/Badge';
 import { NeonButton } from '@/components/premium/NeonButton';
 import { StatusDot } from '@/components/premium/StatusDot';
 import { Spinner } from '@/components/premium/Spinner';
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import type { RuntimeStatus } from '@/types';
 import { toast } from 'sonner';
 
@@ -26,7 +26,7 @@ import {
   ShortcutsSection,
   NetworkSection,
   AdvancedSection,
-} from '@/features/settings/sections';
+} from '@/features/settings';
 
 type SettingsSubTab =
   | 'general'
@@ -92,12 +92,12 @@ export function SettingsTab({ initialSection }: { initialSection?: string }) {
 const load = useCallback(async () => {
     try {
       const [status, rt, st] = await Promise.all([
-        apiClient.getHFTokenStatus(),
-        apiClient.getSystemStatus(),
-        apiClient.getSettings(),
+        getApiClient().getHFTokenStatus(),
+        getApiClient().getSystemStatus(),
+        getApiClient().getSettings(),
       ]);
       setHfStatus(status);
-      setRuntime(rt);
+      setRuntime(rt as unknown as RuntimeStatus);
       setSettings(st);
     } catch {
       // Graceful fallback if backend endpoints unavailable
@@ -114,7 +114,7 @@ const load = useCallback(async () => {
     if (!hfToken.trim()) return;
     setSaving(true);
     try {
-      await apiClient.saveHFToken(hfToken);
+      await getApiClient().saveHFToken(hfToken);
       setHfStatus({ configured: true, valid: true });
       setHfToken('');
       toast.success('HuggingFace token saved successfully');
@@ -127,7 +127,7 @@ const load = useCallback(async () => {
 
   const handleRemoveToken = async () => {
     try {
-      await apiClient.removeHFToken();
+      await getApiClient().removeHFToken();
       setHfStatus({ configured: false, valid: false });
       toast.success('HuggingFace token removed');
     } catch {

@@ -8,7 +8,7 @@ import {
   FolderOpen
 } from 'lucide-react';
 import { useWorkspace } from '../store/WorkspaceContext';
-import { GpuVramLineChart } from '@/components/monitoring/GpuVramLineChart';
+import { GpuVramLineChart } from '@/components/premium/GpuVramLineChart';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export const StudioDashboard: React.FC = () => {

@@ -45,7 +45,7 @@ export const useTaskPolling = (options: UseTaskPollingOptions = {}) => {
         return;
       }
 
-      const metadata = {
+      const metadata: Record<string, unknown> = {
         ...(task.metadata ?? {}),
         ...(jobInfo.input_image_url ? { inputImageUrl: jobInfo.input_image_url } : {}),
         ...(jobInfo.model_preference ? { modelPreference: jobInfo.model_preference } : {}),

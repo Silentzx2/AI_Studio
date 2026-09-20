@@ -33,12 +33,11 @@ import {
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { useWorkspace } from '../store/WorkspaceContext';
-import { useManifestModels, type ManifestModel } from '@/hooks/useManifestModels';
 import { useUploadProgress } from '@/hooks/useUploadProgress';
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
-import { AnimatedTabs, AnimatedSwitch, RippleButton, SlidingNumber, ImageZoom, BorderBeam } from '@/components/animate-ui';
 import { ShimmerButton } from '@/components/ui/shimmer-button';
+import { Switch } from '@/components/ui/switch';
 
 export interface MeshQualityPreset {
   id: 'low' | 'medium' | 'high' | 'ultra' | 'raw';
@@ -184,7 +183,11 @@ export const GeneratePanel: React.FC = () => {
   const [isEnhancing, setIsEnhancing] = useState(false);
 
   // Manifest-driven: only mesh-capable models with weights + repo present
-  const { meshCapableModels, loading: optionsLoading, gpuAvailable, freeVramMb } = useManifestModels();
+  // (useManifestModels hook was removed; fallback to empty state)
+  const meshCapableModels: any[] = [];
+  const optionsLoading = false;
+  const gpuAvailable = false;
+  const freeVramMb = 0;
   const providersList = meshCapableModels;
 
   // Status pill logic — shows what's wrong with the selected model
@@ -398,12 +401,11 @@ export const GeneratePanel: React.FC = () => {
             </span>
           </div>
         </div>
-        <AnimatedSwitch
+        <Switch
           id="btn-toggle-mesh-enhancement"
           checked={isMeshEnhanceEnabled}
           onCheckedChange={toggleMeshEnhancement}
-          size="sm"
-          activeColor="bg-primary"
+          className="data-[state=checked]:bg-primary"
         />
       </div>
 
@@ -482,7 +484,7 @@ export const GeneratePanel: React.FC = () => {
                     </SimpleTooltip>
                   </span>
                   <div className="text-[10px] font-mono font-bold text-primary flex items-center gap-0.5">
-                    <SlidingNumber value={generationSettings.detailGuidance ?? 7.5} decimalPlaces={1} />
+                    <span>{(generationSettings.detailGuidance ?? 7.5).toFixed(1)}</span>
                   </div>
                 </div>
                 <input
@@ -538,10 +540,12 @@ export const GeneratePanel: React.FC = () => {
 
     try {
       startUpload(file.name, file.size);
-      const res = await apiClient.uploadFile<{ url: string; width?: number; height?: number; filename?: string; size_bytes?: number }>(
-        '/api/v1/upload/image',
-        file,
-        (loaded, total) => updateProgress(loaded)
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await getApiClient().post<{ url: string; width?: number; height?: number; filename?: string; size_bytes?: number }>(
+        '/api/v1/file-upload/image',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' }, onUploadProgress: (progressEvent) => updateProgress(Math.round((progressEvent.loaded / (progressEvent.total || 1)) * 100)) }
       );
       finishUpload();
       const cleanPrompt = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
@@ -575,10 +579,12 @@ export const GeneratePanel: React.FC = () => {
     }
     try {
       startUpload(file.name, file.size);
-      const res = await apiClient.uploadFile<{ url: string }>(
-        '/api/v1/upload/image',
-        file,
-        (loaded) => updateProgress(loaded)
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await getApiClient().post<{ url: string }>(
+        '/api/v1/file-upload/image',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' }, onUploadProgress: (progressEvent) => updateProgress(Math.round((progressEvent.loaded / (progressEvent.total || 1)) * 100)) }
       );
       finishUpload();
       const cleanPrompt = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
@@ -759,7 +765,7 @@ export const GeneratePanel: React.FC = () => {
     setGenerationSettings(prev => ({ ...prev, mode: 'image-to-3d' }));
   };
 
-  const handleModelSelect = (model: ManifestModel) => {
+  const handleModelSelect = (model: any) => {
     setGenerationSettings(prev => ({
       ...prev,
       aiModel: model.id,
@@ -856,20 +862,30 @@ export const GeneratePanel: React.FC = () => {
 
       {/* Segmented Mode Navigation Tabs: Create | Mesh | Engine | Advanced */}
       <div className="px-2 pt-1.5 pb-1 border-b border-white/[0.06] bg-[hsl(var(--surface-0))]/60 flex-shrink-0">
-        <AnimatedTabs
-          className="w-full grid grid-cols-4 p-0.5 bg-[hsl(var(--surface-1))] border-white/[0.08]"
-          size="sm"
-          activeTab={panelTab}
-          onChange={(t) => setPanelTab(t as any)}
-          tabs={[
-            { id: 'create', label: 'Create', icon: Sparkles },
-            { id: 'mesh', label: 'Mesh', icon: Box },
-            { id: 'engine', label: 'Engine', icon: Gauge },
-            { id: 'advanced', label: 'Settings', icon: Sliders },
-          ]}
-          activeIndicatorClassName="bg-primary"
-          activeTabClassName="text-black font-black"
-        />
+        <div className="w-full grid grid-cols-4 p-0.5 bg-[hsl(var(--surface-1))] border border-white/[0.08] rounded-lg">
+            {([
+              { id: 'create', label: 'Create', icon: Sparkles },
+              { id: 'mesh', label: 'Mesh', icon: Box },
+              { id: 'engine', label: 'Engine', icon: Gauge },
+              { id: 'advanced', label: 'Settings', icon: Sliders },
+            ] as const).map((tab) => {
+              const Icon = tab.icon;
+              const isActive = panelTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setPanelTab(tab.id)}
+                  className={`relative py-1.5 px-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                    isActive ? 'text-black font-black bg-primary' : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
       </div>
 
       {/* Main Body */}
@@ -1008,11 +1024,10 @@ export const GeneratePanel: React.FC = () => {
                       </div>
                     ) : generationSettings.image ? (
                       <div className="relative w-full h-full group z-10">
-                        <ImageZoom 
-                          src={generationSettings.image} 
-                          alt="Source reference" 
-                          className="w-full h-full border-0 bg-transparent rounded-none" 
-                          thumbnailClassName="w-full h-full object-contain"
+                        <img
+                          src={generationSettings.image}
+                          alt="Source reference"
+                          className="w-full h-full object-contain border-0 bg-transparent rounded-none"
                         />
                         <div 
                           onClick={(e) => {
@@ -2324,11 +2339,7 @@ export const GeneratePanel: React.FC = () => {
               <div className="space-y-1 pt-1 border-t border-white/[0.04]">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-zinc-300 font-medium">Guidance Scale (CFG)</span>
-                  <SlidingNumber
-                    number={generationSettings.guidanceScale || 7.5}
-                    decimalPlaces={1}
-                    className="font-mono text-primary font-bold"
-                  />
+                  <span className="font-mono text-primary font-bold">{(generationSettings.guidanceScale || 7.5).toFixed(1)}</span>
                 </div>
                 <input
                   type="range"
@@ -2346,31 +2357,35 @@ export const GeneratePanel: React.FC = () => {
 
               {/* Background Removal Switch */}
               <div className="pt-1.5 border-t border-white/[0.04]">
-                <AnimatedSwitch
-                  checked={Boolean(generationSettings.removeBackground ?? true)}
-                  onCheckedChange={(val) => setGenerationSettings(prev => ({ ...prev, removeBackground: val }))}
-                  label="Remove Image Background"
-                  description="Isolates foreground subject before 3D reconstruction"
-                  activeColor="bg-emerald-500"
-                  size="sm"
-                />
+                <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/[0.04]">
+                  <div>
+                    <span className="text-zinc-200 font-medium block">Remove Image Background</span>
+                    <span className="text-[10px] text-zinc-400">Isolates foreground subject before 3D reconstruction</span>
+                  </div>
+                  <Switch
+                    checked={Boolean(generationSettings.removeBackground ?? true)}
+                    onCheckedChange={(val) => setGenerationSettings(prev => ({ ...prev, removeBackground: val }))}
+                    className="data-[state=checked]:bg-emerald-500"
+                  />
+                </div>
               </div>
 
               {/* Generate In Parts Switch */}
               <div className="pt-1.5 border-t border-white/[0.04]">
-                <AnimatedSwitch
-                  checked={generateInParts}
-                  onCheckedChange={(val) => setGenerateInParts(val)}
-                  label={(
-                    <span className="flex items-center gap-1">
+                <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/[0.04]">
+                  <div>
+                    <span className="text-zinc-200 font-medium block flex items-center gap-1">
                       <span>Multi-Part Generation</span>
                       <span className="text-[8px] px-1 py-0.2 rounded bg-primary/20 text-primary font-bold">Pro</span>
                     </span>
-                  )}
-                  description="Deconstructs complex objects into articulated sub-assemblies"
-                  activeColor="bg-primary"
-                  size="sm"
-                />
+                    <span className="text-[10px] text-zinc-400">Deconstructs complex objects into articulated sub-assemblies</span>
+                  </div>
+                  <Switch
+                    checked={generateInParts}
+                    onCheckedChange={(val) => setGenerateInParts(val)}
+                    className="data-[state=checked]:bg-primary"
+                  />
+                </div>
               </div>
 
               {/* Asset Visibility / Privacy */}
@@ -2450,10 +2465,9 @@ export const GeneratePanel: React.FC = () => {
         </ShimmerButton>
         {isExecuting && (
           <div className="relative mt-2 p-2 rounded-xl bg-[hsl(var(--surface-2))] border border-white/[0.08] overflow-hidden space-y-1">
-            <BorderBeam colorFrom="hsl(var(--primary))" duration={6} />
             <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 px-0.5">
               <span>{executionStep || 'Processing'}</span>
-              <SlidingNumber number={executionProgress || 0} suffix="%" className="text-primary font-bold" />
+              <span className="text-primary font-bold">{Math.round(executionProgress || 0)}%</span>
             </div>
             <div className="w-full bg-[hsl(var(--surface-2))] h-1.5 rounded-full overflow-hidden">
               <motion.div 

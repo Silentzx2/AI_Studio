@@ -4,7 +4,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { SlidingNumber } from '@/components/animate-ui';
 import { GlassCard } from './GlassCard';
 
 type MetricColor = 'purple' | 'blue' | 'cyan' | 'green' | 'pink' | 'amber';
@@ -201,11 +200,9 @@ export function MetricCard({
       <div className="flex items-end justify-between gap-2">
         <div className="flex items-baseline gap-1.5 font-mono">
           {isNumeric ? (
-            <SlidingNumber
-              number={numericVal}
-              decimalPlaces={decimalPlaces}
-              className="text-2xl font-black text-white"
-            />
+            <span className="text-2xl font-black text-white">
+              {numericVal.toFixed(decimalPlaces)}
+            </span>
           ) : (
             <span className="text-2xl font-black text-white">
               {value}

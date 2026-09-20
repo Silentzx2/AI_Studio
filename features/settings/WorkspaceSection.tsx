@@ -2,13 +2,12 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { apiClient } from '@/services/apiClient';
+import { getApiClient } from '@/services/apiClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, Loader2, Check, FolderOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { useAutoSave } from '@/hooks/useAutoSave';
 
 interface WorkspaceConfig {
   defaultLocation: string;
@@ -25,10 +24,9 @@ export function WorkspaceSection({ onSaveRegister }: { onSaveRegister?: (save: (
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const { Indicator, save } = useAutoSave(config, async (data) => {
-    if (!data) return;
-    await apiClient.post('/api/v1/settings/workspace', data);
-  }, 1000, true, false);
+  const save = async () => {
+    await getApiClient().post('/api/v1/settings/workspace', config);
+  };
 
   // Register save function with parent for section-switch saving
   useEffect(() => {
@@ -39,7 +37,7 @@ export function WorkspaceSection({ onSaveRegister }: { onSaveRegister?: (save: (
 
   useEffect(() => {
     let active = true;
-    apiClient.get<any>('/api/v1/settings/workspace')
+    getApiClient().get<any>('/api/v1/settings/workspace')
       .then((response) => {
         if (!active) return;
         const payload = response?.data ?? response ?? {};
@@ -60,7 +58,7 @@ export function WorkspaceSection({ onSaveRegister }: { onSaveRegister?: (save: (
       setSaving(true);
       setError(null);
 
-      await apiClient.post('/api/v1/settings/workspace/clear-history');
+      await getApiClient().post('/api/v1/settings/workspace/clear-history');
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
@@ -83,7 +81,6 @@ export function WorkspaceSection({ onSaveRegister }: { onSaveRegister?: (save: (
 
   return (
     <div className="p-6 space-y-6">
-      <Indicator />
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Workspace Settings</h1>
         <p className="text-muted-foreground mt-2">Configure your workspace behavior and storage</p>

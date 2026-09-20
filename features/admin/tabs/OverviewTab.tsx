@@ -14,8 +14,8 @@ import { ProgressBar } from '@/components/premium/ProgressBar';
 import { StatusDot } from '@/components/premium/StatusDot';
 import { Badge } from '@/components/premium/Badge';
 import { Spinner } from '@/components/premium/Spinner';
-import { GpuVramLineChart } from '@/components/monitoring/GpuVramLineChart';
-import { apiClient } from '@/services/apiClient';
+import { GpuVramLineChart } from '@/components/premium/GpuVramLineChart';
+import { getApiClient } from '@/services/apiClient';
 import type { AdminOverview, RuntimeStatus } from '@/types';
 
 export function OverviewTab() {
@@ -27,10 +27,10 @@ export function OverviewTab() {
   const load = useCallback(async () => {
     try {
       const [status, queueStats] = await Promise.all([
-        apiClient.getSystemStatus(),
-        apiClient.getQueueStats().catch(() => null),
+        getApiClient().getSystemStatus(),
+        getApiClient().getQueueStats().catch(() => null),
       ]);
-      setRuntime(status);
+      setRuntime(status as unknown as RuntimeStatus);
       const queue = queueStats?.data;
       setOverview({
         status: 'online',

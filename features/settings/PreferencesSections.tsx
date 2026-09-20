@@ -7,7 +7,6 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Bell, Keyboard, Network, RotateCcw, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAutoSave } from '@/hooks/useAutoSave';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,23 +35,20 @@ export function NotificationsSection({ onSaveRegister }: { onSaveRegister?: (sav
       marketing: false
     };
   });
-  
-  const { Indicator, save } = useAutoSave(settings, (data) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('notificationSettings', JSON.stringify(data));
-    }
-  }, 1000, true, false);
 
   // Register save function with parent for section-switch saving
   useEffect(() => {
     if (onSaveRegister) {
-      onSaveRegister(save);
+      onSaveRegister(async () => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('notificationSettings', JSON.stringify(settings));
+        }
+      });
     }
-  }, [save, onSaveRegister]);
+  }, [onSaveRegister, settings]);
 
   return (
     <div className="p-6 space-y-6">
-      <Indicator />
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
         <p className="text-muted-foreground mt-2">Manage how you receive alerts and updates.</p>
@@ -158,22 +154,19 @@ export function NetworkSection({ onSaveRegister }: { onSaveRegister?: (save: () 
     };
   });
   
-  const { Indicator, save } = useAutoSave(settings, (data) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('networkSettings', JSON.stringify(data));
-    }
-  }, 1000, true, false);
-
   // Register save function with parent for section-switch saving
   useEffect(() => {
     if (onSaveRegister) {
-      onSaveRegister(save);
+      onSaveRegister(async () => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('networkSettings', JSON.stringify(settings));
+        }
+      });
     }
-  }, [save, onSaveRegister]);
+  }, [onSaveRegister, settings]);
 
   return (
     <div className="p-6 space-y-6">
-      <Indicator />
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Network</h1>
         <p className="text-muted-foreground mt-2">Configure network connectivity and syncing behavior.</p>
@@ -222,19 +215,17 @@ export function AdvancedSection({ onSaveRegister }: { onSaveRegister?: (save: ()
       debugMode: false,
     };
   });
-  
-  const { Indicator, save } = useAutoSave(settings, (data) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('advancedSettings', JSON.stringify(data));
-    }
-  }, 1000, true, false);
 
   // Register save function with parent for section-switch saving
   useEffect(() => {
     if (onSaveRegister) {
-      onSaveRegister(save);
+      onSaveRegister(async () => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('advancedSettings', JSON.stringify(settings));
+        }
+      });
     }
-  }, [save, onSaveRegister]);
+  }, [onSaveRegister, settings]);
 
   const handleResetDefaults = () => {
     const keysToReset = [
@@ -264,7 +255,6 @@ export function AdvancedSection({ onSaveRegister }: { onSaveRegister?: (save: ()
 
   return (
     <div className="p-6 space-y-6">
-      <Indicator />
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Advanced</h1>
         <p className="text-muted-foreground mt-2">Configure advanced system behaviors.</p>

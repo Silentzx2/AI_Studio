@@ -19,7 +19,6 @@ import {
   Check
 } from 'lucide-react';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
-import { SlidingNumber } from '@/components/animate-ui';
 import { useWorkspace } from '../store/WorkspaceContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -196,9 +195,9 @@ export const LiveExecutionPanel: React.FC = () => {
           <span className="text-[10px] font-mono text-zinc-400 flex items-center gap-1">
             <Clock className="w-3 h-3 text-zinc-500" />
             <span className="flex items-center">
-              <SlidingNumber number={Math.floor(elapsedSeconds / 60)} padStart minDigits={2} />
+              <span>{String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}</span>
               <span>:</span>
-              <SlidingNumber number={elapsedSeconds % 60} padStart minDigits={2} />
+              <span>{String(elapsedSeconds % 60).padStart(2, '0')}</span>
             </span>
           </span>
           <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
@@ -219,7 +218,7 @@ export const LiveExecutionPanel: React.FC = () => {
         <div className="p-2.5 rounded-xl bg-[#1B1E24] border border-white/[0.08] space-y-1">
           <div className="flex items-center justify-between">
             <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">Current Task</div>
-            <SlidingNumber number={progress} suffix="%" className="text-[10px] font-mono font-bold text-primary" />
+            <span className="text-[10px] font-mono font-bold text-primary">{progress}%</span>
           </div>
           <div className="text-xs font-bold text-white leading-snug">
             {activeTask?.title || '3D Asset Generation'}
@@ -250,7 +249,7 @@ export const LiveExecutionPanel: React.FC = () => {
           </span>
           {systemStats.vramUsedGb != null ? (
             <div className="flex items-center gap-1 font-mono text-zinc-300">
-              <SlidingNumber value={systemStats.vramUsedGb} decimalPlaces={1} />
+              <span>{systemStats.vramUsedGb != null ? systemStats.vramUsedGb.toFixed(1) : '—'}</span>
               <span>/ {systemStats.vramTotalGb?.toFixed(1) || '8'} GB VRAM</span>
             </div>
           ) : (
@@ -393,7 +392,7 @@ export const LiveExecutionPanel: React.FC = () => {
                 )}
               </button>
               <span className="text-[9px] font-mono text-zinc-500 bg-white/[0.04] px-1.5 py-0.5 rounded border border-white/[0.06] flex items-center gap-1">
-                <SlidingNumber number={logs.length} /> <span>entries</span>
+                <span>{logs.length}</span> <span>entries</span>
               </span>
             </div>
           </div>
