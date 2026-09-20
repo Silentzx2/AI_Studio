@@ -31,6 +31,25 @@ warn() { echo -e "${YELLOW}[WARN]${NC}   $*"; }
 err() { echo -e "${RED}[ERROR]${NC}  $*" >&2; }
 info() { echo -e "${CYAN}[INFO]${NC}   ℹ $*"; }
 
+# ── SIGINT / Ctrl+C handler ───────────────────────────────────────────
+_comfy_on_sigint() {
+    echo ""
+    warn "ComfyUI installation interrupted by user (Ctrl+C)."
+    if [[ -d "${THREE_D_PACK_DIR}" && ! -f "${THREE_D_PACK_DIR}/__init__.py" ]]; then
+        rm -rf "${THREE_D_PACK_DIR}" 2>/dev/null || true
+    fi
+    if [[ -d "${COMFYUI_DIR}" && ! -f "${COMFYUI_DIR}/main.py" ]]; then
+        rm -rf "${COMFYUI_DIR}" 2>/dev/null || true
+    fi
+    local child_pids
+    child_pids=$(jobs -p 2>/dev/null || true)
+    if [[ -n "$child_pids" ]]; then
+        kill -TERM $child_pids 2>/dev/null || true
+    fi
+    exit 130
+}
+trap '_comfy_on_sigint' INT
+
 # ── Resolve Python Binary ─────────────────────────────────────────────
 resolve_python() {
     if [[ -n "${PYTHON_BIN:-}" && -x "${PYTHON_BIN}" ]]; then
@@ -122,6 +141,10 @@ install_3d_pack() {
     if is_3d_pack_installed; then
         log "ComfyUI-3D-Pack source already present at ${THREE_D_PACK_DIR}"
     else
+        if [[ -d "${THREE_D_PACK_DIR}" && ! -f "${THREE_D_PACK_DIR}/__init__.py" ]]; then
+            warn "Partial or corrupt ComfyUI-3D-Pack clone detected; removing for fresh clone..."
+            rm -rf "${THREE_D_PACK_DIR}" 2>/dev/null || true
+        fi
         info "Cloning ComfyUI-3D-Pack from ${THREE_D_PACK_REPO}..."
         git clone "${THREE_D_PACK_REPO}" "${THREE_D_PACK_DIR}" || {
             err "Failed to clone ComfyUI-3D-Pack repository"

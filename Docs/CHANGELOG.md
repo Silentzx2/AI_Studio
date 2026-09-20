@@ -26,6 +26,9 @@ All notable changes, architectural updates, and feature implementations for AI 3
 - **Colab Automation & Dedicated Scripts**:
   - Enforced CUDA 12.4 (`cu124`) PyTorch runtime across GPU hosts in `scripts/colab.sh`, matching binary wheels for modern 3D packages (`spconv`, `diffusers`, `ComfyUI-3D-Pack`).
   - Added dedicated Colab lifecycle scripts: `scripts/colab_start.sh`, `scripts/colab_stop.sh`, `scripts/colab_restart.sh`, and `scripts/colab_status.sh`.
+  - Added interactive Colab management submenu for `manager.sh` (Option 14) and `scripts/colab.sh --interactive` (start, stop, restart, status, logs, full bootstrap, setup-only).
+  - Implemented graceful `SIGINT` (Ctrl+C) signal traps across `manager.sh`, `scripts/colab.sh`, `scripts/setup.sh`, and `scripts/install_comfyui.sh`, allowing users to interrupt long commands or log tails without killing the manager menu.
+  - Added partial clone cleanup before git cloning `ComfyUI-3D-Pack` to prevent corrupt git states when interrupted midway.
   - Integrated Cloudflare tunnel orchestration directly into `colab_start_services()` and tunnel cleanup into `colab_stop_services()`.
 
 ---

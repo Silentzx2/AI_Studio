@@ -108,24 +108,35 @@ elif command -v lsof >/dev/null 2>&1; then
 fi
 
 # ── Stop system services ──────────────────────────────────────────
-if command -v systemctl &>/dev/null; then
-    if systemctl is-active --quiet postgresql 2>/dev/null; then
-        info "Stopping PostgreSQL..."
-        sudo systemctl stop postgresql 2>/dev/null || true
-        log "PostgreSQL stopped"
-    else
-        info "PostgreSQL not running"
-    fi
-    if systemctl is-active --quiet redis-server 2>/dev/null; then
-        info "Stopping Redis..."
-        sudo systemctl stop redis-server 2>/dev/null || true
-        log "Redis stopped"
-    else
-        info "Redis not running"
-    fi
-else
-    warn "systemctl not available — cannot stop PostgreSQL/Redis via systemd"
+# Stop Redis
+info "Stopping Redis..."
+if command -v redis-cli &>/dev/null; then
+    redis-cli shutdown nosave 2>/dev/null || true
 fi
+if command -v service &>/dev/null; then
+    sudo service redis-server stop 2>/dev/null || true
+fi
+if command -v systemctl &>/dev/null && systemctl is-active --quiet redis-server 2>/dev/null; then
+    sudo systemctl stop redis-server 2>/dev/null || true
+fi
+pkill -f "redis-server" 2>/dev/null || true
+log "Redis stopped"
+
+# Stop PostgreSQL
+info "Stopping PostgreSQL..."
+if command -v service &>/dev/null; then
+    sudo service postgresql stop 2>/dev/null || true
+fi
+if command -v pg_ctlcluster &>/dev/null; then
+    for v in $(ls /etc/postgresql/ 2>/dev/null); do
+        sudo pg_ctlcluster "$v" main stop 2>/dev/null || true
+    done
+fi
+if command -v systemctl &>/dev/null && systemctl is-active --quiet postgresql 2>/dev/null; then
+    sudo systemctl stop postgresql 2>/dev/null || true
+fi
+pkill -u postgres -f "postgres" 2>/dev/null || true
+log "PostgreSQL stopped"
 
 # ── Clean up stale PID files ──────────────────────────────────────
 rm -f "${PROJECT_ROOT}/.pids"/*.pid 2>/dev/null || true

@@ -30,6 +30,8 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 BLUE='\033[0;34m'
 MAGENTA='\033[0;35m'
+WHITE='\033[1;37m'
+GRAY='\033[0;90m'
 BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
@@ -43,6 +45,22 @@ err()   { echo -e "${RED}[ERR]${NC}    ✗ $*" >&2; }
 head_() { echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n  ${BOLD}${MAGENTA}➜ $*${NC}\n"; }
 step()  { echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n  ${BOLD}${MAGENTA}➜ Step $*${NC}\n"; }
 done_() { echo -e "  ${GREEN}${BOLD}✔ Done!${NC}"; }
+
+# ── SIGINT / Ctrl+C handler ───────────────────────────────────────────────
+_colab_on_sigint() {
+    echo ""
+    warn "Operation interrupted by user (Ctrl+C)."
+    if [[ "${IN_COLAB_MENU:-false}" == "true" ]]; then
+        return 0 2>/dev/null || true
+    fi
+    local child_pids
+    child_pids=$(jobs -p 2>/dev/null || true)
+    if [[ -n "$child_pids" ]]; then
+        kill -TERM $child_pids 2>/dev/null || true
+    fi
+    exit 130
+}
+trap '_colab_on_sigint' INT
 
 # ── Project Root ────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -60,27 +78,37 @@ ACTION=""
 
 for arg in "$@"; do
     case "$arg" in
-        --stop)          ACTION="stop" ;;
-        --restart)       ACTION="restart" ;;
-        --start)         ACTION="start" ;;
-        --setup)         ACTION="setup" ;;
-        --status)        ACTION="status" ;;
-        --skip-start)    SKIP_START=true ;;
+        --stop)            ACTION="stop" ;;
+        --restart)         ACTION="restart" ;;
+        --start)           ACTION="start" ;;
+        --setup)           ACTION="setup" ;;
+        --status)          ACTION="status" ;;
+        --interactive|-i)  ACTION="interactive" ;;
+        --skip-start)      SKIP_START=true ;;
         --help|-h)
             echo "Usage: bash scripts/colab.sh [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --setup          Full bootstrap + start all services (non-interactive friendly)"
-            echo "  --start          Start all services and run supervisor"
-            echo "  --stop           Stop all running services"
-            echo "  --restart        Restart all services"
-            echo "  --status         Check service status"
-            echo "  --skip-start     Setup only, don't start services"
-            echo "  -h, --help       Show this help"
+            echo "  --interactive, -i Interactive management menu (default in terminal)"
+            echo "  --setup           Full bootstrap + start all services (non-interactive friendly)"
+            echo "  --start           Start all services and run supervisor"
+            echo "  --stop            Stop all running services"
+            echo "  --restart         Restart all services"
+            echo "  --status          Check service status"
+            echo "  --skip-start      Setup only, don't start services"
+            echo "  -h, --help        Show this help"
             exit 0
             ;;
     esac
 done
+
+if [[ -z "$ACTION" ]]; then
+    if [[ -t 0 ]]; then
+        ACTION="interactive"
+    else
+        ACTION="setup"
+    fi
+fi
 
 # ── Environment Detection ────────────────────────────────────────────────
 detect_gpu() {
@@ -296,6 +324,38 @@ colab_stop_services() {
     free_port 8188
     log "ComfyUI stopped"
 
+    # Stop Redis
+    info "Stopping Redis..."
+    if command -v redis-cli &>/dev/null; then
+        redis-cli shutdown nosave 2>/dev/null || true
+    fi
+    if command -v service &>/dev/null; then
+        sudo service redis-server stop 2>/dev/null || true
+    fi
+    if command -v systemctl &>/dev/null; then
+        sudo systemctl stop redis-server 2>/dev/null || true
+    fi
+    pkill -f "redis-server" 2>/dev/null || true
+    free_port 6379
+    log "Redis stopped"
+
+    # Stop PostgreSQL
+    info "Stopping PostgreSQL..."
+    if command -v service &>/dev/null; then
+        sudo service postgresql stop 2>/dev/null || true
+    fi
+    if command -v pg_ctlcluster &>/dev/null; then
+        for v in $(ls /etc/postgresql/ 2>/dev/null); do
+            sudo pg_ctlcluster "$v" main stop 2>/dev/null || true
+        done
+    fi
+    if command -v systemctl &>/dev/null; then
+        sudo systemctl stop postgresql 2>/dev/null || true
+    fi
+    pkill -u postgres -f "postgres" 2>/dev/null || true
+    free_port 5432
+    log "PostgreSQL stopped"
+
     rm -f "${PID_DIR}"/*.pid "${PID_DIR}"/*.restart-count 2>/dev/null || true
     log "All services stopped cleanly"
 }
@@ -459,35 +519,137 @@ colab_restart_services() {
     colab_start_services
 }
 
-# ── Handle CLI Action Flags ──────────────────────────────────────────────
-if [[ -n "$ACTION" ]]; then
-    case "$ACTION" in
-        stop)
-            colab_stop_services
-            exit 0
-            ;;
-        restart)
-            colab_restart_services
-            exec bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground
-            ;;
-        start)
-            colab_start_services
-            exec bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground
-            ;;
-        status)
-            _colab_show_status
-            exit 0
-            ;;
-        setup)
-            # Proceed to full setup below
-            ;;
-    esac
-fi
+colab_view_logs() {
+    while true; do
+        echo ""
+        echo -e "${BOLD}${CYAN}Choose service log to inspect:${NC}"
+        echo "  1) ComfyUI Engine (logs/comfyui.log)"
+        echo "  2) FastAPI Backend (logs/api.log)"
+        echo "  3) Next.js Frontend (logs/frontend.log)"
+        echo "  4) Cloudflare Tunnels (logs/cloudflare_*.log)"
+        echo "  b) Back"
+        echo ""
+        read -rp "  Choice: " lchoice || return 0
+        echo ""
+        case "$lchoice" in
+            1)
+                if [[ -f "$LOG_DIR/comfyui.log" ]]; then
+                    echo -e "${GRAY}(Press Ctrl+C to stop following logs and return)${NC}"
+                    tail -n 50 -f "$LOG_DIR/comfyui.log" || true
+                else
+                    warn "Log file not found: $LOG_DIR/comfyui.log"
+                fi
+                ;;
+            2)
+                if [[ -f "$LOG_DIR/api.log" ]]; then
+                    echo -e "${GRAY}(Press Ctrl+C to stop following logs and return)${NC}"
+                    tail -n 50 -f "$LOG_DIR/api.log" || true
+                else
+                    warn "Log file not found: $LOG_DIR/api.log"
+                fi
+                ;;
+            3)
+                if [[ -f "$LOG_DIR/frontend.log" ]]; then
+                    echo -e "${GRAY}(Press Ctrl+C to stop following logs and return)${NC}"
+                    tail -n 50 -f "$LOG_DIR/frontend.log" || true
+                else
+                    warn "Log file not found: $LOG_DIR/frontend.log"
+                fi
+                ;;
+            4)
+                echo -e "${GRAY}(Press Ctrl+C to stop following logs and return)${NC}"
+                tail -n 50 -f "$LOG_DIR"/cloudflare_*.log 2>/dev/null || warn "No tunnel logs found"
+                ;;
+            b|B)
+                return 0
+                ;;
+            *)
+                echo -e "${RED}Invalid choice${NC}"
+                ;;
+        esac
+    done
+}
+
+colab_menu() {
+    IN_COLAB_MENU=true
+    while true; do
+        echo -e "\n${BOLD}${MAGENTA}  ╔════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}         ${BOLD}${WHITE}Google Colab Service Manager${NC}                   ${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ╠════════════════════════════════════════════════════════╣${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[1]${NC}  Start all services (ComfyUI + API + Web + CF)   ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[2]${NC}  Stop all services & tunnels                     ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[3]${NC}  Restart all services                            ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[4]${NC}  Service status & Cloudflare URLs                ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[5]${NC}  View live service logs                          ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[6]${NC}  Run full 1-click bootstrap & start              ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[7]${NC}  Run setup only (skip starting services)         ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ╠════════════════════════════════════════════════════════╣${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${GRAY}[b]${NC}  Back / Return                                   ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${GRAY}[q]${NC}  Quit                                            ${BOLD}${MAGENTA}║${NC}"
+        echo -e "${BOLD}${MAGENTA}  ╚════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        read -rp "  Choice: " colab_choice || { echo ""; break; }
+        case "$colab_choice" in
+            1)
+                colab_start_services || true
+                echo ""
+                read -rp "Attach live supervisor monitor? [y/N]: " attach_choice || true
+                if [[ "$attach_choice" =~ ^[yY] ]]; then
+                    bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground || true
+                fi
+                echo ""
+                read -rp "Press Enter to continue..." || true
+                ;;
+            2)
+                colab_stop_services || true
+                echo ""
+                read -rp "Press Enter to continue..." || true
+                ;;
+            3)
+                colab_restart_services || true
+                echo ""
+                read -rp "Press Enter to continue..." || true
+                ;;
+            4)
+                _colab_show_status || true
+                echo ""
+                read -rp "Press Enter to continue..." || true
+                ;;
+            5)
+                colab_view_logs || true
+                ;;
+            6)
+                SKIP_START=false
+                run_full_bootstrap || true
+                echo ""
+                read -rp "Press Enter to continue..." || true
+                ;;
+            7)
+                SKIP_START=true
+                run_full_bootstrap || true
+                echo ""
+                read -rp "Press Enter to continue..." || true
+                ;;
+            b|B)
+                return 0
+                ;;
+            q|Q)
+                echo -e "\n${GREEN}Goodbye! 👋${NC}\n"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}Invalid choice${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
 
 # ═════════════════════════════════════════════════════════════════════════
 # Full Bootstrap Execution Flow
 # ═════════════════════════════════════════════════════════════════════════
 
+run_full_bootstrap() {
 step "1/6 Colab Environment Setup"
 _sanitize_apt_cuda_sources
 setup_swap
@@ -614,7 +776,8 @@ else
     uv pip install --python "$PYTHON_BIN" torch torchvision torchaudio \
         --index-url https://download.pytorch.org/whl/cpu -q
 fi
-log "PyTorch runtime ready: $($PYTHON_BIN -c 'import torch; print(f\"{torch.__version__} (CUDA: {torch.cuda.is_available()})\")')"
+TORCH_INFO=$("$PYTHON_BIN" -c "import torch; print(f'{torch.__version__} (CUDA: {torch.cuda.is_available()})')" 2>/dev/null || echo "installed")
+log "PyTorch runtime ready: ${TORCH_INFO}"
 
 # ── Step 4: Backend Dependencies ─────────────────────────────────────────
 step "4/6 Installing Backend API Dependencies"
@@ -641,11 +804,44 @@ if [[ ! -d .next || ! -f .next/BUILD_ID ]]; then
 fi
 log "Frontend ready"
 
-if [[ "$SKIP_START" == "true" ]]; then
-    ok "Colab bootstrap complete (--skip-start specified). Exiting."
-    exit 0
-fi
+    if [[ "$SKIP_START" == "true" ]]; then
+        ok "Colab bootstrap complete (--skip-start specified). Exiting."
+        return 0
+    fi
 
-# ── Start Services & Hand off to Foreground Supervisor ─────────────────────
-colab_start_services
-exec bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground
+    # ── Start Services & Hand off to Foreground Supervisor ─────────────────────
+    colab_start_services
+    exec bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground
+}
+
+# ── Action Dispatch ──────────────────────────────────────────────────────
+case "$ACTION" in
+    stop)
+        colab_stop_services
+        exit 0
+        ;;
+    restart)
+        colab_restart_services
+        exec bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground
+        ;;
+    start)
+        colab_start_services
+        exec bash "${PROJECT_ROOT}/scripts/colab_watch.sh" --foreground
+        ;;
+    status)
+        _colab_show_status
+        exit 0
+        ;;
+    interactive)
+        colab_menu
+        exit 0
+        ;;
+    setup)
+        run_full_bootstrap
+        exit 0
+        ;;
+    *)
+        colab_menu
+        exit 0
+        ;;
+esac

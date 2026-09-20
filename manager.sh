@@ -27,6 +27,13 @@ ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
 error() { echo -e "${RED}[ERROR]${NC}  $*"; }
 
 # ── Header helper ───────────────────────────────────────────────────────────
+_on_sigint() {
+    echo ""
+    echo -e "\n${YELLOW}[!] Interrupted (Ctrl+C). Returning to menu...${NC}"
+    sleep 0.3
+}
+trap '_on_sigint' INT
+
 head_() {
     echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "  ${BOLD}${MAGENTA}➜ $*${NC}"
@@ -140,27 +147,31 @@ cmd_logs() {
     case "$choice" in
         1)
             if [[ -f logs/api.log ]]; then
-                tail -f logs/api.log
+                echo -e "${GRAY}(Press Ctrl+C to stop following logs and return)${NC}"
+                tail -n 50 -f logs/api.log || true
             else
                 echo -e "${YELLOW}API log not found${NC}"
             fi
             ;;
         2)
             if [[ -f logs/comfyui.log ]]; then
-                tail -f logs/comfyui.log
+                echo -e "${GRAY}(Press Ctrl+C to stop following logs and return)${NC}"
+                tail -n 50 -f logs/comfyui.log || true
             else
                 echo -e "${YELLOW}ComfyUI log not found${NC}"
             fi
             ;;
         3)
             if [[ -f logs/frontend.log ]]; then
-                tail -f logs/frontend.log
+                echo -e "${GRAY}(Press Ctrl+C to stop following logs and return)${NC}"
+                tail -n 50 -f logs/frontend.log || true
             else
                 echo -e "${YELLOW}Frontend log not found${NC}"
             fi
             ;;
         4)
-            tail -f logs/*.log 2>/dev/null || echo "No logs found"
+            echo -e "${GRAY}(Press Ctrl+C to stop following logs and return)${NC}"
+            tail -n 50 -f logs/*.log 2>/dev/null || echo "No logs found"
             ;;
         b|B) return ;;
         *) echo -e "${RED}Invalid choice${NC}" ;;
@@ -848,25 +859,25 @@ _main_menu_() {
         echo ""
         echo -e "  ${GRAY}Quick keys: 1-16  ${DIM}│${NC}  ${GRAY}q to quit${NC}"
         echo ""
-        read -rp "  Choice: " choice
+        read -rp "  Choice: " choice || { echo ""; continue; }
         case "$choice" in
-            1)  cmd_setup ;;
-            2)  cmd_start ;;
-            3)  cmd_stop ;;
-            4)  cmd_restart ;;
-            5)  cmd_status ;;
-            6)  cmd_logs ;;
-            7)  cmd_health_check ;;
-            8)  cmd_database ;;
-            9)  cmd_environment ;;
-            10) cmd_reset_pids ;;
-            11) cmd_clean_logs ;;
-            12) cmd_cf ;;
-            13) cmd_update_models ;;
-            14) cmd_colab ;;
-            15) cmd_clean ;;
-            16) cmd_service ;;
-            17) cmd_build_wheels ;;
+            1)  cmd_setup || true ;;
+            2)  cmd_start || true ;;
+            3)  cmd_stop || true ;;
+            4)  cmd_restart || true ;;
+            5)  cmd_status || true ;;
+            6)  cmd_logs || true ;;
+            7)  cmd_health_check || true ;;
+            8)  cmd_database || true ;;
+            9)  cmd_environment || true ;;
+            10) cmd_reset_pids || true ;;
+            11) cmd_clean_logs || true ;;
+            12) cmd_cf || true ;;
+            13) cmd_update_models || true ;;
+            14) cmd_colab || true ;;
+            15) cmd_clean || true ;;
+            16) cmd_service || true ;;
+            17) cmd_build_wheels || true ;;
             q|Q) echo ""; echo -e "${GREEN}  ╔════════════════════════════════════════════════════════╗${NC}"; echo -e "${GREEN}  ║${NC}              ${BOLD}Goodbye! 👋${NC}                            ${GREEN}║${NC}"; echo -e "${GREEN}  ╚════════════════════════════════════════════════════════╝${NC}"; echo ""; exit 0 ;;
             *) echo -e "${RED}Invalid choice${NC}"; sleep 1 ;;
         esac

@@ -24,10 +24,23 @@ NC='\033[0m'
 
 log()   { echo -e "${GREEN}[SETUP]${NC}  ✔ $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}   ⚠ $*"; }
-err()   { echo -e "${RED}[ERROR]{NC}  ✖ $*" >&2; }
+err()   { echo -e "${RED}[ERROR]${NC}  ✖ $*" >&2; }
 head_() { echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n  ${BOLD}${MAGENTA}➜ $*${NC}\n"; }
 info()  { echo -e "${CYAN}[INFO]${NC}   ℹ $*"; }
 done_() { echo -e "  ${GREEN}${BOLD}✔ Done!${NC}"; }
+
+# ── SIGINT / Ctrl+C handler ───────────────────────────────────────────
+_setup_on_sigint() {
+    echo ""
+    warn "Setup interrupted by user (Ctrl+C)."
+    local child_pids
+    child_pids=$(jobs -p 2>/dev/null || true)
+    if [[ -n "$child_pids" ]]; then
+        kill -TERM $child_pids 2>/dev/null || true
+    fi
+    exit 130
+}
+trap '_setup_on_sigint' INT
 
 # ── Progress bar ─────────────────────────────────────────────────────────
 _progress_bar() {
