@@ -172,6 +172,127 @@ setup_cuda_124() {
     err "Please update your NVIDIA driver: https://www.nvidia.com/drivers"
     return 1
   fi
+
+  # ── If CUDA 12.4 is already installed, just make it the default ──────────
+  if [[ -d "/usr/local/cuda-12.4" ]] && [[ -x "/usr/local/cuda-12.4/bin/nvcc" ]]; then
+    _cuda_make_default
+    setup_cuda_env
+    log "CUDA 12.4 is active and set as default (/usr/local/cuda → /usr/local/cuda-12.4)"
+    return 0
+  fi
+
+  # ── Detect any existing CUDA version ─────────────────────────────────────
+  local current_cuda=""
+  if command -v nvcc &>/dev/null; then
+    current_cuda=$(nvcc --version 2>/dev/null | grep release | sed 's/.*release //;s/,.*//' || echo "")
+  elif [[ -x "/usr/local/cuda/bin/nvcc" ]]; then
+    current_cuda=$(/usr/local/cuda/bin/nvcc --version 2>/dev/null | grep release | sed 's/.*release //;s/,.*//' || echo "")
+  fi
+  if [[ -n "$current_cuda" && "$current_cuda" != *"12.4"* ]]; then
+    warn "Current system CUDA is ${current_cuda} — installing CUDA 12.4 and making it default..."
+  else
+    info "CUDA 12.4 toolkit not found on disk — installing CUDA 12.4..."
+  fi
+
+  # ── Add NVIDIA CUDA apt repo and install toolkit ─────────────────────────
+  local ubuntu_ver repo_ver
+  ubuntu_ver=$(lsb_release -rs 2>/dev/null | tr -d '.' || echo "2204")
+  repo_ver="$ubuntu_ver"
+  if [[ "$ubuntu_ver" -ge 2404 ]]; then
+    repo_ver="2204"
+  elif [[ "$ubuntu_ver" -lt 2004 ]]; then
+    repo_ver="2004"
+  fi
+
+  _sanitize_apt_cuda_sources
+  echo "deb [trusted=yes] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${repo_ver}/x86_64/ /" \
+    | sudo tee /etc/apt/sources.list.d/cuda-12-4.list >/dev/null 2>&1 || true
+  sudo apt-get update -qq 2>/dev/null || true
+
+  info "Installing CUDA 12.4 packages (cuda-toolkit-12-4, nvcc, cusparse)..."
+  sudo apt-get install -y --no-install-recommends cuda-toolkit-12-4 2>/dev/null || \
+  sudo apt-get install -y --no-install-recommends cuda-nvcc-12-4 cuda-cudart-dev-12-4 \
+    libcublas-dev-12-4 libcusparse-dev-12-4 libcusolver-dev-12-4 libcufft-dev-12-4 2>/dev/null || {
+    warn "Direct apt-get install of CUDA 12.4 had warnings; continuing..."
+  }
+  sudo rm -f /etc/apt/sources.list.d/cuda-12-4.list 2>/dev/null || true
+
+  # ── Make /usr/local/cuda default symlink to /usr/local/cuda-12.4 ─────────
+  if [[ -d "/usr/local/cuda-12.4" ]]; then
+    _cuda_make_default
+    log "CUDA 12.4 successfully installed and set as default (/usr/local/cuda → /usr/local/cuda-12.4)"
+  else
+    warn "CUDA 12.4 directory not found after install — toolkit may have failed"
+  fi
+
+  setup_cuda_env
+}
+
+_cuda_make_default() {
+  if [[ -L /usr/local/cuda ]]; then
+    sudo rm -f /usr/local/cuda 2>/dev/null || true
+  elif [[ -d /usr/local/cuda ]]; then
+    sudo mv /usr/local/cuda "/usr/local/cuda-backup-$(date +%s)" 2>/dev/null || true
+  fi
+  sudo ln -sf /usr/local/cuda-12.4 /usr/local/cuda 2>/dev/null || true
+}
+
+setup_cuda_env() {
+  local nproc_count
+  nproc_count=$(nproc 2>/dev/null || echo 4)
+  export MAX_JOBS="$nproc_count"
+  export CMAKE_BUILD_PARALLEL_LEVEL="$nproc_count"
+  export CMAKE_GENERATOR="Ninja"
+  export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-7.5;8.0;8.6;8.9;9.0+PTX}"
+
+  if [[ -d "/usr/local/cuda-12.4" ]]; then
+    export CUDA_HOME="/usr/local/cuda-12.4"
+    export PATH="/usr/local/cuda-12.4/bin:${PATH}"
+    export LD_LIBRARY_PATH="/usr/local/cuda-12.4/lib64:${LD_LIBRARY_PATH:-}"
+  elif [[ -d "/usr/local/cuda" ]]; then
+    export CUDA_HOME="/usr/local/cuda"
+    export PATH="/usr/local/cuda/bin:${PATH}"
+    export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
+  fi
+
+  if [[ -n "${CUDA_HOME:-}" && -d "${CUDA_HOME}/include" ]]; then
+    export CPATH="${CUDA_HOME}/include:${CPATH:-}"
+  fi
+}
+ensure_conda(){
+  section "Conda Toolchain"
+  local CONDA_HOME="${CONDA_HOME:-$HOME/miniconda3}"
+  export CONDA_HOME
+
+  # ── Prefer the real conda binary over the Studio wrapper that blocks
+  #    create/activate. The wrapper sits on PATH as /commands/conda.
+  #    Prepending the real bin dir ensures subprocesses (install.sh)
+  #    resolve conda to the working binary, not the wrapper.
+  local REAL_CONDA_BIN="/home/zeus/miniconda3/bin"
+  if [[ -f "$REAL_CONDA_BIN/conda" ]]; then
+    export PATH="$REAL_CONDA_BIN:$PATH"
+  fi
+  if [[ -f "$CONDA_HOME/etc/profile.d/conda.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "$CONDA_HOME/etc/profile.d/conda.sh"
+  fi
+
+  # ── No usable conda at all — install Miniconda from the internet ──────
+  if ! type conda >/dev/null 2>&1; then
+    info "Conda not available — installing Miniconda..."
+    local MKDIR_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+    local INSTALLER="/tmp/miniconda-installer.sh"
+    if curl -fsSL "$MKDIR_URL" -o "$INSTALLER"; then
+      bash "$INSTALLER" -b -p "$CONDA_HOME" || fail "Miniconda installation failed"
+    else
+      fail "Could not download Miniconda installer"
+    fi
+    # shellcheck disable=SC1091
+    source "$CONDA_HOME/etc/profile.d/conda.sh"
+  fi
+
+  command -v conda >/dev/null 2>&1 || fail "Conda is not available after setup."
+  log "Conda: $(conda --version)"
 }
 ensure_bun_or_npm(){
   section "Frontend Toolchain"
@@ -290,6 +411,7 @@ _sanitize_apt_cuda_sources
 setup_cuda_124
 ensure_bun_or_npm
 ensure_uv
+ensure_conda
 create_directories
 install_frontend_deps
 clone_third_party
