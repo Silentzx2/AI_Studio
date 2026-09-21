@@ -355,6 +355,46 @@ create_directories(){
   log "Project runtime directories are ready."
 }
 
+build_deps () {
+  # ── Fast build toolchain ────────────────────────────────────────────────────
+  # ninja + parallel build env vars make every from-source wheel (flash-attn,
+  # nvdiffrast, nvdiffrec, flex_gemm, cubvh, bpy-renderer) build at full speed.
+  # Without ninja, setuptools/CMake builds fall back to a single slow serial job.
+  # ponytail: MAX_JOBS/CMAKE_BUILD_PARALLEL_LEVEL are the two knobs that actually
+  # parallelize; CMAKE_GENERATOR=Ninja is what makes them usable on CUDA builds.
+  echo "[INFO] Installing fast build toolchain (ninja, setuptools, wheel, cython)..."
+  uv pip install ninja setuptools wheel cython packaging setuptools-scm
+  if [ $? -eq 0 ]; then
+      echo "[SUCCESS] Build toolchain installed"
+  else
+      echo "[WARN] Build toolchain install had warnings; continuing..."
+  fi
+
+  # System-level ninja (apt) as a fallback: the pip `ninja` package only lands a
+  # binary in the active env's bin/, so if a downstream subprocess runs with a
+  # different PATH (e.g. TRELLIS.2's bare `pip`), `ninja` may not resolve. The
+  # apt package puts a native binary in /usr/bin/ninja — always on PATH.
+  # ponytail: pip `ninja` + apt `ninja-build` are redundant by design; the apt
+  # one is the reliable path, the pip one is the cheap parallelism knob.
+  if ! command -v ninja >/dev/null 2>&1; then
+      echo "[INFO] ninja not on PATH — installing ninja-build via apt..."
+      sudo apt-get update -qq 2>/dev/null || true
+      sudo apt-get install -y --no-install-recommends ninja-build 2>/dev/null || \
+          echo "[WARN] apt ninja-build install failed; relying on pip ninja."
+  fi
+  command -v ninja >/dev/null 2>&1 && echo "[SUCCESS] ninja: $(ninja --version 2>/dev/null || echo 'available')" || \
+      echo "[WARN] ninja still not resolvable on PATH"
+
+  # Export build parallelism for every downstream subprocess (TRELLIS.2 setup.sh,
+  # nvdiffrec, cubvh, bpy-renderer, etc.). These are read by cmake/setuptools.
+  export MAX_JOBS="${MAX_JOBS:-$(nproc 2>/dev/null || echo 4)}"
+  export CMAKE_BUILD_PARALLEL_LEVEL="$MAX_JOBS"
+  export CMAKE_GENERATOR="${CMAKE_GENERATOR:-Ninja}"
+  export CMAKE_ARGS="-G Ninja -DCMAKE_BUILD_PARALLEL_LEVEL=$MAX_JOBS"
+  export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-7.5;8.0;8.6;8.9;9.0+PTX}"
+  echo "[INFO] Build parallelism: MAX_JOBS=$MAX_JOBS  CMAKE_GENERATOR=$CMAKE_GENERATOR"
+}
+
 install_frontend_deps(){
   section "Installing Frontend Dependencies"
   export PATH="$HOME/.bun/bin:$PATH"
@@ -416,6 +456,7 @@ ensure_bun_or_npm
 ensure_uv
 ensure_conda
 create_directories
+build_deps
 install_frontend_deps
 clone_third_party
 install_backend
