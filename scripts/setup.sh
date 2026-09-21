@@ -50,7 +50,129 @@ require_commands(){
     warn "nvidia-smi not found. 3D AI generation requires a compatible NVIDIA runtime."
   fi
 }
+detect_gpu() {
+  echo "GPU Detection"
+  GPU_AVAILABLE=false
+  GPU_NAME=""
+  CUDA_VERSION=""
 
+  # Testing mode: simulate CUDA presence
+  if [[ "${CUDA_FORCE_PRESENT:-}" == "1" ]]; then
+    GPU_NAME="Simulated GPU (TEST_MODE)"
+    GPU_AVAILABLE=true
+    CUDA_VERSION="${CUDA_FORCE_VERSION:-124}"
+    log "GPU detected : ${CYAN}${GPU_NAME}${NC}"
+    log "CUDA (test) : cu${CUDA_VERSION}"
+    return 0
+  fi
+
+  if command -v nvidia-smi &>/dev/null; then
+    GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || true)
+    if [[ -n "$GPU_NAME" ]]; then
+      GPU_AVAILABLE=true
+      DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || echo "unknown")
+      log "GPU detected : ${CYAN}${GPU_NAME}${NC}"
+      log "Driver       : $DRIVER_VER"
+    fi
+  fi
+
+  # Detect CUDA version: driver first (more reliable), nvcc fallback
+  # ponytail: driver version determines max supported CUDA toolkit version.
+  # Newer drivers support newer CUDA — don't cap, pass through to PyTorch.
+  if command -v nvidia-smi &>/dev/null; then
+    DRIVER_MAJOR=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | awk -F. '{print $1}')
+    if [[ -n "$DRIVER_MAJOR" ]]; then
+      if [[ "$DRIVER_MAJOR" -ge 570 ]]; then
+        CUDA_VERSION="128"
+      elif [[ "$DRIVER_MAJOR" -ge 560 ]]; then
+        CUDA_VERSION="126"
+      elif [[ "$DRIVER_MAJOR" -ge 550 ]]; then
+        CUDA_VERSION="124"
+      elif [[ "$DRIVER_MAJOR" -ge 535 ]]; then
+        CUDA_VERSION="121"
+      elif [[ "$DRIVER_MAJOR" -ge 525 ]]; then
+        CUDA_VERSION="118"
+      else
+        CUDA_VERSION="121"
+      fi
+      log "CUDA (from driver): ${CYAN}cu${CUDA_VERSION}${NC}"
+    fi
+  fi
+
+  # Fallback: check nvcc if driver detection failed
+  if [[ -z "$CUDA_VERSION" ]] && command -v nvcc &>/dev/null; then
+    CUDA_FULL=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
+    if [[ -n "$CUDA_FULL" ]]; then
+      CUDA_VERSION=$(echo "$CUDA_FULL" | awk -F. '{print $1$2}')
+      log "CUDA toolkit : ${CYAN}${CUDA_FULL}${NC}"
+    fi
+  fi
+
+  if [[ "$GPU_AVAILABLE" == "false" ]]; then
+    warn "No NVIDIA GPU detected — AI inference requires CUDA-capable hardware."
+    warn "The stack will start, but generation jobs will fail without a GPU."
+    if [[ "${REQUIRE_GPU:-}" == "1" ]]; then
+      err "REQUIRE_GPU=1 is set — aborting without GPU."
+      exit 1
+    fi
+    if [[ -t 0 ]] && [[ "${CI:-}" != "true" ]] && [[ "${NONINTERACTIVE:-}" != "1" ]]; then
+      read -rp "  Continue without GPU? [y/N] " choice
+      if [[ "${choice,,}" != "y" ]]; then
+        err "Aborting. Install an NVIDIA GPU + driver and re-run."
+        exit 1
+      fi
+    else
+      warn "Non-interactive environment detected — proceeding with CPU fallback."
+      warn "Generation jobs will fail without a GPU."
+    fi
+  fi
+}
+
+# ── Clean up conflicting CUDA APT sources ──────────────────────────────────
+_sanitize_apt_cuda_sources() {
+  # Remove duplicate/conflicting NVIDIA repository lists that cause APT "Conflicting values set for option Signed-By"
+  rm -f /etc/apt/sources.list.d/*cuda*.list \
+        /etc/apt/sources.list.d/*nvidia*.list \
+        /etc/apt/sources.list.d/*cuda*.sources \
+        /etc/apt/sources.list.d/*nvidia*.sources 2>/dev/null || true
+  if [[ -f /etc/apt/sources.list ]]; then
+    sed -i '/developer\.download\.nvidia\.com/d' /etc/apt/sources.list 2>/dev/null || true
+  fi
+  for src in /etc/apt/sources.list.d/*.sources; do
+    if [[ -f "$src" ]] && grep -q "developer.download.nvidia.com" "$src" 2>/dev/null; then
+      sed -i '/developer\.download\.nvidia\.com/d' "$src" 2>/dev/null || true
+    fi
+  done
+  for lst in /etc/apt/sources.list.d/*.list; do
+    if [[ -f "$lst" ]] && grep -q "developer.download.nvidia.com" "$lst" 2>/dev/null; then
+      sed -i '/developer\.download\.nvidia\.com/d' "$lst" 2>/dev/null || true
+    fi
+  done
+}
+
+
+setup_cuda_124() {
+  echo "CUDA Toolkit 12.4 — Detection & Installation"
+
+  # ── Detect NVIDIA driver ──────────────────────────────────────────────────
+  local DRIVER_VER=""
+  if command -v nvidia-smi &>/dev/null; then
+    DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || true)
+    log "NVIDIA driver: ${CYAN}${DRIVER_VER}${NC}"
+  else
+    warn "nvidia-smi not found — skipping CUDA setup"
+    return 0
+  fi
+
+  # Check driver supports CUDA 12.4 (requires >= 525.60.13)
+  local DRIVER_MAJOR
+  DRIVER_MAJOR=$(echo "$DRIVER_VER" | awk -F. '{print $1}')
+  if [[ -n "$DRIVER_MAJOR" ]] && [[ "$DRIVER_MAJOR" -lt 525 ]]; then
+    err "NVIDIA driver ${DRIVER_VER} is too old for CUDA 12.4 (requires >= 525.60.13)"
+    err "Please update your NVIDIA driver: https://www.nvidia.com/drivers"
+    return 1
+  fi
+}
 ensure_bun_or_npm(){
   section "Frontend Toolchain"
   export PATH="$HOME/.bun/bin:$PATH"
@@ -163,6 +285,9 @@ printf "  06. Run backend/scripts/install.sh\n\n"
 
 
 require_commands
+detect_gpu
+_sanitize_apt_cuda_sources
+setup_cuda_124
 ensure_bun_or_npm
 ensure_uv
 create_directories
