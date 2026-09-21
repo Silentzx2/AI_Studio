@@ -1,5 +1,6 @@
 #!/bin/bash
 
+UV_PIP="uv pip"
 echo "========================================"
 echo "Starting 3DAIGC-API Installation"
 echo "========================================"
@@ -20,7 +21,7 @@ echo "[INFO] Activating conda environment..."
 
 echo "[INFO] Installing PyTorch with CUDA 12.4 support..."
 ## install pytorch for specific cuda versions
-pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+$UV_PIP install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] PyTorch installation completed"
 else
@@ -37,7 +38,7 @@ echo "[INFO] Changing directory to thirdparty/TRELLIS..."
 cd thirdparty/TRELLIS.2
 echo "[INFO] Running TRELLIS.2 setup script..."
 . ./setup.sh --basic --flash-attn --nvdiffrast --nvdiffrec --cumesh --o-voxel --flexgemm
-pip install kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.6.0_cu124.html
+$UV_PIP install kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.6.0_cu124.html
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] TRELLIS setup completed"
 else
@@ -46,9 +47,9 @@ else
 fi
 
 echo "[INFO] Installing TRELLIS(v1) requirements on top of TRELLIS.2..."
-pip install pymeshfix igraph 
+$UV_PIP install pymeshfix igraph 
 git clone https://github.com/autonomousvision/mip-splatting.git /tmp/extensions/mip-splatting
-pip install /tmp/extensions/mip-splatting/submodules/diff-gaussian-rasterization/
+$UV_PIP install /tmp/extensions/mip-splatting/submodules/diff-gaussian-rasterization/
 
 # for systems with glibc < 2.29 , you may need to build kaolin from source manually
 echo "[NOTE] For systems with glibc < 2.29, you may need to build kaolin from source manually"
@@ -61,7 +62,7 @@ echo "========================================"
 echo "[INFO] Changing directory to thirdparty/PartField..."
 cd ../../thirdparty/PartField 
 echo "[INFO] Installing PartField core dependencies..."
-pip install lightning==2.2 h5py yacs trimesh scikit-image loguru boto3
+$UV_PIP install lightning==2.2 h5py yacs trimesh scikit-image loguru boto3
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] PartField core dependencies installed"
 else
@@ -70,7 +71,7 @@ else
 fi
 
 echo "[INFO] Installing additional PartField dependencies..."
-pip install mesh2sdf tetgen pymeshlab plyfile einops libigl polyscope potpourri3d simple_parsing arrgh open3d psutil 
+$UV_PIP install mesh2sdf tetgen pymeshlab plyfile einops libigl polyscope potpourri3d simple_parsing arrgh open3d psutil 
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] Additional PartField dependencies installed"
 else
@@ -79,7 +80,7 @@ else
 fi
 
 echo "[INFO] Installing PyTorch Geometric extensions..."
-pip install torch-scatter torch_cluster -f https://data.pyg.org/whl/torch-2.6.0+cu124.html
+$UV_PIP install torch-scatter torch_cluster -f https://data.pyg.org/whl/torch-2.6.0+cu124.html
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] PyTorch Geometric extensions installed"
 else
@@ -99,7 +100,7 @@ echo "[INFO] Changing directory to thirdparty/Hunyuan3D-2.1..."
 cd ../../thirdparty/Hunyuan3D-2.1
 echo "[INFO] Installing custom rasterizer for Hunyuan3D 2.1..."
 cd hy3dpaint/custom_rasterizer
-pip install -e . --no-build-isolation
+$UV_PIP install -e . --no-build-isolation
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] Hunyuan3D 2.1 custom rasterizer installed"
 else
@@ -119,7 +120,7 @@ else
 fi
 cd ../..
 echo "[INFO] Installing Hunyuan3D 2.1 requirements..."
-pip install -r requirements-inference.txt 
+$UV_PIP install -r requirements-inference.txt 
 ### installation for hunyuan3d 2.1 end ###
 echo "[SUCCESS] Hunyuan3D 2.1 installation completed"
 
@@ -131,8 +132,8 @@ echo "========================================"
 echo "[INFO] Changing directory to thirdparty/UniRig..."
 cd ../../thirdparty/UniRig
 echo "[INFO] Installing spconv-cu120 for UniRig..."
-pip install spconv-cu120
-pip install pyrender fast-simplification python-box timm
+$UV_PIP install spconv-cu120
+$UV_PIP install pyrender fast-simplification python-box timm
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] UniRig dependencies installed"
 else
@@ -148,8 +149,8 @@ echo "========================================"
 echo "[INFO] Changing directory to thirdparty/PartPacker..."
 cd ../../thirdparty/PartPacker
 echo "[INFO] Installing PartPacker requirements..."
-pip install pybind11==3.0.1
-pip install meshiki kiui fpsample pymcubes einops
+$UV_PIP install pybind11==3.0.1
+$UV_PIP install meshiki kiui fpsample pymcubes einops
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] PartPacker requirements installed"
 else
@@ -161,14 +162,14 @@ echo "[SUCCESS] PartPacker installation completed"
 
 ### partuv(requires only bpy, partuv) ###
 echo "[INFO] Installing partuv requirements..."
-pip install seaborn partuv 
+$UV_PIP install seaborn partuv 
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] partuv requirements installed"
 else
     echo "[ERROR] Failed to install partuv requirements"
     exit 1
 fi
-pip install blenderproc 
+$UV_PIP install blenderproc 
 ### partuv end ###
 
 ### P3-SAM (Hunyuan3D-Part) ###
@@ -179,7 +180,7 @@ echo "========================================"
 cd ../../thirdparty/Hunyuan3DPart/P3SAM
 echo "[INFO] Installing P3-SAM requirements..."
 # Install numba for acceleration
-pip install numba scikit-learn fpsample
+$UV_PIP install numba scikit-learn fpsample
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] P3-SAM requirements installed"
 else
@@ -191,7 +192,7 @@ fi
 ### FastMesh ###
 cd ../../../thirdparty/FastMesh 
 echo "[INFO] Installing FastMesh requirements..."
-pip install -r requirement_extra.txt
+$UV_PIP install -r requirement_extra.txt
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] FastMesh requirements installed"
 else
@@ -207,9 +208,9 @@ echo "Installing UltraShape Dependencies"
 echo "========================================"
 cd ../../../thirdparty/UltraShape
 echo "[INFO] Installing UltraShape requirements..."
-# pip install -r requirements.txt
+# $UV_PIP install -r requirements.txt
 # actually only cubvh is required based besides trellis.2 env  
-pip install git+https://github.com/ashawkey/cubvh --no-build-isolation
+$UV_PIP install git+https://github.com/ashawkey/cubvh --no-build-isolation
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] UltraShape requirements installed"
 else
@@ -225,10 +226,10 @@ echo "Installing VoxHammer Dependencies"
 echo "========================================"
 cd ../VoxHammer
 echo "[INFO] Installing VoxHammer requirements..."
-# pip install -r requirements.txt
+# $UV_PIP install -r requirements.txt
 # only bpy-renderer and pysdf are required besides trellis.2 env  
-pip install git+https://github.com/huanngzh/bpy-renderer.git
-pip install pysdf setencepiece
+$UV_PIP install git+https://github.com/huanngzh/bpy-renderer.git
+$UV_PIP install pysdf setencepiece
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] VoxHammer requirements installed"
 else
@@ -246,7 +247,7 @@ echo "Installing Project Dependencies"
 echo "========================================"
 ### for this project (fastapi / uvicorn relevant etc.)  ###
 echo "[INFO] Installing main project requirements..."
-pip install -r requirements.txt 
+$UV_PIP install -r requirements.txt 
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] Main project requirements installed"
 else
@@ -256,7 +257,7 @@ fi
 
 echo "[INFO] Installing test requirements..."
 # testing 
-pip install -r requirements-test.txt 
+$UV_PIP install -r requirements-test.txt 
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] Test requirements installed"
 else
@@ -266,7 +267,7 @@ fi
 
 echo "[INFO] Installing huggingface_hub for model downloading..."
 # for downloading models 
-pip install huggingface_hub
+$UV_PIP install huggingface_hub
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] huggingface_hub installed"
 else
