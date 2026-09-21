@@ -13,7 +13,17 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-THIRD_PARTY_DIR="${THIRD_PARTY_DIR:-${SCRIPT_DIR}/thirdparty}"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Default target: backend/thirdparty (where install.sh expects the repos).
+# Never clone into the project root or scripts/ — refuse those targets.
+THIRD_PARTY_DIR="${THIRD_PARTY_DIR:-$PROJECT_ROOT/backend/thirdparty}"
+case "$THIRD_PARTY_DIR" in
+  "$PROJECT_ROOT"|"$PROJECT_ROOT"/|"$SCRIPT_DIR"|"$SCRIPT_DIR"/)
+    echo "ERROR: refusing to clone into $THIRD_PARTY_DIR (would pollute the project root)." >&2
+    exit 1
+    ;;
+esac
 
 declare -A REPOS=(
   ["TRELLIS"]="https://github.com/FishWoWater/TRELLIS"
