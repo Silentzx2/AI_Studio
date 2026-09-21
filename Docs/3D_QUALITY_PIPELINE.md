@@ -2,65 +2,59 @@
 
 ## 1. Architectural Overview
 
-The AI Studio 3D Quality Pipeline coordinates image analysis, official provider inference, safe post-processing, multi-tier LOD generation, and asset packaging.
+The AI Studio 3D Quality Pipeline coordinates image analysis, neural provider inference, safe post-processing, multi-tier LOD generation, and asset packaging.
 
 ```mermaid
 flowchart TD
     classDef stage fill:#1e1e24,stroke:#6366f1,stroke-width:2px,color:#fff;
     classDef data fill:#18181b,stroke:#22c55e,stroke-width:1.5px,color:#fff;
     classDef guard fill:#18181b,stroke:#f59e0b,stroke-width:1.5px,color:#fff;
+    classDef api fill:#1e1e2d,stroke:#a855f7,stroke-width:2px,color:#fff;
 
-    IN[Input Image / Prompt] --> PRE[Stage 1: Preprocessing & Conditioning<br/>• Aspect ratio preservation<br/>• Transparent alpha / RemBG segmentation<br/>• Bounding box & silhouette extraction]:::stage
-    
-    PRE --> INF[Stage 2: Provider Inference<br/>• Hunyuan3D-2.1 / 2-Mini / TRELLIS / TripoSG<br/>• Neural shape synthesis & Marching Cubes]:::stage
-    
+    UI["UI Panel<br/>Image/Prompt Input"]:::api --> IN[Input Image / Prompt]:::data
+
+    IN --> PRE[Stage 1: Preprocessing & Conditioning<br/>• Aspect ratio preservation<br/>• Background removal (RemBG)<br/>• Silhouette extraction]:::stage
+
+    PRE --> INF[Stage 2: Provider Inference<br/>• TRELLIS (FlexiCubes PBR)<br/>• Hunyuan3D-2.1 (DiT)<br/>• PartPacker<br/>• UltraShape]:::stage
+
     INF --> RAW[(source.glb<br/>Untouched Master Asset)]:::data
-    
-    INF --> POST[Stage 3: Non-Destructive Post-Processing<br/>• Headless Blender 4.x process_mesh.py]:::stage
-    
-    POST --> G1{Conservative Debris Guard<br/>Remove only floating noise < 6 verts}:::guard
-    G1 -->|Retain Anatomy| BM[Preserve Teeth, Claws, Eyeballs, Horns, Spikes, Accessories]
-    G1 -->|Prune| FL[Purge Loose Microscopic Floating Noise]
-    
-    POST --> G2{UV Layout Guard<br/>mesh_has_valid_uvs?}:::guard
-    G2 -->|Yes: Valid UVs| P_UV[Protect Provider UV Map & PBR Textures]
-    G2 -->|No: Missing/Invalid| X_UV[Authoritative xatlas Conformal Parameterization]
 
-    POST --> G3{Rigify Armature Guard<br/>Aspect Ratio ≥ 0.7 & Height ≥ 0.2?}:::guard
-    G3 -->|Yes: Humanoid| RIG[Bind Rigify Biped Metarig]
-    G3 -->|No: Prop/Quadruped| NO_RIG[Export Clean Unrigged Mesh]
+    INF --> PROCESS[Stage 3: Post-Processing Pipeline<br/>• meshoptimizer SIMD Decimation<br/>• xatlas Conformal UV Unwrapping<br/>• Texture Projection Baking]:::stage
 
-    BM --> MODEL[(model.glb<br/>Clean Baseline Asset)]:::data
-    P_UV --> MODEL
-    X_UV --> MODEL
-    RIG --> MODEL
-    NO_RIG --> MODEL
+    PROCESS --> G1{Safe Component Guard<br/>Islands ≥ 0.5% vertices or ≥ 15 verts?}:::guard
+    G1 -->|Yes| KEEP[Preserve Ears, Horns, Tails, Claws & Accessories]
+    G1 -->|No| PRUNE[Purge Floating Disconnected Noise]
 
-    MODEL --> OPT[Stage 4: Topology & Game-Ready Optimization<br/>• Mode: TRIANGLE (meshoptimizer) / QUAD (Blender QuadriFlow) / ADAPTIVE<br/>• Sharp Crease Shading via Weighted Normals<br/>• Platform Target: Mobile / Low / Med / High / Cine]:::stage
-    OPT --> GAME[(game_ready.glb<br/>Active Result Derivative)]:::data
+    KEEP --> BASE[(game_ready.glb<br/>Optimized Deliverable)]:::data
+    PRUNE --> BASE
 
-    MODEL --> LOD[Stage 5: Multi-Tier LOD Cascade<br/>• meshoptimizer Quality Decimation Curves]:::stage
-    LOD --> L0[(LOD0: 100% Master)]:::data
-    LOD --> L1[(LOD1: 50% Polycount)]:::data
-    LOD --> L2[(LOD2: 25% Polycount)]:::data
-    LOD --> L3[(LOD3: 12.5% Polycount)]:::data
+    BASE --> P5[Stage 4: Multi-Tier LOD Cascade<br/>• meshoptimizer with Texture Retention]:::stage
+    P5 --> L0[(LOD0: 100% Master)]:::data
+    P5 --> L1[(LOD1: 50% Polycount)]:::data
+    P5 --> L2[(LOD2: 25% Polycount)]:::data
+    P5 --> L3[(LOD3: 12.5% Polycount)]:::data
 
-    MODEL --> COL[Stage 6: Physics Collision Hull<br/>• Convex Hull Computation via Trimesh / SciPy]:::stage
-    COL --> COLL[(collision.glb<br/>Physics Collider)]:::data
+    BASE --> P6[Stage 5: Physics Collision Mesh<br/>• Trimesh Convex Hull]:::stage
+    P6 --> C_OUT[(collision.glb<br/>Physics Collider)]:::data
 
-    GAME --> QA[Stage 7: QA Diagnostics Engine<br/>• Manifoldness & Boundary Edge Inspection<br/>• Surface Normal Winding Consistency<br/>• UV Validity & Texture Map Verification<br/>• Platform Budget Compliance]:::stage
-    QA --> SCORE[(quality_report.json<br/>Game-Ready Score: 0–100)]:::data
+    BASE --> P7[Stage 6: Geometry QA Diagnostics<br/>• Manifoldness & Normal Inspection<br/>• UV & Texture Verification]:::stage
+    P7 --> QA_OUT[(quality_report.json<br/>Game-Ready Score: 0–100)]:::data
 
-    GAME --> EXP[Stage 8: Production Export Endpoint<br/>• POST /api/v1/project/export<br/>• GLB / GLTF / FBX / OBJ / STL / PLY<br/>• Traversal Security Guard]:::stage
-    RAW --> EXP
-    L0 --> EXP
-    L1 --> EXP
-    L2 --> EXP
-    L3 --> EXP
-    COLL --> EXP
-    SCORE --> EXP
+    BASE --> P8[Stage 7: Production Export<br/>• POST /api/v1/project/export<br/>• GLB / GLTF / OBJ / STL / PLY]:::stage
 
-    EXP --> ZIP[(Structured ZIP Archive<br/>Source/ + GameReady/ + LODs/ + Collision/ + Model/ + Preview/ + QA/ + Metadata/)]:::data
+    RAW_OUT --> P8
+    L0 --> P8
+    L1 --> P8
+    L2 --> P8
+    L3 --> P8
+    C_OUT --> P8
+    QA_OUT --> P8
+
+    P8 --> ZIP[(Structured Production ZIP Package<br/>Source/ + GameReady/ + LODs/ + Collision/ + QA/)]:::data
+
+    style RAW fill:#0a0a0a,stroke:#ef4444
+    style BASE fill:#0a0a0a,stroke:#22c55e
+    style ZIP fill:#0a0a0a,stroke:#f59e0b
 ```
 
 ---
@@ -69,90 +63,122 @@ flowchart TD
 
 | Stage | Module | Responsibility | Invariants Preserved |
 |---|---|---|---|
-| **Inference** | `backend/app/core/providers/*` | Neural reconstruction from prompt or image (Hunyuan, TRELLIS, TripoSG). | Writes output file; retains high-fidelity raw mesh as immutable `source.glb`. |
-| **Open3D Analysis & Decision** | `backend/app/core/open3d_service.py` | Canonical mesh topology analysis, manifoldness, watertightness, self-intersections, and deterministic decision routing. | Evaluates if retopology, repair, decimation, or UV parameterization is required without mutating the source asset. |
-| **Safe Cleanup** | `backend/app/core/open3d_service.py` | Conservative duplicate vertex/triangle and degenerate face removal. | Multi-component clustering strictly preserves detached accessories, ears, tails, horns, and mechanical parts; noisy islands only pruned if below noise floor (<0.05% master area and <5 tris). |
-| **DCC & Retopology** | `backend/app/core/blender/pipeline.py` | Headless Blender 4.x processing, QuadriFlow retopology (if triggered), Rigify rigging, PBR materials, multi-format export. | Validates post-Blender geometry with Open3D before acceptance; rejects degraded geometry. |
-| **UV Parameterization** | `backend/app/core/mesh_optimizer.py` | Authoritative `xatlas` conformal parameterization. | Valid provider UVs left untouched (`uv_status: preserved_from_provider`); missing/corrupt UVs parameterized via xatlas charts (`uv_status: generated_via_xatlas`). Open3D validates mesh before/after UV pass. |
-| **Optimization** | `backend/app/core/mesh_optimizer.py` | Fast C++ `meshoptimizer` decimation with Open3D quadric decimation fallback. | Skips decimation if already within ±10% target budget. On success, the processed derivative (`game_ready.glb`) unconditionally becomes the active result shown in viewer (`model_url`, `active_model_url`) and used for export, while `source.glb` remains untouched. |
-| **LOD Generation** | `backend/app/core/mesh_optimizer.py` | Cascade level calculation (LOD0–LOD3) via `meshoptimizer`. | LOD0 is an exact byte-for-byte replica of the master asset; complexity strictly decreases per tier. Each candidate LOD is audited via `validate_lod_mesh_o3d` (decreasing polycount + bounds fit within 5%) and automatically discarded/unlinked if degraded. |
-| **Collision** | `backend/app/core/mesh_optimizer.py` | Physics collider creation (watertight convex hull proxy). | Produces single watertight convex hull proxy (`collider_type: convex_hull`). Verified via `validate_collision_mesh_o3d` to confirm tight bounds containment and low complexity (<1000 tris). |
-| **Open3D Final QA** | `backend/app/core/mesh_processor.py` (`open3d_service.py`) | Authoritative Game-Ready QA evaluation and glTF validation. | Deep topology diagnostics (non-manifold edges, self-intersections, surface area, volume, component count) producing evidence-based PASS/WARN/FAIL status and verifiable scores (no fake scores). Evaluated directly on the active derivative. |
-| **Export Engine** | `backend/app/api/v1/project.py` | Multi-format conversion & ZIP packaging. | Canonical formats (`glb`, `gltf`, `fbx`, `obj`, `stl`, `ply`). Defaults to `variant="active"`, exporting the active processed derivative instead of defaulting to raw source. `variant="source"` exports untouched master. Real geometry conversion; structured ZIP with Source, GameReady, LODs, Collision, Model, Preview, QA, and Metadata. Traversal-safe storage access. |
+| **Inference** | `backend/adapters/*` | Neural reconstruction from prompt or image (TRELLIS, Hunyuan3D, PartPacker, UltraShape). | Writes output file; retains high-fidelity raw mesh as immutable `source.glb`. |
+| **Post-Processing** | `backend/core/mesh_optimizer.py` | Fast C++ `meshoptimizer` SIMD decimation; xatlas UV unwrapping; texture projection. | Skips decimation if already within ±10% target budget. On success, processed derivative (`game_ready.glb`) becomes active result while `source.glb` remains untouched. |
+| **Component Guard** | `backend/core/mesh_optimizer.py` | Conservative duplicate vertex/triangle and degenerate face removal. | Multi-component clustering strictly preserves detached accessories; noisy islands only pruned if below noise floor. |
+| **LOD Generation** | `backend/core/mesh_optimizer.py` | Cascade level calculation (LOD0–LOD3) via `meshoptimizer`. | LOD0 is an exact byte-for-byte replica of the master asset; complexity strictly decreases per tier. |
+| **Collision** | `backend/core/mesh_optimizer.py` | Physics collider creation (watertight convex hull proxy). | Produces single watertight convex hull proxy. Verified for tight bounds containment. |
+| **QA Diagnostics** | `backend/core/mesh_processor.py` | Authoritative Game-Ready QA evaluation. | Deep topology diagnostics (non-manifold edges, self-intersections, surface area, volume, component count) producing evidence-based PASS/WARN/FAIL scores. |
+| **Export Engine** | `backend/api/routers/mesh_generation.py` | Multi-format conversion & ZIP packaging. | Canonical formats (`glb`, `gltf`, `fbx`, `obj`, `stl`, `ply`). Structured ZIP with Source, GameReady, LODs, Collision, QA. |
 
 ### Tool Division of Responsibilities
 
 | System | Dedicated Responsibility | Explicit Non-Responsibilities |
 |---|---|---|
-| **Open3D** | Canonical mesh analysis, topology validation, geometry diagnostics, conservative cleanup, quality decisions, before/after comparison, Game-Ready QA. | NOT an AI generation model; NOT an AI retopology system; NOT a UV unwrapper; NOT a collision generator. |
-| **Blender** | Headless DCC pipeline, QuadriFlow remeshing, Rigify armature binding, texture baking, multi-format export. | NOT the primary topology QA analyzer. |
-| **xatlas** | Authoritative UV chart parameterization & packing. | NOT a general geometry decimation or repair tool. |
-| **meshoptimizer** | High-performance C++ polygon decimation & multi-tier LOD cascade generation. | NOT a texture or normal baker. |
-| **AI Providers** | Neural 3D synthesis (Hunyuan3D-2.1/Mini, TRELLIS, TripoSG, DetailGen3D). | NOT responsible for downstream game-ready engine optimization. |
+| **meshoptimizer** | High-performance polygon decimation & multi-tier LOD cascade generation | NOT a texture or normal baker |
+| **xatlas** | Authoritative UV chart parameterization & packing | NOT a general geometry decimation or repair tool |
+| **Trimesh** | Convex hull collision computation, format conversion | NOT a mesh analysis engine |
+| **AI Providers** | Neural 3D synthesis (TRELLIS, Hunyuan3D, PartPacker, UltraShape) | NOT responsible for downstream game-ready engine optimization |
 
 ---
 
 ## 3. Provider Quality Contracts
 
-### Hunyuan3D-2.1
-- **Official Pipeline & Architecture**: Official Tencent Hunyuan3D-2.1 dual-stage pipeline (`hy3dshape` DiT flow matching geometry synthesis + `hy3dpaint` PBR texture synthesis).
-- **Fallback Transparency**: Clear degraded mode warning logs emitted if falling back to `hy3dgen`.
-- **Inference Parameter Passthrough**: Full forwarding of quality parameters (`seed`, `num_inference_steps`, `guidance_scale`, `octree_resolution`, `num_chunks`, `face_count`).
-- **VRAM Footprint**: ~16GB for shape+texture; ~8GB for shape-only.
-- **Topology Characteristic**: High-density quad/triangle surface (~80k–120k tris).
-- **Post-Processing Preset**: Medium or High platform decimation recommended for web rendering.
-
 ### TRELLIS
-- **Official Weights & Inference**: Uses structured Flexicubes representation with PBR material outputs.
-- **Sampler Controls**: Full propagation of `sparse_structure_sampler_params` (steps and cfg scaled by quality preset/request), `slat_sampler_params`, `seed`, shape-only inference (`formats=['mesh']` when `generate_texture=False`), and `texture_size`/`texture_resolution` passed to GLB export.
-- **VRAM Footprint**: ~16GB standard; ~8GB low-VRAM mode.
+- **Architecture**: Structured FlexiCubes representation with native PBR materials.
+- **Sampler Controls**: Full propagation of sampler parameters, seed, shape-only inference (`formats=['mesh']` when `generate_texture=False`), and texture resolution.
+- **VRAM Footprint**: ~11.5 GB standard; ~8 GB low-VRAM mode.
 - **Topology Characteristic**: Structured flexicubes (~40k–70k tris).
-- **Post-Processing Preset**: Preserves crisp geometric silhouettes; auto-decimation to 30k recommended.
+- **Post-Processing Preset**: Preserves crisp geometric silhouettes; auto-decimation to target polycount recommended.
 
-### TripoSG
-- **Official Weights & Inference**: Fast single-image isosurface reconstruction.
-- **VRAM Footprint**: ~6GB VRAM.
-- **Topology Characteristic**: Dense Marching Cubes isosurface (~60k–80k tris, untextured).
-- **Post-Processing Preset**: Decimation to 25k recommended; untextured base geometry.
+### TRELLIS.2
+- **Architecture**: Higher-fidelity FlexiCubes with improved PBR material outputs.
+- **VRAM Footprint**: ~23 GB.
+- **Topology Characteristic**: Higher-resolution FlexiCubes.
 
-### DetailGen3D
-- **Official Architecture**: Second-pass geometry displacement/normal refinement.
-- **Usage Contract**: Post-processing-only provider; cannot run as a standalone generation target.
+### Hunyuan3D-2.1
+- **Architecture**: DiT flow matching geometry synthesis + neural paint texture synthesis.
+- **VRAM Footprint**: ~8 GB (shape-only) / ~16 GB (shape+texture).
+- **Topology Characteristic**: High-density quad/triangle surface.
+- **Post-Processing Preset**: Medium or High platform decimation recommended.
 
+### PartPacker
+- **Architecture**: Rectified-flow shape generation.
+- **VRAM Footprint**: ~10 GB.
+- **Topology Characteristic**: Dense isosurface reconstruction.
+- **Supported Inputs**: Image only.
+
+### UltraShape
+- **Architecture**: SparseFlex arbitrary-topology mesh reconstruction.
+- **VRAM Footprint**: ~26.6 GB (8 GB Hunyuan + 12 GB UltraShape).
+- **Topology Characteristic**: Arbitrary topology mesh-to-mesh refinement.
+- **Supported Outputs**: glb, obj, ply.
 
 ---
 
-## 4. Post-Processing Pipeline (OpenX Clay v5.0.53+)
-
-Post-processing runs after inference via OpenX Clay (`backend/clay/`), integrated into the Celery worker.
+## 4. Post-Processing Pipeline
 
 ```
   raw generation (source.glb)
   ↓
-  OpenX Clay Post-Processing (backend/clay/)
-  ├── 1. PostProcessor.process() (C++ meshoptimizer SIMD attribute decimation to budget)
-  ├── 2. Auto-Texture Preservation (preserves PBR materials and UV maps during decimation)
-  ├── 3. xatlas UV Parameterization (conformal non-overlapping atlas generation when untextured)
-  ├── 4. make_lods() (Hierarchical LOD chain: LOD0–LOD3 with textures preserved via meshoptimizer)
+  OpenX Post-Processing (backend/core/mesh_optimizer.py)
+  ├── 1. meshoptimizer SIMD attribute decimation to budget
+  ├── 2. Auto-Texture Preservation (preserves PBR materials and UV maps)
+  ├── 3. xatlas UV Parameterization (conformal non-overlapping atlas)
+  ├── 4. make_lods() (LOD0–LOD3 with textures preserved via meshoptimizer)
   ├── 5. make_collision() (Convex hull physics proxy collider)
-  └── 6. Blender Engine (Headless FBX export, Quadriflow quad retopo, normal bake)
-  ✅ game_ready.glb + lods/ + collision.glb + exported formats
+  └── 6. QA Diagnostics (Open3D-based topological analysis)
+  ✅ game_ready.glb + lods/ + collision.glb + quality_report.json
 ```
 
-### OpenX Clay Core Post-Processing
-- **Package**: `backend/clay/`
-- **Main Processor**: `clay.postprocess.PostProcessor`
-- **Decimation**: C++ `meshoptimizer` SIMD decimation with attribute weights, preserving UVs and PBR textures; fallback to `fast_simplification`
-- **UV Unwrapping**: Native `xatlas.parametrize` with boundary preservation
-- **Texture Preservation**: Automatic detection and preservation of pre-baked provider textures without UV corruption or orphan maps
-- **LOD Chains**: `clay.lods.make_lods` produces `(1.0, 0.5, 0.25, 0.1)` ratio levels with full texture map retention
-- **Collision Proxies**: `clay.collision.make_collision` creates convex hull colliders
-- **Multi-Format Export**: Native GLB/OBJ/PLY/STL via trimesh, FBX via headless Blender
+### Core Post-Processing
+- **Decimation**: C++ `meshoptimizer` SIMD decimation with attribute weights, preserving UVs and PBR textures.
+- **UV Unwrapping**: Native `xatlas.parametrize` with boundary preservation.
+- **Texture Preservation**: Automatic detection and preservation of pre-baked provider textures.
+- **LOD Chains**: `(1.0, 0.5, 0.25, 0.1)` ratio levels with full texture map retention.
+- **Collision Proxies**: Convex hull colliders via Trimesh.
 
 ### Non-Negotiable Invariants
-- `source.glb` is immutable; post-processing writes to `game_ready.glb`
-- When `auto_optimize: false` and `game_ready: false` (RAW preset), decimation is skipped; the high-resolution master mesh is preserved directly and delivered as `active_model_url`
-- Marching Cubes grid resolution scales dynamically with quality selection (`low`: 256, `medium`: 384, `high`: 512, `ultra`: 640), preventing micro-anatomical feature loss (teeth, nostrils, eyelids)
-- Untextured raw meshes trigger high-fidelity texture projection with tangent-space normal map baking; only meshes with verified 2D textures or genuine non-default vertex colors bypass projection
-- Any Clay failure immediately propagates to the Celery job system with `status="failed"` (no silent bypasses)
-- Real execution telemetry emitted over Redis SSE (no fake percentages or simulated stages)
+- `source.glb` is immutable; post-processing writes to `game_ready.glb`.
+- When `auto_optimize: false` (RAW preset), decimation is skipped; the high-resolution master mesh is preserved directly.
+- Any failure immediately propagates as `status="failed"` (no silent bypasses).
+
+---
+
+## 5. Export Formats
+
+| Format | Engine / Software Target | Backend | PBR Support |
+|---|---|---|---|
+| **GLB** | WebGL, Three.js, Godot 4 | Direct glTF binary | Full PBR (Roughness/Metallic) |
+| **GLTF** | WebGL, Three.js | glTF export | Full PBR |
+| **FBX** | Unreal Engine 5, Unity | Trimesh / Blender | Skeletal Rig & Materials |
+| **OBJ** | Wavefront, ZBrush | Trimesh OBJ Exporter | Geometry + MTL |
+| **STL** | 3D Printing, CAD | Trimesh STL Exporter | Pure Geometry |
+| **PLY** | Point Clouds, MeshLab | Trimesh PLY Exporter | Vertex Coordinates & Colors |
+
+---
+
+## 6. Structured Export Archive
+
+When exporting with `packageZip=true`:
+
+```
+Hero_Character.zip
+├── Source/
+│   └── Hero_Character_source.glb    # Preserved untouched neural master
+├── GameReady/
+│   └── Hero_Character_ready.glb     # Engine-optimized mesh
+├── LODs/
+│   ├── lod0.glb                      # 100% master fidelity
+│   ├── lod1.glb                      # 50% decimation
+│   ├── lod2.glb                      # 25% decimation
+│   └── lod3.glb                      # 12.5% distant proxy
+├── Collision/
+│   └── Hero_Character_collision.glb # Physics convex hull collider
+├── Preview/
+│   └── thumbnail.png                 # High-resolution rendering
+└── QA/
+    └── quality_report.json           # Machine-readable QA metrics
+```
+
+> **Master Asset Preservation**: The raw generative master (`source.glb`) is archived before any post-processing. Derived operations never overwrite the source asset.

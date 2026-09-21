@@ -1,6 +1,6 @@
 # AI 3D Studio — System & Runtime Architecture
 
-> **Architecture Version**: 6.0.0 (ComfyUI Core + ComfyUI-3D-Pack Engine)  
+> **Architecture Version**: 0.1.0 (FastAPI + Next.js 16)  
 > **Last Verified**: September 2026  
 > **Target Environments**: Linux (Ubuntu 20.04/22.04/24.04), Google Colab (T4, V100, L4, A100), Cloud GPU / Local Workstations
 
@@ -10,62 +10,68 @@
 
 AI 3D Studio is an end-to-end generative 3D asset pipeline. The system is architected around a clean separation of concerns:
 - **Presentation Layer**: Next.js 16 frontend with interactive Three.js 3D viewport, Tripo-style tooling, and model management.
-- **Product & API Gateway**: FastAPI backend managing database persistence (PostgreSQL 16), client validation, rate limiting, and static file delivery.
-- **Execution Core**: **ComfyUI 0.36.0** as the single authoritative execution engine running in `ENGINE/ComfyUI`.
-- **3D Node Layer**: **ComfyUI-3D-Pack** as the custom-node suite providing native 3D tensor operations, neural shape reconstruction, texture baking, and remeshing.
+- **API Gateway**: FastAPI backend with VRAM-aware multiprocess scheduler, request validation, rate limiting, and static file delivery.
+- **Model Adapters**: Python adapters for each AI model (TRELLIS, Hunyuan3D, PartPacker, UltraShape, PartField, P3-SAM, UniRig, FastMesh, VoxHammer).
+- **Scheduler**: VRAM-aware scheduler with GPU monitoring and optional Redis multi-worker queue.
 
 ```mermaid
-graph TB
-    subgraph Client["Frontend Layer (Next.js 16 + React 19)"]
-        VIEW["3D Viewport (Three.js / OrbitControls)"]
-        GEN_UI["Generation & LOD Controls"]
-        EXP_UI["Production Export Modal"]
-        ADMIN_UI["Settings & Model Manager"]
+flowchart TB
+    classDef layer fill:#0f172a,stroke:#64748b,stroke-width:1px,color:#94a3b8
+    classDef node fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#fff
+    classDef db fill:#1e293b,stroke:#ec4899,stroke-width:2px,color:#fff
+    classDef store fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#fff
+
+    subgraph LAYER["Frontend Layer"]
+        direction TB
+        NEXT["Next.js 16 :3000<br/>React 19 + TypeScript"]:::node
+        VPORT["3D Viewport<br/>Three.js / R3F"]:::node
+        CONTROLS["Generation Controls<br/>LOD / Budget / Export"]:::node
     end
 
-    subgraph Gateway["Product API Gateway (FastAPI :8000)"]
-        API_GEN["/api/v1/generation"]
-        API_JOBS["/api/v1/jobs"]
-        API_MODELS["/api/v1/models"]
-        API_RUN["/api/v1/runtime"]
-        API_SYS["/api/v1/system"]
-        STATIC["/static Binary Model Delivery"]
-        COMFY_CLIENT["ComfyUI Client (TCP Pool + WS)"]
-        PROCESSOR["ArtifactManager & MeshProcessor"]
-        DB[("PostgreSQL 16 Database")]
+    subgraph GW["API Gateway Layer"]
+        direction TB
+        API["FastAPI Gateway :8000<br/>Routers + CORS + Rate Limit"]:::node
+        ROUTERS["API Routers<br/>system · file-upload<br/>mesh-generation · mesh-editing<br/>auto-rigging · mesh-segmentation<br/>mesh-retopology · mesh-uv-unwrapping<br/>users"]:::node
+        SCHED["VRAM-Aware Scheduler<br/>GPU Mutual Exclusion"]:::node
+        STATIC["Static File Delivery<br/>/static Binary Streaming"]:::node
     end
 
-    subgraph Core["Execution Core (ComfyUI 0.36.0 :8188)"]
-        QUEUE["Prompt Execution Queue"]
-        SERVER["HTTP API & WebSocket Server"]
-        MMAP["mmap Torch Tensor Loader"]
-        CACHE["RAM / VRAM Pressure Cache"]
+    subgraph CORE["Model Execution Layer"]
+        direction TB
+        ADAPTERS["Model Adapters<br/>TRELLIS · Hunyuan3D · PartPacker<br/>UltraShape · PartField · UniRig<br/>FastMesh · VoxHammer"]:::node
+        GPU_MON["GPU Monitor<br/>VRAM / Temperature"]:::node
+        VRAM_BUF["VRAM Safety Buffer<br/>1GB Free Margin"]:::node
     end
 
-    subgraph Pack["3D Node Suite (ComfyUI-3D-Pack)"]
-        HY21["Hunyuan3D-2.1 (Shape + Paint)"]
-        TREL["TRELLIS (FlexiCubes PBR)"]
-        TSG["TripoSR / TripoSF (Fast Geometry)"]
-        SV3D["SV3D (Multi-view Synthesis)"]
-        REMESH["Mesh Remeshing & Optimization"]
+    subgraph DATA["Storage Layer"]
+        direction TB
+        FILESTORE["Redis FileStore<br/>Cross-Worker Metadata"]:::store
+        LOCAL["Local Filesystem<br/>backend/storage/models/<job_id>/"]:::store
+        UPLOADS["Upload Bucket<br/>backend/storage/uploads/"]:::store
+        EXPORTS["Export Archives<br/>backend/storage/exports/"]:::store
     end
 
-    subgraph Storage["Persistent Asset Storage (backend/storage/)"]
-        SRC["source.glb (Untouched Master)"]
-        GAME["game_ready.glb (Decimated)"]
-        LODS["lods/lod0..3.glb (LOD Cascade)"]
-        HULL["collision.glb (Physics Hull)"]
-        ZIP["Structured ZIP Package"]
+    subgraph OPT["Optional Services"]
+        direction TB
+        REDIS["Redis 7 :6379<br/>Multi-Worker Queue"]:::db
+        POSTGRES["PostgreSQL 16 :5432<br/>Jobs & Metadata (optional)"]:::db
     end
 
-    Client <==>|Next.js Proxy / REST| Gateway
-    Gateway --> DB
-    Gateway <==>|Connection Pool / WS| Core
-    Core --> Pack
-    Pack -->|Raw Neural Mesh| PROCESSOR
-    PROCESSOR -->|Post-processed Derivatives| Storage
-    Storage -->|Static File Delivery| STATIC
-    STATIC --> Client
+    LAYER -->|"REST / SSE / WS"| GW
+    API --> ROUTERS
+    API --> SCHED
+    SCHED --> ADAPTERS
+    SCHED --> GPU_MON
+    SCHED --> VRAM_BUF
+    ADAPTERS -->|Raw Mesh| DATA
+    SCHED --"Job Queue"| OPT
+    STATIC -->|"Binary Delivery"| LAYER
+
+    style LAYER fill:#0f172a
+    style GW fill:#0f172a
+    style CORE fill:#0f172a
+    style DATA fill:#0f172a
+    style OPT fill:#0f172a
 ```
 
 ---
@@ -73,57 +79,56 @@ graph TB
 ## 2. Component Layers
 
 ### 2.1 Presentation Layer (Next.js 16)
-- **App Router**: Built on Next.js 16 with React 19 and Tailwind CSS.
-- **API Client (`services/apiClient.ts`)**: Single unified HTTP/SSE client for all FastAPI backend communication (replaces legacy `adminService.ts` and `runtimeService.ts`). Uses `axios` with `get<T>`/`post<T>` wrappers and built-in SSE streaming support.
-- **Reverse Proxy Route (`app/api/v1/[...path]/route.ts`)**: Proxies all frontend client requests to the FastAPI backend running on port 8000.
-- **3D Canvas**: Three.js WebGL viewport supporting orbit controls, wireframe modes, matcap shading, and environment lighting.
-- **Stores**: Lightweight Zustand stores managing generation state, active model selection, and UI panels.
 
-### 2.2 Product API Gateway (FastAPI)
-Located at `backend/app/`:
-- **Lifespan Management (`app/main.py`)**: Automatically creates database tables on startup (`Base.metadata.create_all`), verifies ComfyUI engine connectivity, initializes storage roots, and closes connection pools on shutdown.
-- **Comprehensive API Surface (`app/api/v1/`)**:
-  - `/admin/*`: System overview, hardware telemetry, deep health, stream logs, model management, repair actions, and installation status.
-  - `/settings/*`: Workspace settings, viewport configurations, generation defaults, and workspace clear history.
-  - `/download/*`: Model download queues, start, pause, resume, and cancel operations.
-  - `/upload/*`: Direct image, model, and asset multipart uploads.
-  - `/generation/*`: Parameterized workflow preparation, prompt enhancement (`/enhance-prompt`), workflow templates (`/workflows`), history, and real-time status.
-  - `/system/*`: Hardware telemetry, dependency checks, storage usage, cache clearing, and connection tests.
-- **Database Engine (`app/database.py`)**: Asynchronous SQLAlchemy 2.0 engine backed by `asyncpg` with synchronous fallbacks for migrations.
-- **Static File Server (`BinaryStaticFiles`)**: Optimized binary streaming for 3D model formats (`.glb`, `.gltf`, `.fbx`, `.obj`, `.stl`, `.zip`) with HTTP 86400s `Cache-Control` and `Accept-Ranges` byte-serving headers.
-- **ComfyUI Client (`app/core/comfy/client.py`)**: High-performance HTTP client interfacing with ComfyUI's REST endpoints (`/prompt`, `/queue`, `/history`, `/free`, `/system_stats`, `/view`), native job cancellation (`POST /api/jobs/{prompt_id}/cancel`), and WebSocket real-time progress stream (`/ws`).
+| Component | Path | Description |
+|---|---|---|
+| **App Router** | `app/` | Next.js 16 App Router with server components, layouts, and API proxy routes |
+| **Workspace Shell** | `features/workspace/WorkspaceShell.tsx` | Main workspace UI with tabbed panels and model viewport |
+| **API Client** | `services/apiClient.ts` | Unified axios client for all FastAPI backend REST/SSE communication |
+| **3D Canvas** | `components/viewport/` | Three.js WebGL viewport with orbit controls, wireframe mode, matcap shading |
+| **State Stores** | `stores/` | Zustand stores for global client state (`useAppStore`, `useViewerStore`) |
+| **Data Fetching** | hooks + TanStack Query | Server-state caching and synchronization for job status |
 
-### 2.3 Execution Core (ComfyUI 0.36.0)
-Located at `ENGINE/ComfyUI/`:
-- **Single Execution Engine**: Replaces all legacy Celery task workers, Redis message brokers, and bespoke multi-venv runtimes.
-- **Computational Graph Architecture**: Modular node graph execution with deterministic DAG validation.
-- **Dynamic Model Loader**: Automatically manages model weights in VRAM, caching active checkpoints and offloading inactive layers.
+### 2.2 API Gateway Layer (FastAPI)
 
-### 2.4 3D Node Layer (ComfyUI-3D-Pack)
-Located at `ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack/`:
-- **Supported 3D Models**:
-  - **Hunyuan3D-2.1**: High-fidelity shape generation (`hy3dshape`) and multi-view paint texture baking (`hy3dpaint`).
-  - **TRELLIS**: Structured FlexiCubes PBR generation with 2048x2048 normal/roughness/metallic baking.
-  - **TripoSR / TripoSF**: Fast single-image feedforward mesh reconstruction.
-  - **SV3D**: Stable Video 3D multi-view image diffusion.
-- **Mesh Processing**: Real-time Marching Cubes, remeshing algorithms, vertex attribute extraction, and GLB/OBJ serialization.
+Located at `backend/api/`:
+- **Entry Points**: `main_singleworker.py` (embedded scheduler) and `main_multiworker.py` (Redis queue).
+- **API Routers**: REST controllers for system info, file upload, mesh generation/editing, auto-rigging, segmentation, retopology, UV unwrapping, and user management.
+- **Configuration** (`backend/core/config.py`): Pydantic V2 settings loaded from `.env` and YAML config files (`system.yaml`, `models.yaml`).
+- **Static File Server**: Optimized binary streaming for 3D formats (`.glb`, `.gltf`, `.fbx`, `.obj`, `.stl`) with cache headers.
+- **Auth Service** (`backend/core/auth/`): Optional Redis-based authentication controlled by `P3D_USER_AUTH_ENABLED`.
+
+### 2.3 Model Execution Layer
+
+| Component | Path | Description |
+|---|---|---|
+| **Scheduler Factory** | `backend/core/scheduler/scheduler_factory.py` | Creates dev/prod scheduler instances |
+| **Multiprocess Scheduler** | `backend/core/scheduler/multiprocess_scheduler.py` | VRAM-aware scheduler with GPU mutual exclusion |
+| **GPU Monitor** | `backend/core/scheduler/gpu_monitor.py` | Real-time VRAM and temperature polling |
+| **Job Queue** | `backend/core/scheduler/job_queue.py` | Job request models and types |
+| **Redis Job Queue** | `backend/core/scheduler/redis_job_queue.py` | Redis-backed distributed job queue (multi-worker) |
+| **Model Adapters** | `backend/adapters/` | Python inference adapters for each model |
+
+### 2.4 Storage Layer
+
+Located at `backend/storage/`:
+- **Uploads** (`uploads/`): User-uploaded reference images (`.png`, `.jpg`, `.webp`).
+- **Models** (`models/<job_id>/`): Generated 3D assets organized per job.
+- **Thumbnails** (`thumbnails/`): Rendered asset preview images.
+- **Exports** (`exports/`): Structured ZIP packages for engine delivery.
 
 ---
 
-## 3. High-Performance Client & Engine Configuration
-
-To eliminate latency and maximize throughput, several low-level optimizations are applied:
+## 3. Performance Optimizations
 
 | Optimization | Target Layer | Mechanism | Impact |
 |---|---|---|---|
-| **Response Body Compression** | ComfyUI Engine | `--enable-compress-response-body` | Reduces network JSON and binary payload transfer size by 60–80%. |
-| **mmap Tensor Loading** | ComfyUI Engine | `--mmap-torch-files` | Memory-maps safetensors directly from disk, preventing double memory allocation during checkpoint loading. |
-| **Split Cross-Attention** | ComfyUI Engine (CPU) | `--use-split-cross-attention` | Optimizes attention calculations when running on CPU or unaccelerated compute. |
-| **Async Weight Offload** | ComfyUI Engine (GPU) | `--async-offload 2` | Overlaps CUDA memory copies with inference compute using 2 dedicated streams. |
-| **Persistent TCP Pooling** | FastAPI Client | `aiohttp.TCPConnector(limit=100, keepalive_timeout=60.0)` | Reuses TCP connections between FastAPI and ComfyUI, dropping HTTP handshake latency to sub-millisecond. |
-| **System Stats Micro-Cache** | FastAPI Client | 3.0-second TTL cache in `health_check()` | Prevents `/system_stats` lock contention during high-frequency frontend polling. |
-| **Object Info Cache** | FastAPI Client | In-memory node specification cache | Prevents repeated parsing of hundreds of node schemas. |
-| **Explicit Memory Purge** | FastAPI Client | `POST /api/v1/runtime/clear-vram` → ComfyUI `/free` | Calls `/free` with `{"unload_models": False, "free_memory": True}` to clear cache without evicting warm model weights. |
+| **GPU Mutual Exclusion** | Scheduler | Strict process locking | Prevents GPU OOM during concurrent inference |
+| **GPU Monitoring** | Scheduler | Real-time VRAM/temperature polling | Dynamic scheduling decisions |
+| **VRAM Safety Buffer** | Scheduler | `VRAM_SAFETY_MARGIN_MB=1024` | Ensures 1GB free margin after each job |
+| **Auto Unload** | Scheduler | `AUTO_UNLOAD_AFTER_JOB=true` | Frees VRAM between jobs |
+| **Connection Reuse** | Frontend | Axios singleton (`services/apiClient.ts`) | Eliminates per-request overhead |
+| **SSE Streaming** | API Gateway | Server-Sent Events for progress | Real-time feedback without polling |
 
 ---
 
@@ -134,40 +139,24 @@ sequenceDiagram
     autonumber
     actor User
     participant Frontend as Next.js 16 Frontend
-    participant API as FastAPI Gateway (:8000)
-    participant DB as PostgreSQL 16
-    participant Client as ComfyUIClient
-    participant Engine as ComfyUI Engine (:8188)
-    participant Pack as ComfyUI-3D-Pack Nodes
-    participant Processor as ArtifactManager & MeshProcessor
+    participant API as FastAPI Router (:8000)
+    participant SCHED as VRAM-Aware Scheduler
+    participant Adapter as Model Adapter
     participant Storage as backend/storage/
 
     User->>Frontend: Select prompt / image + Platform budget
-    Frontend->>API: POST /api/v1/generation
-    API->>DB: Insert GenerationJob (status="queued")
-    API->>Client: queue_prompt(workflow)
-    Client->>Engine: POST /prompt (payload, client_id)
-    Engine-->>Client: Return prompt_id
-    API-->>Frontend: Return {job_id, status: "queued"}
-
-    Engine->>Pack: Execute 3D Generation Pipeline
-    Engine-->>Client: WebSocket progress updates (node execution)
-    Client-->>DB: Update job progress & stage
-
-    Pack-->>Engine: Raw 3D mesh output
-    Engine-->>Client: Execution complete event
-    Client->>Processor: Hand off generated mesh output
-    Processor->>Storage: Preserve master source.glb (Untouched Master)
-    Processor->>Storage: Generate game_ready.glb (Decimated to Target Polycount)
-    Processor->>Storage: Generate lods/lod0..3.glb (LOD Cascade)
-    Processor->>Storage: Compute collision.glb (Convex Hull Physics Mesh)
-    Processor->>Storage: Compute quality_report.json (QA 0-100 Score)
-
-    Processor-->>Client: All artifact paths & metadata ready
-    Client->>DB: Update GenerationJob (status="completed", outputs)
-    Frontend->>API: GET /api/v1/generation/status/{job_id}
-    API-->>Frontend: Return {status: "completed", outputs: {...}}
-    Frontend->>User: Render 3D model in Viewport
+    Frontend->>API: POST /api/v1/mesh-generation/text-to-textured-mesh
+    API->>SCHED: Submit job (VRAM-aware)
+    SCHED->>Adapter: Run inference (TRELLIS/Hunyuan3D/etc.)
+    Adapter-->>SCHED: Raw 3D mesh output
+    SCHED->>Storage: Save source.glb (Untouched Master)
+    SCHED->>Storage: Save game_ready.glb (Decimated)
+    SCHED->>Storage: Save lods/lod0..3.glb (LOD Cascade)
+    SCHED->>Storage: Save collision.glb (Convex Hull)
+    SCHED->>Storage: Save quality_report.json (QA 0-100 Score)
+    SCHED-->>API: Job complete
+    API-->>Frontend: Return {job_id, status: "completed", outputs}
+    Frontend->>User: Render 3D model in WebGL Viewport
 ```
 
 ---
@@ -176,54 +165,135 @@ sequenceDiagram
 
 All user assets and generation outputs are stored under `backend/storage/`:
 
-```
-backend/storage/
-├── uploads/                    # User-uploaded reference images (.png, .jpg, .webp)
-├── models/                     # Generated 3D assets organized per-job
-│   └── <job_id>/
-│       ├── source.glb          # Raw neural output (100% untouched master)
-│       ├── game_ready.glb      # Decimated game-ready mesh (conforming to target poly budget)
-│       ├── collision.glb       # Simplified convex hull physics collider
-│       ├── lods/
-│       │   ├── lod0.glb        # 100% triangles
-│       │   ├── lod1.glb        # 50% triangles
-│       │   ├── lod2.glb        # 25% triangles
-│       │   └── lod3.glb        # 12.5% triangles
-│       └── quality_report.json # Objective QA validation score (0-100)
-├── thumbnails/                 # Rendered asset preview thumbnails (.png)
-└── exports/                    # Structured ZIP packages for Unreal / Unity / Godot
+```mermaid
+flowchart LR
+    classDef dir fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#fff
+    classDef file fill:#0f172a,stroke:#64748b,stroke-width:1px,color:#cbd5e1
+
+    ROOT["backend/storage/"]:::dir --> UPLOADS["uploads/\nReference Images"]:::dir
+    ROOT --> MODELS["models/<job_id>/\nGenerated Assets"]:::dir
+    ROOT --> THUMBS["thumbnails/\nPreview PNGs"]:::dir
+    ROOT --> EXPORTS["exports/\nProduction ZIPs"]:::dir
+
+    MODELS --> SRC["source.glb\nUntouched Master"]:::file
+    MODELS --> GAME["game_ready.glb\nEngine-Optimized"]:::file
+    MODELS --> LODS["lods/\nlod0–lod3.glb"]:::dir
+    MODELS --> COL["collision.glb\nConvex Hull"]:::file
+    MODELS --> QA["quality_report.json\nQA 0-100 Score"]:::file
+
+    UPLOADS --> IMG["*.png *.jpg *.webp"]:::file
+    EXPORTS --> ZIP["Project_Export_<job_id>.zip"]:::file
+
+    style ROOT fill:#0f172a
 ```
 
 ---
 
 ## 6. Service Lifecycle Management
 
-### 6.1 Installation (`scripts/install_comfyui.sh`)
-- Idempotent script that clones official ComfyUI into `ENGINE/ComfyUI` and ComfyUI-3D-Pack into `ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack`.
-- Installs Python dependencies using `uv pip` inside `backend/.venv`.
-- Automatically applies compatibility patches for PyVista, PyMeshFix, and Torchvision tensor mocks.
+### 6.1 Installation (`scripts/setup.sh`)
 
-### 6.2 Startup (`scripts/start.sh`)
-Executes the native service stack in sequence:
-1. **PostgreSQL**: Verifies database user `ai_studio` and database `ai_studio` on port 5432.
-2. **Redis**: Starts `redis-server` on port 6379.
-3. **Database Schema**: Executes `Base.metadata.create_all` via Python async engine.
-4. **ComfyUI Engine**: Starts ComfyUI on port 8188 with performance flags (`--enable-compress-response-body`, `--mmap-torch-files`, and CPU/GPU attention offloading).
-5. **FastAPI Gateway**: Starts Uvicorn on port 8000.
-6. **Frontend**: Builds (or starts) Next.js on port 3000.
+The setup script installs:
+- System dependencies (CUDA toolkit, system libraries)
+- Python 3.12 + uv + PyTorch (GPU or CPU wheels)
+- Backend Python dependencies (from `backend/requirements.txt`)
+- Node.js 20 + Bun
+- Optional: PostgreSQL 16 + Redis 7
+
+### 6.2 Startup (`scripts/start.sh` / `manager.sh`)
+
+```mermaid
+flowchart LR
+    classDef step fill:#1e293b,stroke:#8b5cf6,stroke-width:2px,color:#fff
+    classDef service fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#fff
+
+    A["scripts/start.sh\nLauncher"]:::step --> B{"Single or\nMulti-Worker?"}:::step
+    B -->|Single| C["Uvicorn\nmain_singleworker:app\n:8000"]:::service
+    B -->|Multi| D["Redis Server\n:6379"]:::service
+    D --> E["Scheduler Service\npython scheduler_service.py"]:::service
+    E --> F["Uvicorn Workers x4\nmain_multiworker:app\n:8000"]:::service
+    C --> G["Next.js Dev Server\n:3000"]:::service
+    F --> G
+
+    style A fill:#1e293b,stroke:#8b5cf6
+    style B fill:#1e293b,stroke:#f59e0b
+```
+
+**Single-Worker Mode** (default):
+```bash
+cd backend && uvicorn api.main_singleworker:app --workers 1 --port 8000
+```
+- Embedded VRAM-aware scheduler
+- No external broker required
+- Best for single-GPU and CPU deployments
+
+**Multi-Worker Mode** (Redis Queue):
+```bash
+# Terminal 1: Start Redis
+redis-server
+
+# Terminal 2: Start scheduler service
+python backend/scripts/scheduler_service.py
+
+# Terminal 3: Start API workers
+cd backend && uvicorn api.main_multiworker:app --workers 4 --port 8000
+```
+- Redis-backed job queue (`RedisJobQueue`)
+- Multiple uvicorn workers
+- Redis FileStore for cross-worker metadata sharing
 
 ### 6.3 Shutdown (`scripts/stop.sh`)
-- Gracefully sends `SIGTERM` followed by `SIGKILL` to Next.js, Uvicorn, and ComfyUI processes.
-- Releases TCP ports 3000, 8000, and 8188 via `fuser` / `lsof`.
-- Cleans up stale PID files in `.pids/`.
+- Gracefully terminates Next.js, Uvicorn, and Redis processes.
+- Releases TCP ports 3000, 8000, and 6379.
+- Cleans up stale PID files.
 
 ---
 
 ## 7. Verification & Automated Self-Checks
 
 All backend capabilities are verified via `backend/tests/test_backend_e2e.py`:
-- **Check 1: Configuration check**: Validates environment variables, paths, and API settings.
-- **Check 2: Database CRUD check**: Creates, reads, updates, and deletes test generation jobs.
-- **Check 3: ComfyUI connection check**: Queries ComfyUI `/system_stats` and verifies engine health.
-- **Check 4: Workflow manager check**: Compiles parameterized workflows for text-to-3D, image-to-3D, texture, and remesh.
-- **Check 5: Model registry check**: Confirms registered 3D models and capability flags.
+
+```bash
+python3 backend/tests/test_backend_e2e.py
+```
+
+```mermaid
+flowchart LR
+    classDef test fill:#1e293b,stroke:#f59e0b,stroke-width:2px,color:#fff
+    classDef pass fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#fff
+    classDef fail fill:#0f172a,stroke:#ef4444,stroke-width:2px,color:#fff
+
+    START["E2E Validation\nStart"]:::test --> CHECK1["Configuration Check\nEnv vars, paths, settings"]:::test
+    CHECK1 --> C1RESULT{"Pass?"}:::test
+    C1RESULT -->|Yes| PASS1["PASS"]:::pass
+    C1RESULT -->|No| FAIL1["FAIL"]:::fail
+    PASS1 --> CHECK2["Scheduler Check\nJob queue, GPU lock"]:::test
+    CHECK2 --> C2RESULT{"Pass?"}:::test
+    C2RESULT -->|Yes| PASS2["PASS"]:::pass
+    C2RESULT -->|No| FAIL2["FAIL"]:::fail
+    PASS2 --> CHECK3["Model Registry Check\nRegistered adapters"]:::test
+    CHECK3 --> C3RESULT{"Pass?"}:::test
+    C3RESULT -->|Yes| PASS3["PASS"]:::pass
+    C3RESULT -->|No| FAIL3["FAIL"]:::fail
+    PASS3 --> CHECK4["File Upload Check\nUpload/download"]:::test
+    CHECK4 --> C4RESULT{"Pass?"}:::test
+    C4RESULT -->|Yes| DONE["All Checks\nPASSED ✅"]:::pass
+    C4RESULT -->|No| FAIL4["FAIL"]:::fail
+```
+
+Expected output:
+```
+Running AI Studio Backend E2E Validation...
+[PASS] Configuration check
+[PASS] Database CRUD check
+[PASS] Scheduler check
+[PASS] Model registry check
+[PASS] File upload check
+All backend checks PASSED successfully!
+```
+
+Quick health check:
+```bash
+curl -s http://localhost:8000/health | jq .
+# {"status": "healthy", "timestamp": ..., "version": "0.1.0"}
+```

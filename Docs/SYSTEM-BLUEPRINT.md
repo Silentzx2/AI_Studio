@@ -1,7 +1,7 @@
 # 🏛️ AI 3D Studio — Complete System Architecture & Pipeline Blueprint
 
-> **System Version**: 6.0.0 (ComfyUI Execution Core & ComfyUI-3D-Pack Integration)  
-> **Target Deployments**: Single-GPU Linux / Google Colab (T4 15GB, V100 16GB, A100 40GB/80GB), Local Dev / Cloud Workstations  
+> **System Version**: 0.1.0 (FastAPI + Next.js 16)
+> **Target Deployments**: Single-GPU Linux / Cloud GPU / Local Workstations
 > **Last Verified**: September 2026
 
 ---
@@ -11,40 +11,35 @@
 AI 3D Studio is an end-to-end generative 3D reconstruction and asset optimization platform that converts 2D images or text prompts into game-ready 3D assets (`.glb`, `.obj`, `.fbx`, `.stl`, PBR textures, LOD cascades, collision hulls).
 
 ### Core Stack
-* **Frontend**: Next.js 16 (React 19, TypeScript, Three.js, React Three Fiber, Tailwind CSS)
-* **API Gateway**: FastAPI (Python 3.12, Pydantic V2, AsyncIO, SQLAlchemy 2.0)
-* **Execution Core**: **ComfyUI 0.36.0** (`ENGINE/ComfyUI`) — Prompt Queue, WebSocket streaming, computational DAG execution
-* **3D Node Layer**: **ComfyUI-3D-Pack** (`ENGINE/ComfyUI/custom_nodes/ComfyUI-3D-Pack`) — Hunyuan3D-2.1, TRELLIS, TripoSR, TripoSF, SV3D
-* **Database & Cache**: PostgreSQL 16 (persistent jobs and metadata) + Redis (caching and sessions)
-* **Quality Engine**: Blender 4.x (headless) & Trimesh (safe decimation, LOD0–LOD3 cascade, physics convex hulls, 0–100 QA rubric)
+- **Frontend**: Next.js 16 (React 19, TypeScript, Three.js, React Three Fiber, Tailwind CSS)
+- **API Gateway**: FastAPI (Python 3.12, Pydantic V2, AsyncIO)
+- **Model Adapters**: Python adapters for TRELLIS, Hunyuan3D-2.1, PartPacker, UltraShape, PartField, P3-SAM, UniRig, FastMesh, VoxHammer
+- **Scheduler**: VRAM-aware multiprocess scheduler with GPU monitoring
+- **Queue/Broker**: Redis 7 (optional, multi-worker mode only)
+- **File Storage**: Local filesystem + Redis FileStore (multi-worker mode)
 
 ```mermaid
 graph TD
     UI["Next.js 16 Frontend<br/>Three.js / React Three Fiber :3000"]
-    API["FastAPI Gateway :8000<br/>Routers: generation, jobs, models, runtime, system"]
-    PG[("PostgreSQL :5432<br/>Jobs, Models, Artifacts")]
-    REDIS[("Redis :6379<br/>Cache & Sessions")]
-    COMFY["ComfyUI 0.36.0 Engine :8188<br/>Prompt Queue & Graph Execution"]
-    PACK["ComfyUI-3D-Pack Nodes<br/>Hunyuan3D-2.1 / TRELLIS / TripoSR / SV3D"]
-    PROC["ArtifactManager & MeshProcessor<br/>LOD0-3, Convex Hull & QA Rubric"]
+    API["FastAPI Gateway :8000<br/>Routers: system, generation,<br/>editing, rigging, segmentation"]
+    SCHED["VRAM-Aware Scheduler"]
+    ADAPTERS["Model Adapters<br/>TRELLIS · Hunyuan3D ·<br/>PartPacker · UltraShape<br/>PartField · UniRig · FastMesh"]
+    REDIS["Redis :6379<br/>Job Queue (multi-worker)"]
     STORAGE["Persistent Storage<br/>backend/storage/models/<job_id>"]
 
-    UI -->|REST / Next.js Proxy| API
-    API -->|Async CRUD| PG
-    API -->|Cache / Sessions| REDIS
-    API <==>|TCP Connection Pool / WS| COMFY
-    COMFY -->|Executes Graph| PACK
-    PACK -->|Outputs Raw Mesh| PROC
-    PROC -->|Serializes Master, LODs, Colliders| STORAGE
-    STORAGE -->|Static / Binary Delivery| API
-    API -->|Renders in Viewport| UI
+    UI -->|REST / SSE| API
+    API --> SCHED
+    SCHED --> ADAPTERS
+    ADAPTERS -->|Raw Mesh| STORAGE
+    STORAGE -->|Static Delivery| API
+    API -->|Viewport Render| UI
+
+    API -.->|Job Queue| REDIS
 ```
 
 ---
 
 ## 2. End-to-End Generation Lifecycle
-
-When a user submits an image-to-3D or text-to-3D job, the request traverses the following sequence:
 
 ```mermaid
 sequenceDiagram
@@ -52,84 +47,62 @@ sequenceDiagram
     actor User
     participant Frontend as Next.js 16 Frontend
     participant API as FastAPI Router (:8000)
-    participant DB as PostgreSQL 16
-    participant Client as ComfyUIClient
-    participant Comfy as ComfyUI Engine (:8188)
-    participant Pack as 3D Pack Custom Nodes
-    participant Proc as ArtifactManager & MeshProcessor
+    participant SCHED as VRAM-Aware Scheduler
+    participant Adapter as Model Adapter
     participant Storage as backend/storage/
 
-    User->>Frontend: Submit Image / Text Prompt + Platform Budget
-    Frontend->>API: POST /api/v1/generation
-    API->>DB: Insert GenerationJob (status="queued")
-    API->>Client: queue_prompt(workflow)
-    Client->>Comfy: POST /prompt {prompt, client_id}
-    Comfy-->>Client: Return prompt_id
-    API-->>Frontend: Return {job_id, status: "queued"}
-
-    Comfy->>Comfy: Enqueue in PromptQueue
-    Comfy->>Pack: Execute 3D Node DAG (Shape Inference)
-    Comfy-->>Client: WS event: executing node (hy3dshape / trellis)
-    Client-->>DB: Update progress & stage
-
-    opt Texturing Stage
-        Comfy->>Pack: Execute Texture Generator / Paint (hy3dpaint)
-    end
-
-    Pack-->>Comfy: Emit Raw 3D Mesh Output
-    Comfy-->>Client: WS event: execution_success
-    Client->>Proc: Hand off mesh for post-processing
-    Proc->>Storage: Save master source.glb (Untouched Master)
-    
-    opt Game-Ready Decimation & LODs
-        Proc->>Storage: Save game_ready.glb (Decimated to Target Budget)
-        Proc->>Storage: Save lods/lod0..3.glb (100%, 50%, 25%, 12.5%)
-    end
-
-    opt Physics Collision Hull
-        Proc->>Storage: Save collision.glb (Convex Hull)
-    end
-
-    Proc->>Storage: Compute quality_report.json (0-100 QA Score)
-    Proc-->>Client: Return artifact URLs & mesh metadata
-    Client->>DB: Update GenerationJob (status="completed", artifact_urls)
-    Frontend->>API: GET /api/v1/generation/status/{job_id}
-    API-->>Frontend: Return status="completed" + asset URLs
-    Frontend->>User: Display 3D Asset in WebGL Viewport
+    User->>Frontend: Select prompt / image + Platform budget
+    Frontend->>API: POST /api/v1/mesh-generation/text-to-textured-mesh
+    API->>SCHED: Submit job (VRAM-aware)
+    SCHED->>Adapter: Run inference (TRELLIS/Hunyuan3D/etc.)
+    Adapter-->>SCHED: Raw 3D mesh output
+    SCHED->>Storage: Save master source.glb (Untouched Master)
+    SCHED->>Storage: Save game_ready.glb (Decimated)
+    SCHED->>Storage: Save lods/lod0..3.glb (LOD Cascade)
+    SCHED->>Storage: Save collision.glb (Convex Hull)
+    SCHED->>Storage: Save quality_report.json (QA 0-100 Score)
+    SCHED-->>API: Job complete
+    API-->>Frontend: Return {job_id, status: "completed", outputs}
+    Frontend->>User: Render 3D model in WebGL Viewport
 ```
 
 ---
 
 ## 3. High-Throughput & Low-Latency Performance Architecture
 
-The architecture enforces strict performance invariants across all layers:
+### 3.1 VRAM-Aware Scheduling
 
-### 3.1 ComfyUI Engine Invariants
-1. **Response Body Compression (`--enable-compress-response-body`)**: Eliminates network bloat when transmitting JSON schemas and status responses.
-2. **mmap Safetensors (`--mmap-torch-files`)**: Checks and weights are memory-mapped directly from filesystem pages, cutting model load times and RAM pressure.
-3. **Split Cross-Attention (`--use-split-cross-attention`)**: Enables efficient chunked attention matrices for CPU fallback runs without requiring CUDA.
-4. **Async Offloading (`--async-offload 2`)**: Uses 2 independent CUDA streams on GPU systems to overlap weight transfers and tensor execution.
+| Optimization | Mechanism | Impact |
+|---|---|---|
+| **GPU Mutual Exclusion** | Strict locking prevents multi-provider GPU OOM | Safe concurrent inference |
+| **GPU Monitoring** | Real-time VRAM/temperature polling via `GPUMonitor` | Dynamic scheduling decisions |
+| **VRAM Safety Buffer** | `memory_buffer=1024` (1GB free) + `VRAM_SAFETY_MARGIN_MB=1024` | Prevents OOM on loaded models |
+| **Auto Unload** | `AUTO_UNLOAD_AFTER_JOB=true` | Frees VRAM between jobs |
 
-### 3.2 Gateway Client Invariants
-1. **Reusable Connection Pooling**: All HTTP requests between FastAPI and ComfyUI use a shared `aiohttp.TCPConnector(limit=100, keepalive_timeout=60.0)` to eliminate per-request TCP handshakes.
-2. **Micro-Caching**: Endpoint `/system_stats` is micro-cached for 3.0s in memory, enabling high-frequency polling from frontend status bars without overloading the engine.
-3. **In-Memory Node Info Cache**: ComfyUI `/object_info` (which returns specifications for all registered nodes) is cached after first fetch.
-4. **Targeted VRAM Clearing**: Endpoint `POST /api/v1/runtime/clear-vram` calls ComfyUI's `/free` endpoint with `{"unload_models": False, "free_memory": True}`, purging intermediate activation caches while keeping loaded neural model weights hot.
+### 3.2 API Performance
+
+| Optimization | Mechanism | Impact |
+|---|---|---|
+| **Request Timing** | `X-Process-Time` response header on every request | Latency visibility |
+| **Connection Reuse** | Frontend uses axios singleton (`services/apiClient.ts`) | Eliminates per-request overhead |
+| **SSE Streaming** | Server-Sent Events for generation progress | Real-time feedback without polling |
 
 ---
 
 ## 4. Multi-Format Asset Packaging & Delivery
 
-The production export engine (`POST /api/v1/project/export`) packages generated assets into industry-standard formats:
+The production export endpoint (`POST /api/v1/project/export`) packages generated assets:
 
-| Format | Target Software / Engine | Pipeline Stage | PBR Support |
-|---|---|---|---|
-| **GLB** | WebGL, Three.js, Godot 4, Babylon.js | Direct glTF 2.0 Binary | Complete PBR (Roughness/Metallic/Normal) |
-| **FBX** | Unreal Engine 5, Unity, Maya, 3ds Max | Headless Blender Exporter | Skeletal Armature + PBR Shaders |
-| **OBJ** | Wavefront, ZBrush, Cinema4D | Trimesh / Blender OBJ | Geometry + MTL Material Lib |
-| **STL** | 3D Printing, CAD, Slicers | Trimesh Watertight Exporter | Pure Surface Geometry |
+| Format | Target Software / Engine | PBR Support |
+|---|---|---|
+| **GLB** | WebGL, Three.js, Godot 4 | Complete PBR (Roughness/Metallic) |
+| **GLTF** | WebGL, Three.js | Complete PBR |
+| **FBX** | Unreal Engine 5, Unity | Skeletal Rig + Materials |
+| **OBJ** | Wavefront, ZBrush | Geometry + MTL |
+| **STL** | 3D Printing, CAD | Pure Surface Geometry |
+| **PLY** | Point Clouds, MeshLab | Vertex Coordinates & Colors |
 
-Production ZIP bundles maintain this standard directory structure:
+Production ZIP bundles:
 ```
 Project_Export_<job_id>.zip
 ├── Source/
@@ -149,7 +122,41 @@ Project_Export_<job_id>.zip
 
 ---
 
-## 5. Verification Matrix & Health Check
+## 5. Deployment Modes
+
+### Single-Worker (Default)
+
+```bash
+cd backend
+uvicorn api.main_singleworker:app --workers 1 --port 8000
+```
+
+- Embedded VRAM-aware scheduler
+- No external broker required
+- Best for single-GPU and CPU deployments
+
+### Multi-Worker (Redis Queue)
+
+```bash
+# Terminal 1: Start Redis
+redis-server
+
+# Terminal 2: Start scheduler service
+python backend/scripts/scheduler_service.py
+
+# Terminal 3: Start API workers
+cd backend
+uvicorn api.main_multiworker:app --workers 4 --port 8000
+```
+
+- Redis-backed job queue (`RedisJobQueue`)
+- Multiple uvicorn workers
+- Redis FileStore for cross-worker metadata sharing
+- Optional Redis-based authentication (`P3D_USER_AUTH_ENABLED=true`)
+
+---
+
+## 6. Verification Matrix & Health Check
 
 Automated self-check command:
 ```bash
@@ -157,12 +164,18 @@ python3 backend/tests/test_backend_e2e.py
 ```
 
 Expected output:
-```text
+```
 Running AI Studio Backend E2E Validation...
 [PASS] Configuration check
 [PASS] Database CRUD check
-[PASS] ComfyUI connection check (ComfyUI version: 0.36.0)
-[PASS] Workflow manager check
-[PASS] Model registry check (5 models verified)
+[PASS] Scheduler check
+[PASS] Model registry check
+[PASS] File upload check
 All backend checks PASSED successfully!
+```
+
+Quick health check:
+```bash
+curl -s http://localhost:8000/health | jq .
+# {"status": "healthy", "timestamp": ..., "version": "1.0.0"}
 ```

@@ -2,7 +2,7 @@
 
 ## 1. Evaluation Methodology
 
-To evaluate the pipeline upgrades, fixed seed test geometries and standard reference models were run through the end-to-end generation, post-processing, and export pipeline.
+To evaluate the pipeline, fixed seed test geometries and standard reference models were run through the end-to-end generation, post-processing, and export pipeline.
 
 Before/after metrics were measured across:
 - Component preservation (anatomy retention vs deletion)
@@ -15,42 +15,46 @@ Before/after metrics were measured across:
 
 ## 2. Benchmark Comparison Matrix
 
-| Test Suite / Metric | Previous Pipeline (Before) | Upgraded Pipeline (After) | Status |
-|---|---|---|---|
-| **Disconnected Anatomy (Ears, Paws, Accessories)** | **Deleted entirely** (Greedy largest island only) | **Preserved intact** (Relative vertex density threshold ≥ 0.5%) | **Fixed (Verified)** |
-| **Provider UV Maps** | **Obliterated** by unconditional `bpy.ops.uv.smart_project` | **Protected & Preserved**; UV smart unwrap only runs if no UV layers exist | **Fixed (Verified)** |
-| **Source Master Asset** | **Overwritten** by decimation optimizer | **Preserved byte-for-byte** as `source.glb` | **Fixed (Verified)** |
-| **Game-Ready Variants** | Overwrote single file without platform awareness | Dedicated `game_ready.glb` with target platform budgets | **Implemented** |
-| **Multi-Tier LOD Cascade** | Fake placeholder UI labels; no LOD files | Generates **LOD0 (100%), LOD1 (50%), LOD2 (25%), LOD3 (12.5%)** | **Verified (Self-Check)** |
-| **Physics Collision Mesh** | None | Real **convex hull collider (`collision.glb`)** generated | **Verified (Self-Check)** |
-| **Asset Diagnostics & QA Score** | None | Evaluated across topology, manifoldness, UVs, textures (Score 0–100) | **Verified (Self-Check)** |
-| **Export Endpoint (`/api/v1/project/export`)** | Returned 404 on `/static/` paths due to traversal check bug | Resolves `/static/` paths safely; blocks path traversal | **Fixed (Verified)** |
-| **Format Conversion (OBJ, STL, PLY)** | Frontend renamed `.glb` extensions client-side | Real backend conversion using trimesh / headless Blender | **Verified (Self-Check)** |
-| **Structured ZIP Packaging** | None | Full archive containing `{name}/Source/`, `{name}/Model/`, `{name}/LODs/`, `{name}/Collision/`, `{name}/QA/quality_report.json` | **Verified (Self-Check)** |
+| Test Suite / Metric | Expected | Status |
+|---|---|---|
+| **Disconnected Anatomy** | Preserved intact (≥0.5% vertices or ≥15 verts) | ✅ Implemented |
+| **UV Preservation** | Valid UVs preserved; xatlas applied only when missing | ✅ Implemented |
+| **Source Master Asset** | Preserved byte-for-byte as `source.glb` | ✅ Immutable |
+| **Game-Ready Variants** | `game_ready.glb` with target platform budgets | ✅ Implemented |
+| **Multi-Tier LOD Cascade** | LOD0 (100%), LOD1 (50%), LOD2 (25%), LOD3 (12.5%) | ✅ Implemented |
+| **Physics Collision Mesh** | Convex hull collider via Trimesh | ✅ Implemented |
+| **QA Score** | Topology diagnostics producing 0–100 score | ✅ Implemented |
+| **Export Endpoint** | Multi-format conversion with traversal-safe storage | ✅ Implemented |
+| **Structured ZIP** | Source/ + GameReady/ + LODs/ + Collision/ + QA/ | ✅ Implemented |
 
 ---
 
 ## 3. Automated Self-Check Execution Results
 
-Verification was performed using `scripts/test_pipeline_and_export.py`:
+Verification is performed using `backend/tests/test_backend_e2e.py`:
 
 ```
-============================================================
-Running 3D Generation Pipeline & Export Verification Checks
-============================================================
-[1/5] Testing geometry diagnostics & QA scoring...
-  ✓ QA Score: 65/100, Status: warn, Faces: 320
-[2/5] Testing multi-tier LOD generation (LOD0–LOD3)...
-  ✓ Preserved LOD0 and created LOD1–LOD3 (4 levels total)
-[3/5] Testing physics collision mesh generation...
-  ✓ Collision convex hull generated: 320 faces
-[4/5] Testing path resolution & security checks...
-  ✓ Path traversal safely rejected; valid /static/ paths resolved
-[5/5] Testing export endpoint (variants, formats, ZIP packaging)...
-  ✓ Single file export succeeded: MyHero.glb
-  ✓ Format conversion to OBJ succeeded: MyHero.obj
-  ✓ Structured ZIP verified (8 items packaged, QA Score: 60)
-============================================================
-ALL CHECKS PASSED: Pipeline and Export integration verified!
-============================================================
+Running AI Studio Backend E2E Validation...
+[PASS] Configuration check
+[PASS] Database CRUD check
+[PASS] Scheduler check
+[PASS] Model registry check
+[PASS] File upload check
+All backend checks PASSED successfully!
 ```
+
+---
+
+## 4. QA Score Rubric Summary
+
+| Category | Weight | Criteria |
+|---|---|---|
+| **Topology & Geometry Integrity** | 35 pts | Manifoldness, normal winding, degenerate faces, component count |
+| **UV Mapping & Material Retention** | 35 pts | UV validity, texture presence, PBR material binding |
+| **Platform Budget & Transform** | 30 pts | Polycount compliance, bounding box validity |
+
+| Score | Status | Action |
+|---|---|---|
+| 80–100 | PASS | Ready for game engine import |
+| 50–79 | WARN | Usable with minor issues |
+| < 50 | FAIL | Requires repair or re-generation |
