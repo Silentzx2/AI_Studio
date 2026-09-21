@@ -345,7 +345,8 @@ create_directories(){
     "$PROJECT_ROOT/backend/storage/exports" \
     "$PROJECT_ROOT/backend/storage/images" \
     "$PROJECT_ROOT/backend/.hf_cache/hub" \
-    "$PROJECT_ROOT/backend/.runtime_cache" 
+    "$PROJECT_ROOT/backend/.runtime_cache" \
+    "$PROJECT_ROOT/backend/thirdparty" 
 
   # if [[ ! -f "$PROJECT_ROOT/.env" && -f "$PROJECT_ROOT/.env.example" ]]; then
   #   cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
@@ -408,13 +409,6 @@ install_frontend_deps(){
   fi
 }
 
-clone_third_party(){
-  section "Cloning Required 3D Model Repositories"
-  info "Target: backend/thirdparty"
-  THIRD_PARTY_DIR="$PROJECT_ROOT/backend/thirdparty" bash "$PROJECT_ROOT/scripts/clone_thirdparty.sh"
-  log "Third-party model repositories are ready."
-}
-
 install_backend(){
   section "Installing Backend Dependencies"
   # shellcheck disable=SC1091
@@ -458,6 +452,5 @@ ensure_conda
 create_directories
 build_deps
 install_frontend_deps
-clone_third_party
 install_backend
 summary
