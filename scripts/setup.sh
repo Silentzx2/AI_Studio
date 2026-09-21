@@ -289,6 +289,9 @@ ensure_conda(){
     fi
     # shellcheck disable=SC1091
     source "$CONDA_HOME/etc/profile.d/conda.sh"
+    source /root/miniconda3/etc/profile.d/conda.sh
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
   fi
 
   command -v conda >/dev/null 2>&1 || fail "Conda is not available after setup."
