@@ -1,5 +1,19 @@
 --extra-index-url https://mirrors.aliyun.com/pypi/simple
 
+# ── Fast build toolchain ─────────────────────────────────────────────────────
+# ninja drives every from-source wheel build (flash-attn, nvdiffrast,
+# nvdiffrec, flex_gemm, cubvh, bpy-renderer) at full parallelism instead of a
+# single slow serial job. setuptools/wheel/cython/packaging are the metadata
+# and compile backends those projects need. Install-time copy lives in
+# backend/scripts/install.sh (installed right after torch, before any build);
+# this entry keeps the env correct if requirements.txt is installed standalone.
+ninja
+setuptools
+wheel
+cython
+packaging
+setuptools-scm
+
 # Core FastAPI and web server dependencies
 fastapi==0.104.1
 uvicorn[standard]==0.24.0

@@ -31,6 +31,41 @@ else
     exit 1
 fi
 
+# ── Fast build toolchain ────────────────────────────────────────────────────
+# ninja + parallel build env vars make every from-source wheel (flash-attn,
+# nvdiffrast, nvdiffrec, flex_gemm, cubvh, bpy-renderer) build at full speed.
+# Without ninja, setuptools/CMake builds fall back to a single slow serial job.
+# ponytail: MAX_JOBS/CMAKE_BUILD_PARALLEL_LEVEL are the two knobs that actually
+# parallelize; CMAKE_GENERATOR=Ninja is what makes them usable on CUDA builds.
+echo "[INFO] Installing fast build toolchain (ninja, setuptools, wheel, cython)..."
+$UV_PIP install ninja setuptools wheel cython packaging setuptools-scm
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] Build toolchain installed"
+else
+    echo "[WARN] Build toolchain install had warnings; continuing..."
+fi
+
+# Export build parallelism for every downstream subprocess (TRELLIS.2 setup.sh,
+# nvdiffrec, cubvh, bpy-renderer, etc.). These are read by cmake/setuptools.
+export MAX_JOBS="${MAX_JOBS:-$(nproc 2>/dev/null || echo 4)}"
+export CMAKE_BUILD_PARALLEL_LEVEL="$MAX_JOBS"
+export CMAKE_GENERATOR="${CMAKE_GENERATOR:-Ninja}"
+export CMAKE_ARGS="-G Ninja -DCMAKE_BUILD_PARALLEL_LEVEL=$MAX_JOBS"
+export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-7.5;8.0;8.6;8.9;9.0+PTX}"
+echo "[INFO] Build parallelism: MAX_JOBS=$MAX_JOBS  CMAKE_GENERATOR=$CMAKE_GENERATOR"
+
+# ── Disable build isolation ─────────────────────────────────────────────────
+# flash-attn, nvdiffrec_render, nvdiffrast and friends import torch in their
+# setup.py/pyproject at *metadata* time. Under build isolation pip spins up a
+# clean env with NO torch, so "Getting requirements to build wheel" dies with
+# "No available output" and the whole install aborts. Reusing the active env
+# (where torch 2.6.0 + cu124 is already installed) makes those builds work.
+# This survives re-clones of thirdparty repos since it's an env var, not a file
+# edit inside them.
+export PIP_NO_BUILD_ISOLATION=1
+export UV_NO_BUILD_ISOLATION=1
+echo "[INFO] Build isolation: disabled (PIP_NO_BUILD_ISOLATION=1)"
+
 echo ""
 echo "========================================"
 echo "Installing TRELLIS Dependencies"
