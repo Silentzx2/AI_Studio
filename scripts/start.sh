@@ -107,34 +107,6 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 
-# ── Ensure uv is available (hard dependency for venv + per-model installs) ──
-if ! command -v uv &>/dev/null; then
-    info "uv not found — installing (required for backend + model venvs)..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh || {
-        err "Failed to install uv. Install manually: https://docs.astral.sh/uv/"
-        exit 1
-    }
-    export PATH="$HOME/.local/bin:$PATH"
-    # Also expose on default PATH for future sessions
-    if [[ -f "$HOME/.local/bin/uv" ]] && [[ ! -e /usr/local/bin/uv ]]; then
-        ln -sf "$HOME/.local/bin/uv" /usr/local/bin/uv 2>/dev/null || true
-    fi
-    log "uv installed: $(uv --version)"
-fi
-
-# ── Environment Detection ──────────────────────────────────────────
-
-detect_environment() {
-    if [[ -n "${CODESPACES:-}" || -n "${GITHUB_CODESPACE_NAME:-}" ]]; then
-        echo "codespaces"
-    elif [[ -n "${NB_SESSION_ID:-}" || -n "${JUPYTER_BASE_URL:-}" || -d "/home/jovyan" ]]; then
-        echo "cloud-notebook"
-    elif [[ -n "${KUBERNETES_SERVICE_HOST:-}" || -n "${CONTAINER_NAME:-}" ]]; then
-        echo "container"
-    else
-        echo "local"
-    fi
-}
 
 detect_gpu() {
     if command -v nvidia-smi &>/dev/null; then
@@ -158,122 +130,6 @@ run_bun_or_npm() {
         eval "$npm_cmd"
     fi
 }
-
-# ── Auto-bootstrap for cloud environments ──────────────────
-
-auto_bootstrap() {
-    local env_type
-    env_type=$(detect_environment)
-
-    if [[ "$env_type" == "local" ]]; then
-        return 0
-    fi
-
-    step "Auto-bootstrap for ${env_type} environment..."
-
-    # Install uv if missing
-    if ! command -v uv &>/dev/null; then
-        info "Installing uv..."
-        curl -LsSf https://astral.sh/uv/install.sh | sh || {
-            err "Failed to install uv. Install manually: https://docs.astral.sh/uv/"
-            exit 1
-        }
-        export PATH="$HOME/.local/bin:$PATH"
-        if [[ -f "$HOME/.local/bin/uv" ]] && [[ ! -e /usr/local/bin/uv ]]; then
-            ln -sf "$HOME/.local/bin/uv" /usr/local/bin/uv 2>/dev/null || true
-        fi
-        log "uv installed: $(uv --version)"
-    fi
-
-    # Resolve base Python binary safely without tripping set -o pipefail
-    local clean_path py_bin cand cand_path
-    clean_path=$(echo "$PATH" | tr ':' '\n' | grep -v '^/commands' | tr '\n' ':' | sed 's/:$//')
-    py_bin=""
-    for cand in python3.12 python3.11 python3.10 python3 python; do
-        cand_path=$(PATH="$clean_path" command -v "$cand" 2>/dev/null || true)
-        if [[ -n "$cand_path" && -x "$cand_path" ]]; then
-            py_bin="$cand_path"
-            break
-        fi
-    done
-    if [[ -z "$py_bin" ]]; then
-        for cand in python3.12 python3.11 python3.10 python3 python; do
-            cand_path=$(command -v "$cand" 2>/dev/null || true)
-            if [[ -n "$cand_path" && -x "$cand_path" ]]; then
-                py_bin="$cand_path"
-                break
-            fi
-        done
-    fi
-    py_bin="${py_bin:-python3}"
-
-    # Ensure backend venv exists using normal Python venv method (clear and recreate if corrupted)
-    if [[ ! -x backend/.venv/bin/python ]]; then
-        if [[ -d backend/.venv ]]; then
-            warn "Existing backend/.venv is corrupted — removing..."
-            rm -rf backend/.venv
-        fi
-        info "Creating backend virtual environment using Python venv ($py_bin)..."
-        "$py_bin" -m venv backend/.venv || "$py_bin" -c "import venv; venv.create('backend/.venv', with_pip=True)" || uv venv backend/.venv || {
-            err "Failed to create backend venv"
-            exit 1
-        }
-        log "Backend venv created"
-    fi
-
-    # Install backend deps if needed
-    if [[ -f backend/requirements.txt ]] && [[ -x backend/.venv/bin/python ]]; then
-        # Explicitly activate before installing anything
-        # shellcheck disable=SC1091
-        source backend/.venv/bin/activate
-
-        # Verify activation
-        info "Verifying virtual environment activation:"
-        info "  which python: $(which python)"
-        info "  which pip:    $(which pip)"
-        local actual_prefix expected_prefix
-        actual_prefix=$(python -c "import sys; print(sys.prefix)")
-        info "  sys.prefix:   $actual_prefix"
-        expected_prefix="$(cd backend/.venv && pwd)"
-        if [[ "$actual_prefix" != "$expected_prefix" ]]; then
-            err "Virtual environment verification failed: sys.prefix ($actual_prefix) != expected ($expected_prefix)"
-            deactivate 2>/dev/null || true
-            exit 1
-        fi
-
-        info "Installing backend dependencies..."
-        local gpu_type
-        gpu_type=$(detect_gpu)
-        if [[ "$gpu_type" == "gpu" ]]; then
-            uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-                --index-url https://download.pytorch.org/whl/cu121 -q 2>/dev/null || {
-                err "PyTorch CUDA install failed; refusing to continue with a CPU fallback on a GPU host."
-                deactivate 2>/dev/null || true
-                exit 1
-            }
-        else
-            uv pip install --python backend/.venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-                --index-url https://download.pytorch.org/whl/cpu -q 2>/dev/null || {
-                err "PyTorch CPU install failed"
-                deactivate 2>/dev/null || true
-                exit 1
-            }
-        fi
-
-        uv pip install --python backend/.venv/bin/python pyyaml packaging -q 2>/dev/null || true
-        uv pip install --python backend/.venv/bin/python -r backend/requirements.txt -q 2>/dev/null || {
-            err "Backend dependency installation failed"
-            deactivate 2>/dev/null || true
-            exit 1
-        }
-        if ! python -c 'import fastapi, sqlalchemy, asyncpg, trimesh, yaml' >/dev/null 2>&1; then
-            err "Core backend imports failed after dependency installation"
-            deactivate 2>/dev/null || true
-            exit 1
-        fi
-        log "Backend dependencies verified"
-        deactivate 2>/dev/null || true
-    fi
 
     # Ensure Node.js/Bun
     if ! command -v bun &>/dev/null; then
@@ -311,25 +167,6 @@ auto_bootstrap() {
     mkdir -p backend/.runtime_cache logs
 
     log "Auto-bootstrap complete for ${env_type}"
-}
-
-# ── Run auto-bootstrap then load .env ──────────────────────
-auto_bootstrap
-
-# ── Load .env ──────────────────────────────────────────────────────
-if [[ ! -f .env ]]; then
-    warn "No .env found — running auto-setup..."
-    if [[ -f scripts/setup.sh ]]; then
-        bash scripts/setup.sh || { err "Auto-setup failed. Run: bash scripts/setup.sh"; exit 1; }
-    else
-        err "No .env found and scripts/setup.sh missing — cannot bootstrap."
-        exit 1
-    fi
-fi
-set -a
-source .env
-set +a
-
 # ── Ensure CUDA_VISIBLE_DEVICES is set for GPU runtime ──────────────
 if [[ -z "${CUDA_VISIBLE_DEVICES:-}" ]]; then
     export CUDA_VISIBLE_DEVICES=0
@@ -351,25 +188,6 @@ write_pid() {
     echo "$pid" > "$pid_file"
 }
 
-# ── Ensure Python venv exists ─────────────────────────────────────────────
-if [[ ! -x backend/.venv/bin/python ]]; then
-    if [[ -n "${CONDA_PREFIX:-}" && -x "${CONDA_PREFIX}/bin/python" ]]; then
-        ln -sf "${CONDA_PREFIX}" backend/.venv
-    elif [[ -x "/home/zeus/miniconda3/envs/cloudspace/bin/python" ]]; then
-        ln -sf "/home/zeus/miniconda3/envs/cloudspace" backend/.venv
-    else
-        warn "Backend virtual environment not found — running first-time setup..."
-        if [[ -f scripts/setup.sh ]]; then
-            bash scripts/setup.sh || { err "Auto-setup failed. Run: bash scripts/setup.sh"; exit 1; }
-        else
-            err "Backend venv not found and scripts/setup.sh missing — cannot bootstrap."
-            exit 1
-        fi
-    fi
-fi
-
-PYTHON_BIN="${PROJECT_ROOT}/backend/.venv/bin/python"
-UVICORN_BIN="${PROJECT_ROOT}/backend/.venv/bin/uvicorn"
 
 # ── Ensure Node.js/Bun is available ──────────────────────────────────
 # Prefers bun; falls back to npm if bun is not installed.
@@ -412,23 +230,6 @@ if ! ensure_bun_or_npm; then
     err "Node.js/Bun not found and auto-install failed. Run: sudo bash scripts/setup.sh"
     exit 1
 fi
-
-
-# ── Clean stale per-model install locks ─────────────────────────────────────
-# Remove orphaned .installing.lock files left by interrupted installs (no .git)
-# so re-installs aren't blocked by a dead lock.
-$PYTHON_BIN 2>/dev/null << 'PYEOF' || true
-import os, glob
-root = os.environ.get("PROJECT_ROOT", ".")
-tp = os.path.join(root, "backend", "third_party")
-for lock in glob.glob(os.path.join(tp, "*", ".installing.lock")):
-    repo = os.path.dirname(lock)
-    if not os.path.exists(os.path.join(repo, ".git")):
-        try:
-            os.remove(lock)
-        except OSError:
-            pass
-PYEOF
 # ── Service PIDs ───────────────────────────────────────────────────────────
    API_PID_FILE="$PID_DIR/api.pid"
    FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
@@ -475,23 +276,6 @@ PYEOF
    fi
    echo ""
 
-   # ── Step 2: Verify Database Schema ───────────────────────────────────────
-   step "2/5 Verifying database schema..."
-   (
-       cd backend
-       $PYTHON_BIN -c "
-   import asyncio
-   from app.database import engine, Base
-   import app.models
-
-   async def init():
-       async with engine.begin() as conn:
-           await conn.run_sync(Base.metadata.create_all)
-
-   asyncio.run(init())
-   " 2>/dev/null && log "Database schema ready" || warn "Database verification warning"
-   )
-   echo ""
 
 # ── Clean up Python bytecode caches (__pycache__ / *.pyc) ─────────
 info "Cleaning Python bytecode caches..."
@@ -499,23 +283,10 @@ find "${PROJECT_ROOT}/backend" -type d -name "__pycache__" -exec rm -rf {} + 2>/
 find "${PROJECT_ROOT}/backend" -type f -name "*.py[co]" -delete 2>/dev/null || true
 log "Bytecode caches cleaned"
 
-# ── Step 3: Start Backend API ──────────────────────────────────────────────
-    step "3/4 Starting Backend API (http://localhost:8000)..."
-    : > "$PROJECT_ROOT/logs/api.log"
-    (
-        cd backend
-        setsid $PYTHON_BIN -m uvicorn api.main_singleworker:app \
-            --host 0.0.0.0 \
-            --port 8000 \
-            --log-level info \
-            >> "$PROJECT_ROOT/logs/api.log" 2>&1 &
-        write_pid "$API_PID_FILE" $!
-    )
-    log "Backend API started (PID: $(cat $API_PID_FILE))"
 
-    # ── Step 3b: Start Multi-Worker Server (run_server.sh) ──────────────────
+    # ── Step 3: Start Multi-Worker Server (run_server.sh) ──────────────────
     if [[ -f backend/scripts/run_server.sh ]]; then
-        step "3b/4 Starting Multi-Worker Server (run_server.sh)..."
+        step "3/4 Starting Multi-Worker Server (run_server.sh)..."
         : > "$PROJECT_ROOT/logs/run_server.log"
         (
             cd backend
