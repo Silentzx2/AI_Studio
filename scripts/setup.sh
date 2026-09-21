@@ -345,8 +345,7 @@ create_directories(){
     "$PROJECT_ROOT/backend/storage/exports" \
     "$PROJECT_ROOT/backend/storage/images" \
     "$PROJECT_ROOT/backend/.hf_cache/hub" \
-    "$PROJECT_ROOT/backend/.runtime_cache" \
-    "$PROJECT_ROOT/backend/thirdparty" 
+    "$PROJECT_ROOT/backend/.runtime_cache" 
 
   # if [[ ! -f "$PROJECT_ROOT/.env" && -f "$PROJECT_ROOT/.env.example" ]]; then
   #   cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
@@ -408,6 +407,10 @@ install_frontend_deps(){
     log "Frontend dependencies installed with npm."
   fi
 }
+
+# Initialize and clone submodules
+echo "Initializing submodules..."
+git -C "$PROJECT_ROOT/backend" submodule update --init --recursive
 
 install_backend(){
   section "Installing Backend Dependencies"
