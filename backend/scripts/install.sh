@@ -45,6 +45,21 @@ else
     echo "[WARN] Build toolchain install had warnings; continuing..."
 fi
 
+# System-level ninja (apt) as a fallback: the pip `ninja` package only lands a
+# binary in the active env's bin/, so if a downstream subprocess runs with a
+# different PATH (e.g. TRELLIS.2's bare `pip`), `ninja` may not resolve. The
+# apt package puts a native binary in /usr/bin/ninja — always on PATH.
+# ponytail: pip `ninja` + apt `ninja-build` are redundant by design; the apt
+# one is the reliable path, the pip one is the cheap parallelism knob.
+if ! command -v ninja >/dev/null 2>&1; then
+    echo "[INFO] ninja not on PATH — installing ninja-build via apt..."
+    sudo apt-get update -qq 2>/dev/null || true
+    sudo apt-get install -y --no-install-recommends ninja-build 2>/dev/null || \
+        echo "[WARN] apt ninja-build install failed; relying on pip ninja."
+fi
+command -v ninja >/dev/null 2>&1 && echo "[SUCCESS] ninja: $(ninja --version 2>/dev/null || echo 'available')" || \
+    echo "[WARN] ninja still not resolvable on PATH"
+
 # Export build parallelism for every downstream subprocess (TRELLIS.2 setup.sh,
 # nvdiffrec, cubvh, bpy-renderer, etc.). These are read by cmake/setuptools.
 export MAX_JOBS="${MAX_JOBS:-$(nproc 2>/dev/null || echo 4)}"
