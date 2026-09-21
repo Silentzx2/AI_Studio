@@ -251,16 +251,14 @@ cmd_setup() {
             if [ -f scripts/setup.sh ]; then
                 bash scripts/setup.sh --auto-start
             else
-                echo -e "${YELLOW}setup.sh not found — running bootstrap.sh${NC}"
-                bash scripts/bootstrap.sh
+                echo -e "${RED}setup.sh not found — cannot run setup${NC}"
             fi
             ;;
         2)
-            if [ -f scripts/bootstrap.sh ]; then
-                bash scripts/bootstrap.sh --skip-start
+            if [ -f scripts/setup.sh ]; then
+                bash scripts/setup.sh --no-start
             else
-                echo -e "${YELLOW}bootstrap.sh not found — running setup.sh${NC}"
-                bash scripts/setup.sh
+                echo -e "${RED}setup.sh not found — cannot run setup${NC}"
             fi
             ;;
         b|B) return ;;
@@ -712,59 +710,6 @@ _menu_top() {
 _menu_bottom() {
   echo -e "${BOLD}${MAGENTA}  ╚════════════════════════════════════════════════════════╝${NC}"
 }
-cmd_build_wheels() {
-    head_ "Building Native CUDA Wheels"
-    echo ""
-    echo "  This will build CUDA extension wheels for packages that don't have"
-    echo "  prebuilt wheels (diffoctreerast, vox2seq, diff-gaussian-rasterization, diso)."
-    echo ""
-    echo "  Requirements: CUDA 12.4 toolkit, ninja, PyTorch with CUDA"
-    echo "  Output: .wheels/ directory (consistent with GitHub workflow)"
-    echo ""
-
-    # ── Enforce CUDA 12.4 ────────────────────────────────────────────────────
-    if ! command -v nvcc &>/dev/null; then
-        warn "nvcc not found — attempting CUDA 12.4 toolkit installation..."
-        if command -v apt-get &>/dev/null; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq cuda-toolkit-12-4 2>/dev/null || {
-                warn "Failed to install CUDA toolkit 12.4 automatically"
-                echo "  Install manually: sudo apt-get install -y cuda-toolkit-12-4"
-                echo "  Or download from: https://developer.nvidia.com/cuda-downloads"
-                return 1
-            }
-        else
-            warn "apt-get not found — cannot auto-install CUDA toolkit"
-            echo "  Install CUDA toolkit 12.4 manually: https://developer.nvidia.com/cuda-downloads"
-            return 1
-        fi
-    fi
-    ok "CUDA toolkit: $(nvcc --version | grep release | sed 's/.*release //;s/,.*//')"
-
-    # ── Build wheels using unified script with CUDA 12.4 enforcement ────────
-    step "Running unified wheels builder..."
-    bash scripts/build-native-wheels.sh --output-dir .wheels --python 3.12 --cuda 12.4
-
-    # ── Report results ───────────────────────────────────────────────────────
-    echo ""
-    if [ "$(ls -A .wheels/*.whl 2>/dev/null)" ]; then
-        ok "Wheels built successfully in .wheels/!"
-        echo ""
-        ls -lh .wheels/*.whl | awk '{print "  " $9 " (" $5 ")"}'
-        echo ""
-        read -rp "  Upload to GitHub Releases? [y/N]: " upload
-        if [[ "$upload" =~ ^[Yy]$ ]]; then
-            info "Uploading to GitHub Releases..."
-            bash scripts/build-native-wheels.sh --output-dir .wheels --upload
-        else
-            info "Upload skipped. Run manually with: bash scripts/build-native-wheels.sh --output-dir .wheels --upload"
-        fi
-    else
-        warn "No wheels were built — check errors above"
-        warn "On CPU-only hosts, this is expected; build on GPU host (Colab/VPS) for CUDA support"
-        warn "The .wheels/ directory is pre-configured; rebuild on GPU host when available"
-    fi
-}
-
 _main_menu_() {
     while true; do
         banner
@@ -786,7 +731,6 @@ _main_menu_() {
         _menu_item "[14]" "Google Colab launcher (Dedicated Colab Menu)"
         _menu_item "[15]" "Clean environments & data (Standard / Full Wipe)"
         _menu_item "[16]" "Manage individual service"
-        _menu_item "[17]" "Build native CUDA wheels"
         _menu_separator
         _menu_item "[q]" "Quit"
         _menu_bottom
@@ -811,7 +755,6 @@ _main_menu_() {
             14) cmd_colab || true ;;
             15) cmd_clean || true ;;
             16) cmd_service || true ;;
-            17) cmd_build_wheels || true ;;
             q|Q) echo ""; echo -e "${GREEN}  ╔════════════════════════════════════════════════════════╗${NC}"; echo -e "${GREEN}  ║${NC}              ${BOLD}Goodbye! 👋${NC}                            ${GREEN}║${NC}"; echo -e "${GREEN}  ╚════════════════════════════════════════════════════════╝${NC}"; echo ""; exit 0 ;;
             *) echo -e "${RED}Invalid choice${NC}"; sleep 1 ;;
         esac

@@ -183,65 +183,6 @@ detect_gpu() {
   fi
 }
 
-# ── System packages ────────────────────────────────────────────────────────────
-
-install_system_deps() {
-  head_ "Installing System Dependencies"
-  apt-get update -qq || {
-    err "apt-get update failed — check network / apt sources"
-    return 1
-  }
-  local pkgs=(curl wget git unzip tar ca-certificates gnupg lsb-release build-essential software-properties-common libssl-dev libffi-dev zlib1g-dev libpq-dev ffmpeg libsm6 libxext6 libglib2.0-0 libgl1 libglu1-mesa libopengl0 libx11-6 libxcb1 libxkbcommon-x11-0 libxrender1 libxi6 libxtst6 libdbus-1-3 libfontconfig1 libfreetype6 python3-yaml xvfb)
-  local total=${#pkgs[@]}
-  local i=0
-  # shellcheck disable=SC2068
-  apt-get install -y --no-install-recommends ${pkgs[@]} || {
-    err "Failed to install system dependencies"
-    return 1
-  }
-  log "System dependencies installed (${total} packages)"
-}
-
-# ── Python version resolution ─────────────────────────────────────────────────
-
-install_python() {
-  local -a versions=("3.12")
-  local -a to_install=()
-  for ver in "${versions[@]}"; do
-    command -v "python${ver}" &>/dev/null || to_install+=("$ver")
-  done
-
-  if [[ ${#to_install[@]} -eq 0 ]]; then
-    head_ "Python Already Installed"
-    log "All required Python versions present: ${versions[*]}"
-    return 0
-  fi
-
-  head_ "Installing Python ${to_install[*]}"
-  add-apt-repository ppa:deadsnakes/ppa -y || {
-    err "Failed to add deadsnakes PPA — cannot install Python"
-    return 1
-  }
-  apt-get update -qq
-
-  local -a install_pkgs=()
-  for ver in "${to_install[@]}"; do
-    install_pkgs+=("python${ver}" "python${ver}-dev")
-  done
-
-  apt-get install -y "${install_pkgs[@]}" || {
-    err "Failed to install Python versions"
-    return 1
-  }
-
-  # Set python3.12 as the default python3 (backend venv uses it)
-  if command -v python3.12 &>/dev/null; then
-    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
-  fi
-
-  log "Python versions installed: ${to_install[*]}"
-}
-
 install_uv() {
   head_ "Installing uv (Python Package Manager)"
   if command -v uv &>/dev/null; then
@@ -560,6 +501,17 @@ CUDA_TEST
   fi
 }
 
+
+# Main backend setup
+
+backend_setup () {
+
+  echo "Starting the backend setup..."
+  bash scripts/clone_thirdparty.sh
+  echo "repo clone completed"
+  bash backend/scripts/install.sh
+}
+
 install_redis() {
    head_ "Installing Redis 7"
    if command -v redis-server &>/dev/null; then
@@ -603,28 +555,6 @@ install_node() {
     log "Bun installed: $(bun --version 2>/dev/null || echo 'OK')"
   fi
 }
-
-install_gltf_transform() {
-  head_ "Installing gltf-transform CLI"
-  if command -v gltf-transform &>/dev/null; then
-    log "Already installed: $(gltf-transform --version 2>/dev/null || echo 'OK')"
-    return 0
-  fi
-  if command -v bun &>/dev/null; then
-    bun install -g @gltf-transform/cli 2>/dev/null || {
-      warn "Failed to install @gltf-transform/cli globally"
-      return 0
-    }
-    log "gltf-transform installed: $(gltf-transform --version 2>/dev/null || echo 'OK')"
-  elif command -v npm &>/dev/null; then
-    npm install -g @gltf-transform/cli 2>/dev/null || {
-      warn "Failed to install @gltf-transform/cli globally"
-      return 0
-    }
-    log "gltf-transform installed: $(gltf-transform --version 2>/dev/null || echo 'OK')"
-  fi
-}
-
 install_blender() {
   head_ "Installing Blender"
   if command -v blender &>/dev/null; then
@@ -665,144 +595,7 @@ setup_folders() {
    log "Project directories created"
 }
 
-setup_env() {
-   head_ "Setting Up Environment"
-   if [[ -f .env ]]; then
-     log ".env already exists — skipping"
-     return 0
-   fi
-   if [[ -f .env.example ]]; then
-     cp .env.example .env
-     log "Created .env from .env.example"
-   else
-     cat > .env << 'ENVEOF'
-# ── Redis (localhost) ─────────────────────────────────────
-REDIS_URL=redis://localhost:6379/0
 
-# ── API ───────────────────────────────────────────────────
-BACKEND_URL=http://localhost:8000
-
-# ── Storage ────────────────────────────────────────────────
-STORAGE_LOCAL_PATH=./backend/storage
-RUNTIME_CACHE_DIR=./backend/.runtime_cache
-
-# ── GPU ───────────────────────────────────────────────────
-CUDA_VISIBLE_DEVICES=0
-CUDA_DEVICE=auto
-PLATFORM_MODE=gpu
-CPU_FALLBACK=false
-
-# ── Dev ────────────────────────────────────────────────────
-DEBUG=false
-PYTHONPATH=./backend
-ENVEOF
-     log "Created default .env"
-   fi
-}
-
-install_python_deps() {
-  head_ "Installing Python Dependencies (uv)"
-
-  # Ensure uv is on PATH before proceeding
-  if ! command -v uv &>/dev/null; then
-    err "uv not found on PATH — cannot install Python dependencies"
-    return 1
-  fi
-
-  # Run in subshell to avoid polluting parent environment, but capture exit code
-  (
-    cd backend
-
-    # Resolve base Python binary safely without tripping set -o pipefail
-    local clean_path py_bin cand cand_path
-    clean_path=$(echo "$PATH" | tr ':' '\n' | grep -v '^/commands' | tr '\n' ':' | sed 's/:$//')
-    py_bin=""
-    for cand in python3.12 python3.11 python3.10 python3 python; do
-        cand_path=$(PATH="$clean_path" command -v "$cand" 2>/dev/null || true)
-        if [[ -n "$cand_path" && -x "$cand_path" ]]; then
-            py_bin="$cand_path"
-            break
-        fi
-    done
-    if [[ -z "$py_bin" ]]; then
-        for cand in python3.12 python3.11 python3.10 python3 python; do
-            cand_path=$(command -v "$cand" 2>/dev/null || true)
-            if [[ -n "$cand_path" && -x "$cand_path" ]]; then
-                py_bin="$cand_path"
-                break
-            fi
-        done
-    fi
-    py_bin="${py_bin:-python3}"
-
-    # Create venv using normal Python venv method (clear and recreate if corrupted)
-    log "Creating virtual environment using Python venv ($py_bin)..."
-    if [[ ! -x .venv/bin/python ]]; then
-        if [[ -d .venv ]]; then
-            log "Existing .venv is corrupted — removing..."
-            rm -rf .venv
-        fi
-        "$py_bin" -m venv .venv || "$py_bin" -c "import venv; venv.create('.venv', with_pip=True)" || uv venv .venv || {
-            err "Failed to create backend venv"
-            exit 1
-        }
-    fi
-
-    # Explicitly activate before installing anything
-    # shellcheck disable=SC1091
-    source .venv/bin/activate
-
-    # Verify activation
-    log "Verifying virtual environment activation:"
-    log "  which python: $(which python)"
-    log "  which pip:    $(which pip)"
-    local actual_prefix expected_prefix
-    actual_prefix=$(python -c "import sys; print(sys.prefix)")
-    log "  sys.prefix:   $actual_prefix"
-    expected_prefix="$(pwd)/.venv"
-    if [[ "$actual_prefix" != "$expected_prefix" && "$actual_prefix" != "$(cd .venv && pwd)" ]]; then
-        err "Virtual environment verification failed: sys.prefix ($actual_prefix) != expected ($expected_prefix)"
-        exit 1
-    fi
-
-    # Install PyTorch once — GPU or CPU depending on hardware (ONLY uv used inside activated venv)
-    if [[ "$GPU_AVAILABLE" == "true" ]]; then
-      # Use detected CUDA version for PyTorch wheel index
-      CUDA_INDEX="${CUDA_VERSION:-124}"
-      # Map CUDA version to supported PyTorch wheel index for PyTorch 2.5.1 (cu118, cu121, cu124)
-      TORCH_VER="2.5.1"
-      TORCHVISION_VER="0.20.1"
-      TORCHAUDIO_VER="2.5.1"
-      if [[ "$CUDA_INDEX" == "120" || "$CUDA_INDEX" == "121" ]]; then
-        CUDA_INDEX="121"
-      elif [[ "$CUDA_INDEX" == "118" ]]; then
-        CUDA_INDEX="118"
-      else
-        CUDA_INDEX="124"
-      fi
-      log "Installing PyTorch ${TORCH_VER} with CUDA ${CUDA_INDEX} via uv..."
-      uv pip install --python .venv/bin/python \
-        torch==${TORCH_VER} torchvision==${TORCHVISION_VER} torchaudio==${TORCHAUDIO_VER} \
-        --index-url "https://download.pytorch.org/whl/cu${CUDA_INDEX}" -q
-    else
-      log "Installing PyTorch CPU-only via uv..."
-      uv pip install --python .venv/bin/python torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-        --index-url https://download.pytorch.org/whl/cpu -q
-    fi
-
-    uv pip install --python .venv/bin/python pip setuptools wheel ninja PyGithub -q 2>/dev/null || true
-    uv pip install --python .venv/bin/python -r requirements.txt -q
-  )
-  local rc=$?
-  if [[ $rc -ne 0 ]]; then
-    err "Python dependency installation failed (exit code $rc)"
-    return 1
-  fi
-  if ! backend/.venv/bin/python -c 'import yaml' >/dev/null 2>&1; then
-    uv pip install --python backend/.venv/bin/python pyyaml packaging -q || true
-  fi
-  log "Python dependencies installed"
-}
 
 install_frontend_deps() {
   head_ "Installing Frontend Dependencies"
@@ -942,36 +735,24 @@ BANNER
    check_root
    check_os
    detect_gpu
-   install_system_deps    || { err "System dependency installation failed — aborting"; exit 1; }
    if [[ "${ROOTLESS:-}" != "1" ]]; then
      install_redis          || { err "Redis installation failed — aborting"; exit 1; }
    else
      warn "Skipping Redis system install (user mode) — start.sh will use in-memory broker fallback."
    fi
    install_cuda           || warn "CUDA install had issues — may use CPU fallback"
-   install_python         || { err "Python installation failed — aborting"; exit 1; }
    install_uv             || { err "uv installation failed — aborting"; exit 1; }
    install_node           || { err "Node.js installation failed — aborting"; exit 1; }
-   install_gltf_transform || warn "gltf-transform install skipped — mesh compression will fallback to passthrough"
 
    # Non-critical steps — warn but continue
    install_blender        || warn "Blender install skipped — post-processing may be unavailable"
   
-  # Headless Qt rendering for pymeshlab / PyQt apps on servers without a display.
-  cat > /etc/profile.d/qt_offscreen.sh << 'QT_ENV'
-export QT_QPA_PLATFORM=offscreen
-QT_ENV
-  chmod +x /etc/profile.d/qt_offscreen.sh
-  export QT_QPA_PLATFORM=offscreen
-
 # Project setup
    setup_folders
    setup_env
-    install_python_deps    || { err "Python dependency installation failed — aborting"; exit 1; }
-
     # Non-critical project steps
    install_frontend_deps  || warn "Frontend deps had issues — check Bun output above"
-  build_frontend || warn "Frontend build had issues — check Bun output above"
+   build_frontend || warn "Frontend build had issues — check Bun output above"
 
   # setup.sh runs as root; hand ownership back to the real user so that the
   # non-root `start.sh` can use the venv, read .env, and write logs.
