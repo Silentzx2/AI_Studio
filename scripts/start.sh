@@ -500,18 +500,33 @@ find "${PROJECT_ROOT}/backend" -type f -name "*.py[co]" -delete 2>/dev/null || t
 log "Bytecode caches cleaned"
 
 # ── Step 3: Start Backend API ──────────────────────────────────────────────
-   step "3/4 Starting Backend API (http://localhost:8000)..."
-   : > "$PROJECT_ROOT/logs/api.log"
-   (
-       cd backend
-       setsid $PYTHON_BIN -m uvicorn api.main_singleworker:app \
-           --host 0.0.0.0 \
-           --port 8000 \
-           --log-level info \
-           >> "$PROJECT_ROOT/logs/api.log" 2>&1 &
-       write_pid "$API_PID_FILE" $!
-   )
-   log "Backend API started (PID: $(cat $API_PID_FILE))"
+    step "3/4 Starting Backend API (http://localhost:8000)..."
+    : > "$PROJECT_ROOT/logs/api.log"
+    (
+        cd backend
+        setsid $PYTHON_BIN -m uvicorn api.main_singleworker:app \
+            --host 0.0.0.0 \
+            --port 8000 \
+            --log-level info \
+            >> "$PROJECT_ROOT/logs/api.log" 2>&1 &
+        write_pid "$API_PID_FILE" $!
+    )
+    log "Backend API started (PID: $(cat $API_PID_FILE))"
+
+    # ── Step 3b: Start Multi-Worker Server (run_server.sh) ──────────────────
+    if [[ -f backend/scripts/run_server.sh ]]; then
+        step "3b/4 Starting Multi-Worker Server (run_server.sh)..."
+        : > "$PROJECT_ROOT/logs/run_server.log"
+        (
+            cd backend
+            setsid bash scripts/run_server.sh \
+                >> "$PROJECT_ROOT/logs/run_server.log" 2>&1 &
+            write_pid "$PID_DIR/run_server.pid" $!
+        )
+        log "Multi-Worker Server started (PID: $(cat $PID_DIR/run_server.pid 2>/dev/null || echo 'pending'))"
+    else
+        warn "backend/scripts/run_server.sh not found — skipping multi-worker server"
+    fi
 
 # Wait for API to be ready
 info "Waiting for API to be healthy (timeout: 60s)..."
