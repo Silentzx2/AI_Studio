@@ -234,11 +234,13 @@ async function handleDirectAssetDelete(filename: string) {
  * This API route reads BACKEND_URL from process.env at REQUEST time,
  * allowing proper Docker networking to work.
  * 
- * Endpoint patterns:
- * - /api/v1/runtime/options -> backend:8000/api/v1/runtime/options
- * - /api/v1/generation -> backend:8000/api/v1/generation
- * - /api/v1/admin/* -> backend:8000/api/v1/admin/*
- * - SSE endpoints are handled with streaming responses
+* Endpoint patterns:
+   * - /api/v1/mesh-generation/text-to-raw-mesh -> backend:8000/api/v1/mesh-generation/text-to-raw-mesh
+   * - /api/v1/mesh-generation/image-to-raw-mesh -> backend:8000/api/v1/mesh-generation/image-to-raw-mesh
+   * - /api/v1/file-upload/image -> backend:8000/api/v1/file-upload/image
+   * - /api/v1/system/jobs/{job_id} -> backend:8000/api/v1/system/jobs/{job_id}
+   * - /api/v1/system/jobs/history -> backend:8000/api/v1/system/jobs/history
+   * - SSE endpoints are handled with streaming responses
  */
 
 let activeBackendUrl: string | null = null;

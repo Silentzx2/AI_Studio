@@ -529,6 +529,10 @@ class ApiClient {
   }
 
   // ─── Admin / Runtime Endpoints ──────────────────────────────────────────────
+  // ponytail: the current 3DAIGC-API backend does not expose the legacy admin
+  // /runtime, /install, /repair, /settings, or /generation-settings endpoints
+  // that the previous architecture assumed. Each method below surfaces the
+  // limitation honestly (throws) instead of silently hitting 404s.
 
   async getLogs(limit: number = 100, level?: string): Promise<any[]> {
     try {
@@ -586,163 +590,108 @@ class ApiClient {
   async modelAction(
     modelId: string,
     action: string,
-    options?: { include_auxiliary?: boolean; auxiliary_names?: string[] },
+    _options?: { include_auxiliary?: boolean; auxiliary_names?: string[] },
   ): Promise<void> {
-    await this.client.post('/api/v1/system/models/action', {
-      model_id: modelId,
-      action,
-      ...options,
-    });
+    throw new Error(
+      `modelAction is not supported by the current backend (model=${modelId}, action=${action}). ` +
+      'The 3DAIGC-API backend does not expose a /api/v1/system/models/action endpoint.'
+    );
   }
 
-  async getInstallProgress(modelId: string): Promise<any | null> {
-    try {
-      const response = await this.client.get(`/api/v1/system/install/progress/${modelId}`);
-      return response?.data || null;
-    } catch {
-      return null;
-    }
+  async getInstallProgress(_modelId: string): Promise<any | null> {
+    throw new Error(
+      'getInstallProgress is not supported by the current backend. ' +
+      'The 3DAIGC-API backend does not expose a /api/v1/system/install/progress endpoint.'
+    );
   }
 
   async getInstallStatus(): Promise<Record<string, any> | null> {
-    try {
-      const response = await this.client.get('/api/v1/system/install/status');
-      return response?.data || null;
-    } catch {
-      return null;
-    }
+    throw new Error(
+      'getInstallStatus is not supported by the current backend. ' +
+      'The 3DAIGC-API backend does not expose a /api/v1/system/install/status endpoint.'
+    );
   }
 
-  async repairProvider(providerName: string): Promise<any> {
-    try {
-      const response: any = await this.client.post(`/api/v1/system/repair/${encodeURIComponent(providerName)}`);
-      return response?.data || response;
-    } catch {
-      try {
-        const response2: any = await this.client.post('/api/v1/system/models/action', {
-          model_id: providerName,
-          action: 'repair',
-        });
-        return response2?.data || response2;
-      } catch {
-        const response3: any = await this.client.post('/api/v1/runtime/repair', { repo: providerName });
-        return response3?.data || response3;
-      }
-    }
+  async repairProvider(_providerName: string): Promise<any> {
+    throw new Error(
+      `repairProvider is not supported by the current backend (provider=${_providerName}). ` +
+      'The 3DAIGC-API backend does not expose a /api/v1/system/repair or /api/v1/runtime/repair endpoint.'
+    );
   }
 
   async getSettings(): Promise<Record<string, unknown> | null> {
-    try {
-      const response = await this.client.get('/api/v1/system/settings');
-      return response?.data || response || null;
-    } catch {
-      return null;
-    }
+    throw new Error(
+      'getSettings is not supported by the current backend. ' +
+      'The 3DAIGC-API backend does not expose a /api/v1/system/settings endpoint.'
+    );
   }
 
   async getHFTokenStatus(): Promise<{ configured: boolean; valid: boolean }> {
-    try {
-      const response = await this.client.get('/api/v1/system/settings/hf-token');
-      return { configured: Boolean(response?.data?.configured), valid: Boolean(response?.data?.valid) };
-    } catch {
-      return { configured: false, valid: false };
-    }
+    throw new Error(
+      'getHFTokenStatus is not supported by the current backend. ' +
+      'The 3DAIGC-API backend does not expose a /api/v1/system/settings/hf-token endpoint.'
+    );
   }
 
-  async saveHFToken(token: string): Promise<void> {
-    await this.client.post('/api/v1/system/settings/hf-token', { token });
+  async saveHFToken(_token: string): Promise<void> {
+    throw new Error(
+      'saveHFToken is not supported by the current backend. ' +
+      'The 3DAIGC-API backend does not expose a /api/v1/system/settings/hf-token endpoint.'
+    );
   }
 
   async removeHFToken(): Promise<void> {
-    await this.client.delete('/api/v1/system/settings/hf-token');
+    throw new Error(
+      'removeHFToken is not supported by the current backend. ' +
+      'The 3DAIGC-API backend does not expose a /api/v1/system/settings/hf-token endpoint.'
+    );
   }
 
   async clearCache(): Promise<void> {
-    await this.client.post('/api/v1/runtime/clear-cache', {});
+    throw new Error(
+      'clearCache is not supported by the current backend. ' +
+      'The 3DAIGC-API backend does not expose a /api/v1/runtime/clear-cache endpoint.'
+    );
   }
 
   async clearVRAM(): Promise<void> {
-    await this.client.post('/api/v1/runtime/clear-vram', {});
+    throw new Error(
+      'clearVRAM is not supported by the current backend. ' +
+      'The 3DAIGC-API backend does not expose a /api/v1/runtime/clear-vram endpoint.'
+    );
   }
 
   async restartRuntime(): Promise<void> {
-    await this.client.post('/api/v1/runtime/restart', {});
+    throw new Error(
+      'restartRuntime is not supported by the current backend. ' +
+      'The 3DAIGC-API backend does not expose a /api/v1/runtime/restart endpoint.'
+    );
   }
 
   async getGenerationSettings(): Promise<any> {
-    try {
-      const response = await this.client.get('/api/v1/settings/generation');
-      return response?.data || response || null;
-    } catch {
-      return null;
-    }
+    throw new Error(
+      'getGenerationSettings is not supported by the current backend. ' +
+      'The 3DAIGC-API backend does not expose a /api/v1/settings/generation endpoint.'
+    );
   }
 
-  async saveGenerationSettings(config: any): Promise<void> {
-    await this.client.post('/api/v1/settings/generation', config);
+  async saveGenerationSettings(_config: any): Promise<void> {
+    throw new Error(
+      'saveGenerationSettings is not supported by the current backend. ' +
+      'The 3DAIGC-API backend does not expose a /api/v1/settings/generation endpoint.'
+    );
   }
 
   streamInstallProgress(
-    modelId: string,
-    onProgress: (progress: any) => void,
-    onDone?: () => void,
-    timeout: number = 3600000
+    _modelId: string,
+    _onProgress: (progress: any) => void,
+    _onDone?: () => void,
+    _timeout: number = 3600000
   ): () => void {
-    let timeoutId: NodeJS.Timeout | null = null;
-    let eventSourceClosed = false;
-
-    const cleanup = () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      eventSourceClosed = true;
-      unsubscribe();
-      if (onDone) onDone();
-    };
-
-    timeoutId = setTimeout(() => {
-      if (!eventSourceClosed) {
-        console.warn(`Install stream for ${modelId} timed out`);
-        cleanup();
-      }
-    }, timeout);
-
-    const unsubscribe = this.streamEvents(
-      `/api/v1/system/install/stream/${modelId}`,
-      (raw: any) => {
-        if (eventSourceClosed) return;
-
-        const d = raw as Record<string, unknown>;
-        const bytesToMB = (b?: number) => ((b ?? 0) / (1024 * 1024));
-        const progress = {
-          model_id: String(d.model_id ?? modelId),
-          phase: String(d.phase ?? ''),
-          progress: Number(d.percent ?? d.progress ?? 0),
-          percent: Number(d.percent ?? 0),
-          speed_mbps: d.speed_mbps != null ? Number(d.speed_mbps) : bytesToMB(Number(d.speed_bps)),
-          speed_bps: d.speed_bps != null ? Number(d.speed_bps) : undefined,
-          downloaded_mb: d.downloaded_mb != null ? Number(d.downloaded_mb) : bytesToMB(Number(d.bytes_downloaded)),
-          bytes_downloaded: d.bytes_downloaded != null ? Number(d.bytes_downloaded) : undefined,
-          total_mb: d.total_mb != null ? Number(d.total_mb) : bytesToMB(Number(d.bytes_total)),
-          bytes_total: d.bytes_total != null ? Number(d.bytes_total) : undefined,
-          eta_seconds: Number(d.eta_seconds ?? 0),
-          status: d.status as 'queued' | 'downloading' | 'installing' | 'completed' | 'failed',
-          log: d.log != null ? String(d.log) : undefined,
-          error: d.error != null ? String(d.error) : undefined,
-        };
-
-        onProgress(progress);
-
-        if (progress.status === 'completed' || progress.status === 'failed') {
-          cleanup();
-        }
-      },
-      cleanup
+    throw new Error(
+      'streamInstallProgress is not supported by the current backend. ' +
+      'The 3DAIGC-API backend does not expose a /api/v1/system/install/stream endpoint.'
     );
-
-    return () => {
-      eventSourceClosed = true;
-      unsubscribe();
-      cleanup();
-    };
   }
 
   // SSE streaming helper
@@ -836,7 +785,9 @@ export const createApiClient = (config: ApiConfig): ApiClient => {
 
 export const getApiClient = (): ApiClient => {
   if (!apiClient) {
-    throw new Error('API client not initialized. Call createApiClient() first.');
+    // ponytail: lazy same-origin default so callers work without explicit
+    // init; the Next.js /api/v1 proxy route forwards to BACKEND_URL at runtime.
+    apiClient = new ApiClient({ baseURL: '' });
   }
   return apiClient;
 };

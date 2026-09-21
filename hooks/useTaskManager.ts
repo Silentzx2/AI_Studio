@@ -98,35 +98,35 @@ export function useTaskManager() {
     [removeTask]
   );
 
-  const reconnectToRunningTasks = useCallback(async () => {
-    const state = useAppStore.getState();
-    const runningTasks = Object.values(state.tasks).filter(
-      (t) => (t.status === 'running' || t.status === 'queued') && isPollableGenerationTask(t)
-    );
+const reconnectToRunningTasks = useCallback(async () => {
+     const state = useAppStore.getState();
+     const runningTasks = Object.values(state.tasks).filter(
+       (t) => (t.status === 'running' || t.status === 'queued') && isPollableGenerationTask(t)
+     );
 
-    if (runningTasks.length === 0) return;
+     if (runningTasks.length === 0) return;
 
-    for (const task of runningTasks) {
-      try {
-        const res = await fetch(`/api/v1/generation/${task.id}/status`);
-        if (!res.ok) continue;
-        const data = await res.json();
-        const status = data?.data || data;
+     for (const task of runningTasks) {
+       try {
+         const res = await fetch(`/api/v1/system/jobs/${task.id}`);
+         if (!res.ok) continue;
+         const data = await res.json();
+         const status = data?.data || data;
 
-        updateTask(task.id, {
-          status: (status.status || 'running') as Task['status'],
-          progress: status.progress ?? 0,
-          updatedAt: Date.now(),
-        });
+         updateTask(task.id, {
+           status: (status.status || 'running') as Task['status'],
+           progress: Math.round((status.progress ?? 0) * 100), // Convert 0-1 to 0-100
+           updatedAt: Date.now(),
+         });
 
-        if (status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled') {
-          completeTask(task.id, status.status as 'completed' | 'failed' | 'cancelled');
-        }
-      } catch {
-        // Silently skip tasks that can't be reached
-      }
-    }
-  }, [updateTask, completeTask]);
+         if (status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled') {
+           completeTask(task.id, status.status as 'completed' | 'failed' | 'cancelled');
+         }
+       } catch {
+         // Silently skip tasks that can't be reached
+       }
+     }
+   }, [updateTask, completeTask]);
 
   const stopPolling = useCallback(() => {
     if (pollIntervalRef.current) {
@@ -157,7 +157,7 @@ export function useTaskManager() {
         }
 
         for (const task of runningTasks) {
-          fetch(`/api/v1/generation/${task.id}/status`)
+          fetch(`/api/v1/system/jobs/${task.id}`)
             .then((res) => {
               if (!res.ok) return;
               return res.json();
@@ -167,7 +167,7 @@ export function useTaskManager() {
               const status = data?.data || data;
               updateTask(task.id, {
                 status: (status.status || 'running') as Task['status'],
-                progress: status.progress ?? 0,
+                progress: Math.round((status.progress ?? 0) * 100), // Convert 0-1 to 0-100
                 updatedAt: Date.now(),
               });
 

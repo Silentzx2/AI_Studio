@@ -46,8 +46,11 @@ export function useRealtime(): RealtimeState {
   const reconnectAttemptsRef = useRef(0);
 
   const connect = useCallback(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    const wsUrl = apiUrl.replace(/^http/, 'ws') + '/api/v1/realtime/ws';
+    // ponytail: use same-origin WebSocket path through the Next.js proxy.
+    // The backend does not expose /api/v1/realtime/ws; the hook falls back
+    // to polling via useBackendStatus when the WebSocket fails to connect.
+    const wsUrl = (typeof window !== 'undefined' ? `${window.location.origin}/api/v1/realtime/ws` : '');
+    if (!wsUrl) return;
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;

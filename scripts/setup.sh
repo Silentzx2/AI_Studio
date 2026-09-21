@@ -5,10 +5,9 @@
 # For Google Colab, use: bash scripts/colab.sh --setup
 #
 # AI 3D Studio — Automatic Setup Script (Non-Docker VPS)
-# Direct system installation without Docker containers
-# Supports Ubuntu 20.04/22.04/24.04 with NVIDIA GPU
-# Usage: sudo bash scripts/setup.sh
-# ═══════════════════════════════════════════════════════════════════════════
+   # Direct system installation without Docker containers
+   # Supports Ubuntu 20.04/22.04/24.04 with NVIDIA GPU
+   # Usage: sudo bash scripts/setup.sh
 
 set -euo pipefail
 
@@ -561,53 +560,21 @@ CUDA_TEST
   fi
 }
 
-install_postgresql() {
-  head_ "Installing PostgreSQL 16"
-  if command -v psql &>/dev/null; then
-    log "PostgreSQL already installed: $(psql --version)"
-    return 0
-  fi
-  
-   apt-get update -qq
-   apt-get install -y postgresql postgresql-contrib postgresql-16-pgvector || {
-     warn "postgresql-16-pgvector not available — installing pgvector from source may be required"
-     apt-get install -y postgresql postgresql-contrib || {
-       err "Failed to install PostgreSQL"
-       return 1
-     }
-   }
-  
-  systemctl enable postgresql --now
-  log "PostgreSQL installed and started"
-
-  # Use trust auth for local TCP connections so no password is required
-  # (the app connects via localhost; credentials in .env are ignored).
-  local hba
-  hba="$(sudo -u postgres psql -t -c 'SHOW hba_file;' | xargs)"
-  if [[ -f "$hba" ]]; then
-    sudo sed -i -E "s|^(host\\s+all\\s+all\\s+(127\\.0\\.0\\.1/32|::1/128)\\s+)(scram-sha-256|md5|peer)$|\\1trust|" "$hba"
-    PG_VER=$(ls /etc/postgresql | sort -V | tail -1)
-    sudo pg_ctlcluster "$PG_VER" main reload 2>/dev/null \
-      || sudo systemctl reload postgresql
-    log "Local PostgreSQL auth set to trust (no password needed)"
-  fi
-}
-
 install_redis() {
-  head_ "Installing Redis 7"
-  if command -v redis-server &>/dev/null; then
-    log "Redis already installed: $(redis-server --version)"
-    return 0
-  fi
+   head_ "Installing Redis 7"
+   if command -v redis-server &>/dev/null; then
+     log "Redis already installed: $(redis-server --version)"
+     return 0
+   fi
 
-  apt-get update -qq
-  apt-get install -y redis-server || {
-    err "Failed to install Redis"
-    return 1
-  }
+   apt-get update -qq
+   apt-get install -y redis-server || {
+     err "Failed to install Redis"
+     return 1
+   }
 
-  systemctl enable redis-server --now
-  log "Redis installed and started"
+   systemctl enable redis-server --now
+   log "Redis installed and started"
 }
 
 install_node() {
@@ -682,52 +649,35 @@ install_blender() {
 # ── Project setup ──────────────────────────────────────────────────────────────
 
 setup_folders() {
-  head_ "Creating Project Directory Structure"
-  for dir in \
-    backend/storage/uploads \
-    backend/storage/models \
-    backend/storage/thumbnails \
-    backend/storage/exports \
-    backend/storage/images \
-    backend/.runtime_cache \
-    ENGINE/ComfyUI/models/checkpoints \
-    ENGINE/ComfyUI/models/clip \
-    ENGINE/ComfyUI/models/vae \
-    ENGINE/ComfyUI/models/unet \
-    ENGINE/ComfyUI/output \
-    logs; do
-    mkdir -p "$dir"
-  done
-  # Runtime-owned dirs: 755 is fine (created and written by one user).
-  chmod -R 755 backend/storage backend/.runtime_cache logs 2>/dev/null || true
-  log "Project directories created"
+   head_ "Creating Project Directory Structure"
+   for dir in \
+     backend/storage/uploads \
+     backend/storage/models \
+     backend/storage/thumbnails \
+     backend/storage/exports \
+     backend/storage/images \
+     backend/.runtime_cache \
+     logs; do
+     mkdir -p "$dir"
+   done
+   # Runtime-owned dirs: 755 is fine (created and written by one user).
+   chmod -R 755 backend/storage backend/.runtime_cache logs 2>/dev/null || true
+   log "Project directories created"
 }
 
 setup_env() {
-  head_ "Setting Up Environment"
-  if [[ -f .env ]]; then
-    log ".env already exists — skipping"
-    return 0
-  fi
-  if [[ -f .env.example ]]; then
-    cp .env.example .env
-    log "Created .env from .env.example"
-  else
-    cat > .env << 'ENVEOF'
-# ── Database (localhost) ──────────────────────────────────
-DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio?sslmode=disable
-DATABASE_SYNC_URL=postgresql://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio
-
+   head_ "Setting Up Environment"
+   if [[ -f .env ]]; then
+     log ".env already exists — skipping"
+     return 0
+   fi
+   if [[ -f .env.example ]]; then
+     cp .env.example .env
+     log "Created .env from .env.example"
+   else
+     cat > .env << 'ENVEOF'
 # ── Redis (localhost) ─────────────────────────────────────
 REDIS_URL=redis://localhost:6379/0
-
-# ── ComfyUI Execution Engine ──────────────────────────────
-COMFYUI_HOST=127.0.0.1
-COMFYUI_PORT=8188
-COMFYUI_BASE_URL=http://127.0.0.1:8188
-COMFYUI_TIMEOUT=300
-AI_PROVIDER=comfyui
-RUNTIME_MODE=comfyui
 
 # ── API ───────────────────────────────────────────────────
 BACKEND_URL=http://localhost:8000
@@ -746,8 +696,8 @@ CPU_FALLBACK=false
 DEBUG=false
 PYTHONPATH=./backend
 ENVEOF
-    log "Created default .env"
-  fi
+     log "Created default .env"
+   fi
 }
 
 install_python_deps() {
@@ -854,11 +804,6 @@ install_python_deps() {
   log "Python dependencies installed"
 }
 
-prepare_comfyui_engine() {
-  head_ "Installing ComfyUI + ComfyUI-3D-Pack Execution Engine"
-  PYTHON_BIN="${PROJECT_ROOT}/backend/.venv/bin/python" bash "${SCRIPT_DIR}/install_comfyui.sh"
-}
-
 install_frontend_deps() {
   head_ "Installing Frontend Dependencies"
   if command -v bun &>/dev/null; then
@@ -915,44 +860,40 @@ echo -e "  ${BOLD}Building Next.js (this takes 2-5 minutes)${NC}"
 # ── Services ───────────────────────────────────────────────────────────────────
 
 print_summary() {
-  head_ "Setup Complete"
-  echo -e "  ${GREEN}${BOLD}╔════════════════════════════════════════════════════════════╗${NC}"
-  echo -e "  ${GREEN}${BOLD}║  ✅ AI 3D Studio v6.0.0 is ready!                        ║${NC}"
-  echo -e "  ${GREEN}${BOLD}╚════════════════════════════════════════════════════════════╝${NC}"
-  echo
-  echo -e "  ${CYAN}Database :${NC}  PostgreSQL on localhost:5432"
-  echo -e "  ${CYAN}Cache    :${NC}  Redis on localhost:6379"
-  echo -e "  ${CYAN}Engine   :${NC}  ComfyUI + ComfyUI-3D-Pack on localhost:8188"
-  echo
-  echo -e "  ${CYAN}Setup complete!${NC} Services auto-start by default."
-  echo -e "    Re-run with ${GREEN}--no-start${NC} to skip and start manually:"
-  echo -e "    ${GREEN}bash scripts/start.sh${NC}"
-  echo
-  echo -e "  Services will start at:"
-  echo -e "    Frontend :  ${CYAN}http://localhost:3000${NC}"
-  echo -e "    Backend  :  ${CYAN}http://localhost:8000${NC}"
-  echo -e "    ComfyUI  :  ${CYAN}http://localhost:8188${NC}"
-  echo -e "    API Docs :  ${CYAN}http://localhost:8000/docs${NC}"
-  echo
-  if [[ "$GPU_AVAILABLE" == "true" ]]; then
-    echo -e "  ${GREEN}GPU Mode:${NC}  ${GPU_NAME}"
-  else
-    echo -e "  ${YELLOW}GPU Mode:${NC}  None — install NVIDIA GPU for AI inference"
-  fi
-  echo
-  echo -e "  ${CYAN}Storage  :${NC}  backend/storage/"
-  echo -e "  ${CYAN}Engine   :${NC}  ENGINE/ComfyUI/"
-  echo -e "  ${CYAN}Config   :${NC}  .env"
-  echo
-  echo -e "  ${BOLD}Command reference:${NC}"
-  echo -e "    Start services  : ${GREEN}bash scripts/start.sh${NC}"
-  echo -e "    Stop services   : ${GREEN}bash scripts/stop.sh${NC}"
-  echo -e "    Restart services: ${GREEN}bash scripts/restart.sh${NC}"
-  echo -e "    Manage services : ${GREEN}bash manager.sh${NC}"
-  echo -e "    Colab launcher  : ${GREEN}bash scripts/colab.sh${NC}"
-  echo
-  echo -e "  ${DIM}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo -e "  ${MAGENTA}${BOLD}🚀 Happy 3D generating!${NC}\n"
+   head_ "Setup Complete"
+   echo -e "  ${GREEN}${BOLD}╔════════════════════════════════════════════════════════════╗${NC}"
+   echo -e "  ${GREEN}${BOLD}║  ✅ AI 3D Studio v6.0.0 is ready!                        ║${NC}"
+   echo -e "  ${GREEN}${BOLD}╚════════════════════════════════════════════════════════════╝${NC}"
+   echo
+   echo -e "  ${CYAN}Cache    :${NC}  Redis on localhost:6379"
+   echo
+   echo -e "  ${CYAN}Setup complete!${NC} Services auto-start by default."
+   echo -e "    Re-run with ${GREEN}--no-start${NC} to skip and start manually:"
+   echo -e "    ${GREEN}bash scripts/start.sh${NC}"
+   echo
+   echo -e "  Services will start at:"
+   echo -e "    Frontend :  ${CYAN}http://localhost:3000${NC}"
+   echo -e "    Backend  :  ${CYAN}http://localhost:8000${NC}"
+   echo -e "    API Docs :  ${CYAN}http://localhost:8000/docs${NC}"
+   echo
+   if [[ "$GPU_AVAILABLE" == "true" ]]; then
+     echo -e "  ${GREEN}GPU Mode:${NC}  ${GPU_NAME}"
+   else
+     echo -e "  ${YELLOW}GPU Mode:${NC}  None — install NVIDIA GPU for AI inference"
+   fi
+   echo
+   echo -e "  ${CYAN}Storage  :${NC}  backend/storage/"
+   echo -e "  ${CYAN}Config   :${NC}  .env"
+   echo
+   echo -e "  ${BOLD}Command reference:${NC}"
+   echo -e "    Start services  : ${GREEN}bash scripts/start.sh${NC}"
+   echo -e "    Stop services   : ${GREEN}bash scripts/stop.sh${NC}"
+   echo -e "    Restart services: ${GREEN}bash scripts/restart.sh${NC}"
+   echo -e "    Manage services : ${GREEN}bash manager.sh${NC}"
+   echo -e "    Colab launcher  : ${GREEN}bash scripts/colab.sh${NC}"
+   echo
+   echo -e "  ${DIM}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+   echo -e "  ${MAGENTA}${BOLD}🚀 Happy 3D generating!${NC}\n"
 }
 
 # ── Entry point ────────────────────────────────────────────────────────────────
@@ -997,25 +938,24 @@ BANNER
     export CUDA_FORCE_VERSION="${CUDA_FORCE_VERSION:-124}"
   fi
 
-  # Critical steps — failure aborts setup
-  check_root
-  check_os
-  detect_gpu
-  install_system_deps    || { err "System dependency installation failed — aborting"; exit 1; }
-  if [[ "${ROOTLESS:-}" != "1" ]]; then
-    install_postgresql     || { err "PostgreSQL installation failed — aborting"; exit 1; }
-    install_redis          || { err "Redis installation failed — aborting"; exit 1; }
-  else
-    warn "Skipping PostgreSQL/Redis system install (user mode) — start.sh will use SQLite/broker fallbacks."
-  fi
-  install_cuda           || warn "CUDA install had issues — may use CPU fallback"
-  install_python         || { err "Python installation failed — aborting"; exit 1; }
-  install_uv             || { err "uv installation failed — aborting"; exit 1; }
-  install_node           || { err "Node.js installation failed — aborting"; exit 1; }
-  install_gltf_transform || warn "gltf-transform install skipped — mesh compression will fallback to passthrough"
+# Critical steps — failure aborts setup
+   check_root
+   check_os
+   detect_gpu
+   install_system_deps    || { err "System dependency installation failed — aborting"; exit 1; }
+   if [[ "${ROOTLESS:-}" != "1" ]]; then
+     install_redis          || { err "Redis installation failed — aborting"; exit 1; }
+   else
+     warn "Skipping Redis system install (user mode) — start.sh will use in-memory broker fallback."
+   fi
+   install_cuda           || warn "CUDA install had issues — may use CPU fallback"
+   install_python         || { err "Python installation failed — aborting"; exit 1; }
+   install_uv             || { err "uv installation failed — aborting"; exit 1; }
+   install_node           || { err "Node.js installation failed — aborting"; exit 1; }
+   install_gltf_transform || warn "gltf-transform install skipped — mesh compression will fallback to passthrough"
 
-  # Non-critical steps — warn but continue
-  install_blender        || warn "Blender install skipped — post-processing may be unavailable"
+   # Non-critical steps — warn but continue
+   install_blender        || warn "Blender install skipped — post-processing may be unavailable"
   
   # Headless Qt rendering for pymeshlab / PyQt apps on servers without a display.
   cat > /etc/profile.d/qt_offscreen.sh << 'QT_ENV'
@@ -1024,14 +964,13 @@ QT_ENV
   chmod +x /etc/profile.d/qt_offscreen.sh
   export QT_QPA_PLATFORM=offscreen
 
-  # Project setup
-  setup_folders
-  setup_env
-   install_python_deps    || { err "Python dependency installation failed — aborting"; exit 1; }
-   prepare_comfyui_engine || warn "ComfyUI engine setup had issues — check output above"
+# Project setup
+   setup_folders
+   setup_env
+    install_python_deps    || { err "Python dependency installation failed — aborting"; exit 1; }
 
-   # Non-critical project steps
-  install_frontend_deps  || warn "Frontend deps had issues — check Bun output above"
+    # Non-critical project steps
+   install_frontend_deps  || warn "Frontend deps had issues — check Bun output above"
   build_frontend || warn "Frontend build had issues — check Bun output above"
 
   # setup.sh runs as root; hand ownership back to the real user so that the

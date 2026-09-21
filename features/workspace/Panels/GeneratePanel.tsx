@@ -329,12 +329,9 @@ export const GeneratePanel: React.FC = () => {
   }, [activeModelId, supportsTexture]);
 
   const triggerPrewarm = (modelId: string) => {
+    // ponytail: the current 3DAIGC-API backend does not expose a /api/v1/runtime/prewarm
+    // endpoint. Prewarm is a no-op here; the scheduler loads models on demand.
     if (!modelId) return;
-    fetch('/api/v1/runtime/prewarm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: modelId }),
-    }).catch(() => {});
   };
 
   // HD Mesh Quality Enhancement state and handlers
@@ -542,16 +539,19 @@ export const GeneratePanel: React.FC = () => {
       startUpload(file.name, file.size);
       const formData = new FormData();
       formData.append('file', file);
-      const res = await getApiClient().post<{ url: string; width?: number; height?: number; filename?: string; size_bytes?: number }>(
+      const res = await getApiClient().post<{ file_id: string; filename?: string }>(
         '/api/v1/file-upload/image',
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' }, onUploadProgress: (progressEvent) => updateProgress(Math.round((progressEvent.loaded / (progressEvent.total || 1)) * 100)) }
       );
       finishUpload();
+      if (!res.file_id) throw new Error('Backend did not return a file ID for the uploaded image.');
+      const previewUrl = URL.createObjectURL(file);
       const cleanPrompt = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
       setGenerationSettings(prev => ({
         ...prev,
-        image: res.url,
+        image: previewUrl,
+        imageFileId: res.file_id,
         prompt: cleanPrompt,
         imageName: cleanPrompt,
       }));
@@ -581,20 +581,23 @@ export const GeneratePanel: React.FC = () => {
       startUpload(file.name, file.size);
       const formData = new FormData();
       formData.append('file', file);
-      const res = await getApiClient().post<{ url: string }>(
+      const res = await getApiClient().post<{ file_id: string }>(
         '/api/v1/file-upload/image',
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' }, onUploadProgress: (progressEvent) => updateProgress(Math.round((progressEvent.loaded / (progressEvent.total || 1)) * 100)) }
       );
       finishUpload();
+      if (!res.file_id) throw new Error('Backend did not return a file ID for the uploaded image.');
+      const previewUrl = URL.createObjectURL(file);
       const cleanPrompt = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
       setGenerationSettings(prev => ({
         ...prev,
         multiviewImages: {
           ...(prev.multiviewImages || {}),
-          [slot]: res.url,
+          [slot]: previewUrl,
         },
-        image: slot === 'front' || !prev.image ? res.url : prev.image,
+        image: slot === 'front' || !prev.image ? previewUrl : prev.image,
+        imageFileId: slot === 'front' || !prev.imageFileId ? res.file_id : prev.imageFileId,
         imageName: slot === 'front' || !prev.imageName ? cleanPrompt : prev.imageName,
         mode: 'image-to-3d',
       }));
@@ -805,18 +808,11 @@ export const GeneratePanel: React.FC = () => {
     }
     setIsEnhancing(true);
     try {
-      const res = await fetch('/api/v1/generation/enhance-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: currentPrompt }),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        const enhanced = json?.data?.enhanced_prompt;
-        if (enhanced) {
-          setGenerationSettings(prev => ({ ...prev, prompt: enhanced }));
-        }
-      }
+      // ponytail: the current 3DAIGC-API backend does not expose a prompt
+      // enhancement endpoint. Surface the limitation honestly instead of
+      // silently falling back to the obsolete /api/v1/generation route.
+      setNoticeMessage('Prompt enhancement is not available on the current backend.');
+      setTimeout(() => setNoticeMessage(null), 3500);
     } catch {
       // ignore
     } finally {

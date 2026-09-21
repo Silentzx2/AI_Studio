@@ -95,9 +95,6 @@ export const WorkspaceShell: React.FC = () => {
         } else if (e.key === '3') {
           e.preventDefault();
           navigateToMainNav('system');
-        } else if (e.key === '4') {
-          e.preventDefault();
-          router.push('/comfyui');
         } else if (e.key === ',') {
           e.preventDefault();
           router.push('/admin?tab=settings');

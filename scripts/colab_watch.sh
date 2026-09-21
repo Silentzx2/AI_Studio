@@ -116,7 +116,7 @@ stop_pid() {
             free_port 3000
             ;;
         api)
-            pkill -TERM -f "uvicorn app.main:app" 2>/dev/null || true
+            pkill -TERM -f "uvicorn api.main_singleworker:app" 2>/dev/null || true
             free_port 8000
             ;;
         comfyui)
@@ -298,14 +298,14 @@ start_api() {
         set -a
         [[ -f ../.env ]] && source ../.env
         set +a
-        exec "$PYTHON_BIN" -m uvicorn app.main:app \
+        exec "$PYTHON_BIN" -m uvicorn api.main_singleworker:app \
             --host "$API_HOST" \
             --port 8000 \
             --log-level info
     ) >> "${LOG_DIR}/api.log" 2>&1 &
     write_pid api "$!"
 
-    if wait_http "http://127.0.0.1:8000/api/v1/health" 60; then
+    if wait_http "http://127.0.0.1:8000/health" 60; then
         log "FastAPI healthy (PID $(pid_of api))"
         return 0
     fi
@@ -376,7 +376,7 @@ api_healthy() {
     local pid
     pid="$(pid_of api)"
     [[ "$pid" =~ ^[0-9]+$ ]] && pid_alive "$pid" || return 1
-    curl -fsS --max-time 10 "http://127.0.0.1:8000/api/v1/health" >/dev/null 2>&1
+    curl -fsS --max-time 10 "http://127.0.0.1:8000/health" >/dev/null 2>&1
 }
 
 frontend_healthy() {

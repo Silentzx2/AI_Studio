@@ -5,8 +5,8 @@
 # For Google Colab, use: bash scripts/colab_start.sh OR bash scripts/colab.sh --start
 #
 # AI 3D Studio v4.0 — Startup Script (Non-Docker VPS)
-# Starts all services natively:
-#   PostgreSQL → Redis → ComfyUI Engine → Backend API → Frontend
+   # Starts all services natively:
+   #   Redis → Backend API → Frontend
 # ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
@@ -430,162 +430,68 @@ for lock in glob.glob(os.path.join(tp, "*", ".installing.lock")):
             pass
 PYEOF
 # ── Service PIDs ───────────────────────────────────────────────────────────
-API_PID_FILE="$PID_DIR/api.pid"
-COMFYUI_PID_FILE="$PID_DIR/comfyui.pid"
-FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
+   API_PID_FILE="$PID_DIR/api.pid"
+   FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
 
-# ── Helper: Kill by PID file ──────────────────────────────────────────────
-kill_by_pid_file() {
-    local pid_file=$1
-    if [[ -f "$pid_file" ]]; then
-        local pid=$(cat "$pid_file" 2>/dev/null || echo "")
-        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-            kill "$pid" 2>/dev/null || true
-            # Wait for process to die (with timeout)
-            local count=0
-            while kill -0 "$pid" 2>/dev/null && [[ $count -lt 10 ]]; do
-                sleep 1
-                count=$((count + 1))
-            done
-            # Force kill if still alive
-            if kill -0 "$pid" 2>/dev/null; then
-                kill -KILL "$pid" 2>/dev/null || true
-                sleep 1
-            fi
-            rm -f "$pid_file"
-        fi
-    fi
-}
+   # ── Helper: Kill by PID file ──────────────────────────────────────────────
+   kill_by_pid_file() {
+       local pid_file=$1
+       if [[ -f "$pid_file" ]]; then
+           local pid=$(cat "$pid_file" 2>/dev/null || echo "")
+           if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+               kill "$pid" 2>/dev/null || true
+               # Wait for process to die (with timeout)
+               local count=0
+               while kill -0 "$pid" 2>/dev/null && [[ $count -lt 10 ]]; do
+                   sleep 1
+                   count=$((count + 1))
+               done
+               # Force kill if still alive
+               if kill -0 "$pid" 2>/dev/null; then
+                   kill -KILL "$pid" 2>/dev/null || true
+                   sleep 1
+               fi
+               rm -f "$pid_file"
+           fi
+       fi
+   }
 
-# ── Banner ─────────────────────────────────────────────────────────────────
-print_banner
+   # ── Banner ─────────────────────────────────────────────────────────────────
+   print_banner
 
-# ── Step 1: Verify PostgreSQL ──────────────────────────────────────────────
-step "1/6 Checking PostgreSQL..."
+   # ── Step 1: Verify Redis ───────────────────────────────────────────────────
+   step "1/5 Checking Redis..."
+   if command -v systemctl &>/dev/null && ! systemctl is-active --quiet redis-server; then
+       info "Starting Redis..."
+       sudo systemctl start redis-server || {
+           warn "Failed to start Redis — will configure in-memory broker fallback"
+       }
+   fi
 
-# Extract DB credentials from .env if available
-_DB_USER="${POSTGRES_USER:-ai_studio}"
-_DB_PASS="${POSTGRES_PASSWORD:-ai_studio_dev}"
-_DB_HOST="${POSTGRES_HOST:-localhost}"
-_DB_PORT="${POSTGRES_PORT:-5432}"
-_DB_NAME="${POSTGRES_DB:-ai_studio}"
+   if ! redis-cli ping &>/dev/null; then
+       warn "Redis not responding — backend will use in-memory caching"
+   else
+       log "Redis ready"
+   fi
+   echo ""
 
-# Try to parse DATABASE_URL if set
-if [[ -n "${DATABASE_URL:-}" ]]; then
-  _DB_URL_PARSE="$(python3 -c "
-import sys
-from urllib.parse import urlparse
-u = urlparse(sys.argv[1])
-if u.username: print(u.username)
-if u.password: print(u.password)
-if u.hostname: print(u.hostname)
-if u.port: print(u.port)
-" "$DATABASE_URL" 2>/dev/null)"
-  if [[ -n "$_DB_URL_PARSE" ]]; then
-    mapfile -t _DB_PARTS <<< "$_DB_URL_PARSE"
-    _DB_USER="${_DB_PARTS[0]:-$_DB_USER}"
-    _DB_PASS="${_DB_PARTS[1]:-$_DB_PASS}"
-    _DB_HOST="${_DB_PARTS[2]:-$_DB_HOST}"
-    _DB_PORT="${_DB_PARTS[3]:-$_DB_PORT}"
-  fi
-fi
+   # ── Step 2: Verify Database Schema ───────────────────────────────────────
+   step "2/5 Verifying database schema..."
+   (
+       cd backend
+       $PYTHON_BIN -c "
+   import asyncio
+   from app.database import engine, Base
+   import app.models
 
-# Start PostgreSQL if not running
-if ! pg_isready -h "$_DB_HOST" -p "$_DB_PORT" &>/dev/null; then
-  info "Starting PostgreSQL..."
-  if command -v systemctl &>/dev/null; then
-    sudo systemctl start postgresql 2>/dev/null || true
-  fi
-  # Try direct start if systemctl failed or unavailable
-  if ! pg_isready -h "$_DB_HOST" -p "$_DB_PORT" &>/dev/null; then
-    sudo service postgresql start 2>/dev/null || sudo pg_ctlcluster $(ls /etc/postgresql/ 2>/dev/null | head -1) main start 2>/dev/null || true
-  fi
-  sleep 2
-fi
+   async def init():
+       async with engine.begin() as conn:
+           await conn.run_sync(Base.metadata.create_all)
 
-# Ensure ai_studio user exists (connect as postgres first)
-if pg_isready -h "$_DB_HOST" -p "$_DB_PORT" &>/dev/null; then
-  # Try to create user as postgres (trust auth for local socket)
-  sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$_DB_USER'" 2>/dev/null | grep -q 1 || {
-    info "Creating PostgreSQL user '$_DB_USER'..."
-    sudo -u postgres psql -c "CREATE USER $_DB_USER WITH PASSWORD '$_DB_PASS';" 2>/dev/null || true
-  }
-  # Ensure password is correct
-  sudo -u postgres psql -c "ALTER USER $_DB_USER WITH PASSWORD '$_DB_PASS';" 2>/dev/null || true
-  # Ensure pg_hba.conf allows md5 auth for ai_studio
-  _PG_HBA="$(sudo -u postgres psql -t -c "SHOW hba_file;" 2>/dev/null | xargs)"
-  if [[ -f "${_PG_HBA:-}" ]]; then
-    if ! grep -q "host.*$_DB_USER.*127.0.0.1/32.*md5" "$_PG_HBA" 2>/dev/null; then
-      echo "host $_DB_USER $_DB_USER 127.0.0.1/32 md5" | sudo tee -a "$_PG_HBA" > /dev/null 2>&1 || true
-      echo "host $_DB_USER $_DB_USER ::1/128 md5" | sudo tee -a "$_PG_HBA" > /dev/null 2>&1 || true
-      sudo service postgresql reload 2>/dev/null || true
-    fi
-  fi
-fi
-
-_PG_READY=false
-if pg_isready -h "$_DB_HOST" -p "$_DB_PORT" &>/dev/null; then
-  if PGPASSWORD="$_DB_PASS" psql -h "$_DB_HOST" -p "$_DB_PORT" -U "$_DB_USER" -d postgres -c "SELECT 1;" &>/dev/null; then
-    _PG_READY=true
-    log "PostgreSQL authentication successful (user=$_DB_USER, host=$_DB_HOST)"
-  else
-    warn "PostgreSQL is running but authentication failed for user '$_DB_USER'@$_DB_HOST"
-  fi
-else
-  warn "PostgreSQL not responding at $_DB_HOST:$_DB_PORT"
-fi
-
-# Create database if it doesn't exist (only when PostgreSQL is ready)
-if [[ "$_PG_READY" == "true" ]]; then
-  # Validate database name to prevent SQL injection
-  if [[ ! "$_DB_NAME" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
-    err "Invalid database name '$_DB_NAME' — must match [a-zA-Z_][a-zA-Z0-9_]*"
-    exit 1
-  fi
-  # Create database if it doesn't exist (run as postgres — ai_studio can't create DBs)
-  if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$_DB_NAME'" 2>/dev/null | grep -q 1; then
-    info "Creating database '$_DB_NAME'..."
-    sudo -u postgres psql -c "CREATE DATABASE $_DB_NAME OWNER $_DB_USER;" 2>/dev/null || true
-  fi
-  # Grant permissions
-  sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $_DB_NAME TO $_DB_USER;" 2>/dev/null || true
-  log "PostgreSQL ready (user=$_DB_USER, db=$_DB_NAME)"
-fi
-echo ""
-
-# ── Step 2: Verify Redis ───────────────────────────────────────────────────
-step "2/6 Checking Redis..."
-if command -v systemctl &>/dev/null && ! systemctl is-active --quiet redis-server; then
-    info "Starting Redis..."
-    sudo systemctl start redis-server || {
-        warn "Failed to start Redis — will configure in-memory broker fallback"
-    }
-fi
-
-if ! redis-cli ping &>/dev/null; then
-    warn "Redis not responding — backend will use in-memory caching"
-else
-    log "Redis ready"
-fi
-echo ""
-
-# ── Step 3: Verify Database Schema ───────────────────────────────────────
-step "3/6 Verifying database schema..."
-(
-    cd backend
-    $PYTHON_BIN -c "
-import asyncio
-from app.database import engine, Base
-import app.models
-
-async def init():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-asyncio.run(init())
-" 2>/dev/null && log "Database schema ready" || warn "Database verification warning"
-)
-echo ""
+   asyncio.run(init())
+   " 2>/dev/null && log "Database schema ready" || warn "Database verification warning"
+   )
+   echo ""
 
 # ── Clean up Python bytecode caches (__pycache__ / *.pyc) ─────────
 info "Cleaning Python bytecode caches..."
@@ -593,55 +499,24 @@ find "${PROJECT_ROOT}/backend" -type d -name "__pycache__" -exec rm -rf {} + 2>/
 find "${PROJECT_ROOT}/backend" -type f -name "*.py[co]" -delete 2>/dev/null || true
 log "Bytecode caches cleaned"
 
-# ── Step 4: Start ComfyUI Execution Engine ────────────────────────────────
-step "4/6 Starting ComfyUI Execution Engine (http://localhost:8188)..."
-: > "$PROJECT_ROOT/logs/comfyui.log"
-if ! curl -sf http://127.0.0.1:8188/system_stats &>/dev/null; then
-    COMFY_ARGS="--listen 0.0.0.0 --port 8188 --enable-cors-header * --enable-compress-response-body --mmap-torch-files"
-    if ! command -v nvidia-smi &>/dev/null || ! nvidia-smi &>/dev/null; then
-        COMFY_ARGS="$COMFY_ARGS --cpu --use-split-cross-attention"
-    else
-        COMFY_ARGS="$COMFY_ARGS --async-offload 2"
-    fi
-    (
-        cd "$PROJECT_ROOT"
-        setsid $PYTHON_BIN ENGINE/ComfyUI/main.py $COMFY_ARGS \
-            >> "$PROJECT_ROOT/logs/comfyui.log" 2>&1 &
-        write_pid "$COMFYUI_PID_FILE" $!
-    )
-    log "ComfyUI started (PID: $(cat "$COMFYUI_PID_FILE" 2>/dev/null || echo 'unknown'))"
-    info "Waiting for ComfyUI to be ready (timeout: 60s)..."
-    for i in {1..30}; do
-        if curl -sf http://127.0.0.1:8188/system_stats &>/dev/null; then
-            log "ComfyUI is ready"
-            break
-        fi
-        echo -n "."
-        sleep 2
-    done
-    echo ""
-else
-    log "ComfyUI already running"
-fi
-
-# ── Step 5: Start Backend API ──────────────────────────────────────────────
-step "5/6 Starting Backend API (http://localhost:8000)..."
-: > "$PROJECT_ROOT/logs/api.log"
-(
-    cd backend
-    setsid $PYTHON_BIN -m uvicorn app.main:app \
-        --host 0.0.0.0 \
-        --port 8000 \
-        --log-level info \
-        >> "$PROJECT_ROOT/logs/api.log" 2>&1 &
-    write_pid "$API_PID_FILE" $!
-)
-log "Backend API started (PID: $(cat $API_PID_FILE))"
+# ── Step 3: Start Backend API ──────────────────────────────────────────────
+   step "3/4 Starting Backend API (http://localhost:8000)..."
+   : > "$PROJECT_ROOT/logs/api.log"
+   (
+       cd backend
+       setsid $PYTHON_BIN -m uvicorn api.main_singleworker:app \
+           --host 0.0.0.0 \
+           --port 8000 \
+           --log-level info \
+           >> "$PROJECT_ROOT/logs/api.log" 2>&1 &
+       write_pid "$API_PID_FILE" $!
+   )
+   log "Backend API started (PID: $(cat $API_PID_FILE))"
 
 # Wait for API to be ready
 info "Waiting for API to be healthy (timeout: 60s)..."
 for i in {1..30}; do
-    if curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
+    if curl -sf http://localhost:8000/health &>/dev/null; then
         log "API is healthy"
         break
     fi
@@ -655,7 +530,7 @@ echo ""
 echo ""
 
 # Fail loudly if the API never came up (don't leave a half-started stack).
-if ! curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
+if ! curl -sf http://localhost:8000/health &>/dev/null; then
     err "Backend API failed to become healthy. See logs/api.log"
     if [[ -f "$API_PID_FILE" ]]; then
         kill "$(cat "$API_PID_FILE")" 2>/dev/null || true
@@ -673,8 +548,8 @@ if [[ -z "${DISPLAY:-}" ]] && command -v Xvfb &>/dev/null; then
 fi
 export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
 
-# ── Step 6: Start Frontend ────────────────────────────────────────────────
-step "6/6 Starting Frontend  — http://localhost:3000..."
+# ── Step 4: Start Frontend ────────────────────────────────────────────────
+   step "4/4 Starting Frontend  — http://localhost:3000..."
 
 # Install deps if needed
 if [[ ! -d node_modules ]] || [[ ! -d node_modules/next ]]; then
@@ -707,15 +582,13 @@ echo -e "${GREEN}║${NC}  ${GREEN}✅ All Services Started${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${BOLD}Endpoints:${NC}
-    ${GRAY}├─${NC} Frontend       ${CYAN}http://localhost:3000${NC}
-    ${GRAY}├─${NC} Backend API    ${CYAN}http://localhost:8000${NC}
-    ${GRAY}├─${NC} ComfyUI Engine ${CYAN}http://localhost:8188${NC}
-    ${GRAY}└─${NC} API Docs       ${CYAN}http://localhost:8000/docs${NC}
+       ${GRAY}├─${NC} Frontend       ${CYAN}http://localhost:3000${NC}
+       ${GRAY}├─${NC} Backend API    ${CYAN}http://localhost:8000${NC}
+       ${GRAY}└─${NC} API Docs       ${CYAN}http://localhost:8000/docs${NC}"
 
-  ${BOLD}Logs:${NC}
-    ${GRAY}├─${NC} API      ${CYAN}logs/api.log${NC}
-    ${GRAY}├─${NC} ComfyUI  ${CYAN}logs/comfyui.log${NC}
-    ${GRAY}└─${NC} Frontend ${CYAN}logs/frontend.log${NC}
+   echo -e "  ${BOLD}Logs:${NC}
+       ${GRAY}├─${NC} API      ${CYAN}logs/api.log${NC}
+       ${GRAY}└─${NC} Frontend ${CYAN}logs/frontend.log${NC}"
 
-  ${BOLD}Stop services:${NC} ${GREEN}bash scripts/stop.sh${NC}"
-echo ""
+   echo -e "  ${BOLD}Stop services:${NC} ${GREEN}bash scripts/stop.sh${NC}"
+   echo ""

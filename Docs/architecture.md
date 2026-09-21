@@ -54,7 +54,6 @@ flowchart TB
     subgraph OPT["Optional Services"]
         direction TB
         REDIS["Redis 7 :6379<br/>Multi-Worker Queue"]:::db
-        POSTGRES["PostgreSQL 16 :5432<br/>Jobs & Metadata (optional)"]:::db
     end
 
     LAYER -->|"REST / SSE / WS"| GW
@@ -198,7 +197,7 @@ The setup script installs:
 - Python 3.12 + uv + PyTorch (GPU or CPU wheels)
 - Backend Python dependencies (from `backend/requirements.txt`)
 - Node.js 20 + Bun
-- Optional: PostgreSQL 16 + Redis 7
+- Optional: Redis 7
 
 ### 6.2 Startup (`scripts/start.sh` / `manager.sh`)
 

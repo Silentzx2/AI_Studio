@@ -203,21 +203,14 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
               active: mainNav === 'assets',
               onClick: () => navigateToMain('assets'),
             },
-            {
-              id: 'system',
-              domId: 'nav-link-system',
-              label: 'System',
-              active: mainNav === 'system',
-              onClick: () => navigateToMain('system'),
-            },
-            {
-              id: 'comfyui',
-              domId: 'nav-link-comfyui',
-              label: 'ComfyUI',
-              active: pathname === '/comfyui',
-              onClick: () => router.push('/comfyui'),
-            },
-          ].map((item) => (
+{
+               id: 'system',
+               domId: 'nav-link-system',
+               label: 'System',
+               active: mainNav === 'system',
+               onClick: () => navigateToMain('system'),
+             },
+           ].map((item) => (
             <button
               key={item.id}
               id={item.domId}

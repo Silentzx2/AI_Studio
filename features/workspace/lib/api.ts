@@ -65,7 +65,7 @@ class ApiClient {
       const [sysRes, gpuRes, runtimeRes] = await Promise.allSettled([
         dedupedGet<Record<string, unknown>>('/api/v1/system/info'),
         dedupedGet<Record<string, unknown>>('/api/v1/system/gpu'),
-        dedupedGet<Record<string, unknown>>('/api/v1/runtime/status'),
+        dedupedGet<Record<string, unknown>>('/api/v1/system/scheduler-status'),
       ]);
 
       const latency = Math.round(performance.now() - start);

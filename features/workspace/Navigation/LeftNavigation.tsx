@@ -56,10 +56,9 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
     onToolSelect?.();
   };
 
-  const isActive = (tool: ToolType) => mainNav === 'workspace' && activeTool === tool;
-  const isOverviewActive = mainNav === 'dashboard';
-  const isAssetsActive = mainNav === 'assets';
-  const isComfyActive = pathname === '/comfyui';
+const isActive = (tool: ToolType) => mainNav === 'workspace' && activeTool === tool;
+   const isOverviewActive = mainNav === 'dashboard';
+   const isAssetsActive = mainNav === 'assets';
 
   // Check if a specific tool is running a background generation
   const isModelExecuting = isExecuting && (activeTask?.type === 'image-to-3d' || activeTask?.type === 'text-to-3d' || !activeTask?.type);
@@ -139,18 +138,6 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
       icon: FolderOpen,
       active: isAssetsActive,
       onClick: () => handleMainNavClick('assets'),
-    },
-    {
-      id: 'tool-btn-comfyui',
-      label: 'ComfyUI',
-      tooltip: 'ComfyUI Node Graph Studio • ⌘4',
-      shortcut: '⌘4',
-      icon: Cpu,
-      active: isComfyActive,
-      onClick: () => {
-        router.push('/comfyui');
-        onToolSelect?.();
-      },
     },
   ];
 

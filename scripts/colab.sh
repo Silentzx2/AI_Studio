@@ -422,7 +422,7 @@ colab_stop_services() {
 
     info "Stopping Backend API..."
     kill_by_pid_file "$PID_DIR/api.pid"
-    pkill -TERM -f "uvicorn app.main:app" 2>/dev/null || true
+    pkill -TERM -f "uvicorn api.main_singleworker:app" 2>/dev/null || true
     free_port 8000
     log "Backend API stopped"
 
@@ -472,7 +472,7 @@ _colab_show_status() {
     echo ""
     echo -e "${CYAN}Service Status:${NC}"
     curl -sf http://127.0.0.1:8188/system_stats >/dev/null 2>&1 && echo -e "  ${GREEN}●${NC} ComfyUI Engine       (port 8188)" || echo -e "  ${RED}●${NC} ComfyUI Engine       (port 8188)"
-    curl -sf http://127.0.0.1:8000/api/v1/health >/dev/null 2>&1 && echo -e "  ${GREEN}●${NC} Backend API          (port 8000)" || echo -e "  ${RED}●${NC} Backend API          (port 8000)"
+    curl -sf http://127.0.0.1:8000/health >/dev/null 2>&1 && echo -e "  ${GREEN}●${NC} Backend API          (port 8000)" || echo -e "  ${RED}●${NC} Backend API          (port 8000)"
     curl -sf http://127.0.0.1:3000/ >/dev/null 2>&1 && echo -e "  ${GREEN}●${NC} Frontend             (port 3000)" || echo -e "  ${RED}●${NC} Frontend             (port 3000)"
     if command -v pg_isready &>/dev/null && pg_isready -q 2>/dev/null; then
         echo -e "  ${GREEN}●${NC} PostgreSQL           (port 5432)"
@@ -685,7 +685,7 @@ asyncio.run(init())
     (
         cd backend
         set -a; [[ -f ../.env ]] && source ../.env; set +a
-        nohup "$PYTHON_BIN" -m uvicorn app.main:app \
+        nohup "$PYTHON_BIN" -m uvicorn api.main_singleworker:app \
             --host 0.0.0.0 \
             --port 8000 \
             --log-level info \
@@ -715,7 +715,7 @@ asyncio.run(init())
     # Verification loop
     info "Verifying service health..."
     for i in {1..30}; do
-        if curl -sf http://127.0.0.1:8000/api/v1/health &>/dev/null && \
+        if curl -sf http://127.0.0.1:8000/health &>/dev/null && \
            curl -sf http://127.0.0.1:8188/system_stats &>/dev/null && \
            curl -sf http://127.0.0.1:3000/ &>/dev/null; then
             log "All core services healthy and serving traffic!"

@@ -231,6 +231,7 @@ export interface AutoOptimizeSettings {
 export interface GenerationSettings {
   mode: 'image-to-3d' | 'text-to-3d';
   image: string | null;
+  imageFileId?: string | null;
   aiModel: string;
   meshQuality: 'low' | 'medium' | 'high' | 'ultra';
   textureQuality: 'low' | 'medium' | 'high' | '8k';

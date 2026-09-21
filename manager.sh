@@ -72,24 +72,9 @@ _status() {
         && echo -e "${GREEN}●${NC} Backend API" \
         || echo -e "${RED}●${NC} Backend API"
 
-    [[ -f "$PID_DIR/comfyui.pid" ]] && kill -0 "$(cat "$PID_DIR/comfyui.pid")" 2>/dev/null \
-        && echo -e "${GREEN}●${NC} ComfyUI Engine" \
-        || echo -e "${RED}●${NC} ComfyUI Engine"
-
     [[ -f "$PID_DIR/frontend.pid" ]] && kill -0 "$(cat "$PID_DIR/frontend.pid")" 2>/dev/null \
         && echo -e "${GREEN}●${NC} Frontend" \
         || echo -e "${RED}●${NC} Frontend"
-
-    # PostgreSQL — check via pg_isready (works without systemctl)
-    if command -v pg_isready &>/dev/null; then
-        pg_isready -q 2>/dev/null \
-            && echo -e "${GREEN}●${NC} PostgreSQL" \
-            || echo -e "${RED}●${NC} PostgreSQL"
-    elif systemctl is-active --quiet postgresql 2>/dev/null; then
-        echo -e "${GREEN}●${NC} PostgreSQL"
-    else
-        echo -e "${RED}●${NC} PostgreSQL"
-    fi
 
     # Redis — check via redis-cli ping (works without systemctl)
     if command -v redis-cli &>/dev/null; then
@@ -137,9 +122,8 @@ cmd_logs() {
     echo ""
     echo "Choose a service:"
     echo "  1) API (backend)"
-    echo "  2) ComfyUI Engine"
-    echo "  3) Frontend"
-    echo "  4) All logs (follow)"
+    echo "  2) Frontend"
+    echo "  3) All logs (follow)"
     echo "  b) Back"
     echo ""
     read -rp "Choice: " choice
@@ -154,14 +138,6 @@ cmd_logs() {
             fi
             ;;
         2)
-            if [[ -f logs/comfyui.log ]]; then
-                echo -e "${GRAY}(Press Ctrl+C to stop following logs and return)${NC}"
-                tail -n 50 -f logs/comfyui.log || true
-            else
-                echo -e "${YELLOW}ComfyUI log not found${NC}"
-            fi
-            ;;
-        3)
             if [[ -f logs/frontend.log ]]; then
                 echo -e "${GRAY}(Press Ctrl+C to stop following logs and return)${NC}"
                 tail -n 50 -f logs/frontend.log || true
@@ -169,7 +145,7 @@ cmd_logs() {
                 echo -e "${YELLOW}Frontend log not found${NC}"
             fi
             ;;
-        4)
+        3)
             echo -e "${GRAY}(Press Ctrl+C to stop following logs and return)${NC}"
             tail -n 50 -f logs/*.log 2>/dev/null || echo "No logs found"
             ;;
@@ -182,37 +158,30 @@ cmd_health_check() {
     banner
     echo -e "${CYAN}Health Check${NC}"
     echo ""
-    
-    echo -e "${BOLD}--- PostgreSQL ---${NC}"
-    if pg_isready -h localhost -U postgres &>/dev/null; then
-        echo -e "  ${GREEN}✓${NC} PostgreSQL running"
-    else
-        echo -e "  ${RED}✗${NC} PostgreSQL not responding"
-    fi
-    
+
     echo -e "${BOLD}--- Redis ---${NC}"
     if redis-cli ping &>/dev/null 2>&1; then
         echo -e "  ${GREEN}✓${NC} Redis running"
     else
         echo -e "  ${RED}✗${NC} Redis not responding"
     fi
-    
+
     echo -e "${BOLD}--- Backend API ---${NC}"
-    if curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
+    if curl -sf http://localhost:8000/health &>/dev/null; then
         echo -e "  ${GREEN}✓${NC} API reachable"
-        HEALTH=$(curl -s http://localhost:8000/api/v1/health 2>/dev/null || echo "{}")
+        HEALTH=$(curl -s http://localhost:8000/health 2>/dev/null || echo "{}")
         echo "  Response: $HEALTH"
     else
         echo -e "  ${RED}✗${NC} API not responding"
     fi
-    
+
     echo -e "${BOLD}--- Frontend ---${NC}"
     if curl -sf http://localhost:3000 &>/dev/null; then
         echo -e "  ${GREEN}✓${NC} Frontend reachable"
     else
         echo -e "  ${RED}✗${NC} Frontend not responding"
     fi
-    
+
     echo -e "${BOLD}--- GPU ---${NC}"
     if command -v nvidia-smi >/dev/null 2>&1; then
         nvidia-smi --query-gpu=name,driver_version,memory.total,memory.free \
@@ -222,7 +191,7 @@ cmd_health_check() {
     else
         echo -e "  ${YELLOW}⚠${NC} nvidia-smi not available"
     fi
-    
+
     echo ""
     read -rp "Press Enter to continue..."
 }
@@ -248,47 +217,8 @@ cmd_database() {
     banner
     echo -e "${CYAN}Database Management${NC}"
     echo ""
-    echo "Choose an option:"
-    echo "  1) Run migrations"
-    echo "  2) Reset database"
-    echo "  b) Back"
-    echo ""
-    read -rp "Choice: " choice
-    echo ""
-    case "$choice" in
-        1)
-            echo "Running migrations..."
-            cd backend
-            backend/.venv/bin/python -m alembic upgrade head
-            cd ..
-            echo -e "${GREEN}Migrations complete${NC}"
-            ;;
-        2)
-            echo -e "${RED}WARNING: This will delete all data!${NC}"
-            read -rp "Type 'reset' to confirm: " confirm
-            if [[ "$confirm" == "reset" ]]; then
-                echo "Dropping and recreating database..."
-                # shellcheck disable=SC1091
-                set -a; source .env 2>/dev/null || true; set +a
-                _DB_PASS="${POSTGRES_PASSWORD:-postgres}"
-                if [[ -n "${DATABASE_URL:-}" ]]; then
-                    _DB_PASS="$(echo "$DATABASE_URL" | sed -n 's|^postgresql[+]*://[^:]*:\([^@]*\)@.*$|\1|p')"
-                    [[ -z "$_DB_PASS" ]] && _DB_PASS="postgres"
-                fi
-                PGPASSWORD="$_DB_PASS" psql -h localhost -U postgres -c "DROP DATABASE IF EXISTS ai_studio;"
-                PGPASSWORD="$_DB_PASS" psql -h localhost -U postgres -c "CREATE DATABASE ai_studio;"
-                echo "Running migrations..."
-                cd backend
-                backend/.venv/bin/python -m alembic upgrade head
-                cd ..
-                echo -e "${GREEN}Database reset complete${NC}"
-            else
-                echo "Cancelled"
-            fi
-            ;;
-        b|B) return ;;
-        *) echo -e "${RED}Invalid choice${NC}" ;;
-    esac
+    echo -e "  ${YELLOW}PostgreSQL is not used by the current backend architecture.${NC}"
+    echo -e "  ${GRAY}Job state is stored in-memory (single-worker) or Redis FileStore (multi-worker).${NC}"
     echo ""
     read -rp "Press Enter to continue..."
 }
@@ -363,10 +293,9 @@ cmd_clean() {
         echo -e "${BOLD}${MAGENTA}  ╔════════════════════════════════════════════════════════╗${NC}"
         echo -e "${BOLD}${MAGENTA}  ║${NC}             ${BOLD}${WHITE}Clean Environments & Data${NC}                  ${MAGENTA}║${NC}"
         echo -e "${BOLD}${MAGENTA}  ╠════════════════════════════════════════════════════════╣${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[1]${NC}  Standard Clean (Caches, Logs, PIDs, .next)      ${BOLD}${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[2]${NC}  Dependencies Clean (.venv + node_modules)       ${BOLD}${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[3]${NC}  Engine Clean (ENGINE/ComfyUI + 3D Pack)         ${BOLD}${MAGENTA}║${NC}"
-        echo -e "${BOLD}${MAGENTA}  ║${NC}  ${RED}[4]${NC}  Full Factory Reset (WIPE ALL generated data)   ${BOLD}${MAGENTA}║${NC}"
+echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[1]${NC}  Standard Clean (Caches, Logs, PIDs, .next)      ${BOLD}${MAGENTA}║${NC}"
+    echo -e "${BOLD}${MAGENTA}  ║${NC}  ${CYAN}[2]${NC}  Dependencies Clean (.venv + node_modules)       ${BOLD}${MAGENTA}║${NC}"
+    echo -e "${BOLD}${MAGENTA}  ║${NC}  ${RED}[3]${NC}  Full Factory Reset (WIPE ALL generated data)   ${BOLD}${MAGENTA}║${NC}"
         echo -e "${BOLD}${MAGENTA}  ╠════════════════════════════════════════════════════════╣${NC}"
         echo -e "${BOLD}${MAGENTA}  ║${NC}  ${GRAY}[b]${NC}  Back to main menu                               ${BOLD}${MAGENTA}║${NC}"
         echo -e "${BOLD}${MAGENTA}  ╚════════════════════════════════════════════════════════╝${NC}"
@@ -399,22 +328,10 @@ cmd_clean() {
                 read -rp "Press Enter to continue..." || true
                 ;;
             3)
-                head_ "Removing ComfyUI Engine & 3D Pack..."
-                echo -e "  ${CYAN}Stopping ComfyUI if running...${NC}"
-                pkill -f "ENGINE/ComfyUI" 2>/dev/null || true
-                free_port 8188 2>/dev/null || true
-                echo -e "  ${CYAN}Deleting ENGINE/ directory and temporary clones...${NC}"
-                rm -rf ENGINE 2>/dev/null || true
-                echo -e "  ${GREEN}✔${NC} ENGINE/ComfyUI and ComfyUI-3D-Pack completely removed"
-                echo ""
-                read -rp "Press Enter to continue..." || true
-                ;;
-            4)
                 head_ "FULL FACTORY RESET"
                 echo -e "${YELLOW}WARNING: This will completely delete ALL installed components:${NC}"
                 echo -e "  ${RED}•${NC} Backend virtual environment (backend/.venv)"
                 echo -e "  ${RED}•${NC} Frontend dependencies (node_modules) and build (.next)"
-                echo -e "  ${RED}•${NC} Entire Execution Engine (ENGINE/ComfyUI + ComfyUI-3D-Pack)"
                 echo -e "  ${RED}•${NC} Prebuilt CUDA wheels (.wheels/)"
                 echo -e "  ${RED}•${NC} All logs, PID files, and Cloudflare tunnel credentials"
                 echo -e "  ${RED}•${NC} All Python bytecode (__pycache__) and pytest caches"
@@ -425,13 +342,11 @@ cmd_clean() {
                 if [[ "$confirm_reset" == "RESET" ]]; then
                     echo -e "\n  ${CYAN}Stopping all services...${NC}"
                     bash scripts/stop.sh 2>/dev/null || true
-                    pkill -f "ENGINE/ComfyUI" 2>/dev/null || true
                     pkill -f "cloudflared" 2>/dev/null || true
-                    echo -e "  ${CYAN}Wiping environments, engine, dependencies, and caches...${NC}"
+                    echo -e "  ${CYAN}Wiping environments, dependencies, and caches...${NC}"
                     rm -rf backend/.venv \
                            node_modules \
                            .next \
-                           ENGINE \
                            .wheels \
                            .pids \
                            logs/*.log \
@@ -468,21 +383,17 @@ cmd_service() {
     echo ""
     echo "Select a service to manage:"
     echo "  1) Backend API"
-    echo "  2) ComfyUI Engine"
-    echo "  3) Frontend"
-    echo "  4) PostgreSQL"
-    echo "  5) Redis"
+    echo "  2) Frontend"
+    echo "  3) Redis"
     echo "  b) Back to main menu"
     echo ""
     read -rp "Service choice: " svc_choice
     echo ""
 
     case "$svc_choice" in
-        1) _service_submenu "api" "Backend API" "uvicorn app.main:app" "cd backend && source .venv/bin/activate && setsid python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info > ../logs/api.log 2>&1 &" "$PID_DIR/api.pid" ;;
-        2) _service_submenu "comfyui" "ComfyUI Engine" "ENGINE/ComfyUI/main.py" "setsid backend/.venv/bin/python ENGINE/ComfyUI/main.py --listen 0.0.0.0 --port 8188 --enable-compress-response-body --mmap-torch-files --cpu --use-split-cross-attention > logs/comfyui.log 2>&1 &" "$PID_DIR/comfyui.pid" ;;
-        3) _service_submenu "frontend" "Frontend" "next" "NEXT_PUBLIC_API_URL=http://localhost:8000 bun start > logs/frontend.log 2>&1 &" "$PID_DIR/frontend.pid" ;;
-        4) _systemd_service_submenu "postgresql" "PostgreSQL" ;;
-        5) _systemd_service_submenu "redis-server" "Redis" ;;
+        1) _service_submenu "api" "Backend API" "uvicorn api.main_singleworker:app" "cd backend && source .venv/bin/activate && setsid python -m uvicorn api.main_singleworker:app --host 0.0.0.0 --port 8000 --log-level info > ../logs/api.log 2>&1 &" "$PID_DIR/api.pid" ;;
+        2) _service_submenu "frontend" "Frontend" "next" "NEXT_PUBLIC_API_URL=http://localhost:8000 bun start > logs/frontend.log 2>&1 &" "$PID_DIR/frontend.pid" ;;
+        3) _systemd_service_submenu "redis-server" "Redis" ;;
         b|B) return ;;
         *) echo -e "${RED}Invalid choice${NC}" ;;
     esac
@@ -676,53 +587,37 @@ cmd_cf() {
 }
 
 cmd_update_models() {
-    banner
-    echo -e "${CYAN}Update / Install Models${NC}"
-    echo ""
-    echo "Options:"
-    echo "  1) Full install (all models: repos + weights)"
-    echo "  2) Repos only (clone/update)"
-    echo "  3) Weights only (download)"
-    echo "  4) Verify installation"
-    echo "  b) Back"
-    echo ""
-    read -rp "Choice: " choice
-    echo ""
-    case "$choice" in
-        1)
-            if [[ -f scripts/update-models.sh ]]; then
-                bash scripts/update-models.sh
-            else
-                echo -e "${RED}scripts/update-models.sh not found${NC}"
-            fi
-            ;;
-        2)
-            if [[ -f scripts/update-models.sh ]]; then
-                bash scripts/update-models.sh --repos-only
-            else
-                echo -e "${RED}scripts/update-models.sh not found${NC}"
-            fi
-            ;;
-        3)
-            if [[ -f scripts/update-models.sh ]]; then
-                bash scripts/update-models.sh --weights-only
-            else
-                echo -e "${RED}scripts/update-models.sh not found${NC}"
-            fi
-            ;;
-        4)
-            if [[ -f scripts/update-models.sh ]]; then
-                bash scripts/update-models.sh --verify
-            else
-                echo -e "${RED}scripts/update-models.sh not found${NC}"
-            fi
-            ;;
-        b|B) return ;;
-        *) echo -e "${RED}Invalid choice${NC}" ;;
-    esac
-    echo ""
-    read -rp "Press Enter to continue..."
-}
+     banner
+     echo -e "${CYAN}Update / Install Models${NC}"
+     echo ""
+     echo "Options:"
+     echo "  1) Full install (all models)"
+     echo "  2) Verify installation"
+     echo "  b) Back"
+     echo ""
+     read -rp "Choice: " choice
+     echo ""
+     case "$choice" in
+         1)
+             if [[ -f backend/scripts/download_models.sh ]]; then
+                 bash backend/scripts/download_models.sh
+             else
+                 echo -e "${RED}backend/scripts/download_models.sh not found${NC}"
+             fi
+             ;;
+         2)
+             if [[ -f backend/scripts/download_models.sh ]]; then
+                 bash backend/scripts/download_models.sh -v
+             else
+                 echo -e "${RED}backend/scripts/download_models.sh not found${NC}"
+             fi
+             ;;
+         b|B) return ;;
+         *) echo -e "${RED}Invalid choice${NC}" ;;
+     esac
+     echo ""
+     read -rp "Press Enter to continue..."
+ }
 
 _banner_line() {
   # Prints a box line with proper padding: _banner_line "content" "padding_char"

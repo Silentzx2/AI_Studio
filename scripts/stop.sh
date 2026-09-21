@@ -97,27 +97,23 @@ kill_by_signature() {
 print_banner
 
 # ── Stop services in reverse order ─────────────────────────────────
-print_section "Stopping Services"
-kill_by_signature "Frontend"      "next start"
-kill_by_signature "Frontend"      "next-server"
-kill_by_signature "Backend API"   "uvicorn app.main:app"
-kill_by_signature "ComfyUI"       "ENGINE/ComfyUI/main.py"
-kill_by_signature "Colab Keep-Alive" "colab_keepalive"
+   print_section "Stopping Services"
+   kill_by_signature "Frontend"      "next start"
+   kill_by_signature "Frontend"      "next-server"
+   kill_by_signature "Backend API"   "uvicorn api.main_singleworker:app"
+   kill_by_signature "Colab Keep-Alive" "colab_keepalive"
 
-# Ensure ports are released even if parent processes were orphaned
-if command -v fuser >/dev/null 2>&1; then
-    fuser -k -TERM 3000/tcp 2>/dev/null || true
-    fuser -k -TERM 8000/tcp 2>/dev/null || true
-    fuser -k -TERM 8188/tcp 2>/dev/null || true
-    sleep 0.5
-    fuser -k -KILL 3000/tcp 2>/dev/null || true
-    fuser -k -KILL 8000/tcp 2>/dev/null || true
-    fuser -k -KILL 8188/tcp 2>/dev/null || true
-elif command -v lsof >/dev/null 2>&1; then
-    lsof -ti :3000 | xargs -r kill -9 2>/dev/null || true
-    lsof -ti :8000 | xargs -r kill -9 2>/dev/null || true
-    lsof -ti :8188 | xargs -r kill -9 2>/dev/null || true
-fi
+   # Ensure ports are released even if parent processes were orphaned
+   if command -v fuser >/dev/null 2>&1; then
+       fuser -k -TERM 3000/tcp 2>/dev/null || true
+       fuser -k -TERM 8000/tcp 2>/dev/null || true
+       sleep 0.5
+       fuser -k -KILL 3000/tcp 2>/dev/null || true
+       fuser -k -KILL 8000/tcp 2>/dev/null || true
+   elif command -v lsof >/dev/null 2>&1; then
+       lsof -ti :3000 | xargs -r kill -9 2>/dev/null || true
+       lsof -ti :8000 | xargs -r kill -9 2>/dev/null || true
+   fi
 
 # ── Stop system services ──────────────────────────────────────────
 # Stop Redis
@@ -132,26 +128,10 @@ if command -v systemctl &>/dev/null && systemctl is-active --quiet redis-server 
     sudo systemctl stop redis-server 2>/dev/null || true
 fi
 pkill -f "redis-server" 2>/dev/null || true
-log "Redis stopped"
+   log "Redis stopped"
 
-# Stop PostgreSQL
-info "Stopping PostgreSQL..."
-if command -v service &>/dev/null; then
-    sudo service postgresql stop 2>/dev/null || true
-fi
-if command -v pg_ctlcluster &>/dev/null; then
-    for v in $(ls /etc/postgresql/ 2>/dev/null); do
-        sudo pg_ctlcluster "$v" main stop 2>/dev/null || true
-    done
-fi
-if command -v systemctl &>/dev/null && systemctl is-active --quiet postgresql 2>/dev/null; then
-    sudo systemctl stop postgresql 2>/dev/null || true
-fi
-pkill -u postgres -f "postgres" 2>/dev/null || true
-log "PostgreSQL stopped"
-
-# ── Clean up stale PID files ──────────────────────────────────────
-rm -f "${PROJECT_ROOT}/.pids"/*.pid 2>/dev/null || true
+   # ── Clean up stale PID files ──────────────────────────────────────
+   rm -f "${PROJECT_ROOT}/.pids"/*.pid 2>/dev/null || true
 
 # ── Clean up Python bytecode caches (__pycache__ / *.pyc) ─────────
 info "Cleaning Python bytecode caches..."

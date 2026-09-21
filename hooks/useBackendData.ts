@@ -33,7 +33,7 @@ export function useBackendStatus(): BackendStatus {
     let active = true;
     const check = async () => {
       try {
-        await getApiClient().get('/api/v1/runtime/health', false, false);
+        await getApiClient().get('/health', false, false);
         if (active) setPolledStatus('online');
       } catch {
         if (active) setPolledStatus('offline');
@@ -78,7 +78,7 @@ export function useRuntimeOptions() {
     // Fetch full options data (deduped — 60s TTL)
     const fetchOptions = async () => {
       try {
-        const data = await dedupedGet<any>('/api/v1/runtime/options', TTL.OPTIONS);
+        const data = await dedupedGet<any>('/api/v1/system/scheduler-status', TTL.OPTIONS);
         if (active) {
           // Fresh data MUST win over prev: spreading prev last would let the
           // stale model list (pre-install) override the just-updated options,

@@ -268,16 +268,15 @@ bun run build
 ## 6. Service Orchestration Scripts
 
 - **`scripts/setup.sh`**: Full system setup (CUDA, Python, Node, dependencies).
-- **`scripts/start.sh`**: Starts FastAPI and Next.js.
-- **`scripts/stop.sh`**: Gracefully stops services and frees ports.
-- **`scripts/restart.sh`**: Restarts all services.
-- **`scripts/manager.sh`**: Interactive service management menu.
-- **`scripts/install_comfyui.sh`**: Optional ComfyUI engine installer (legacy).
-- **`scripts/colab.sh`**: Google Colab launcher (legacy — no Colab notebooks exist).
-- **`scripts/colab_start.sh`**, **`scripts/colab_stop.sh`**, **`scripts/colab_restart.sh`**, **`scripts/colab_status.sh`**: Colab service scripts (legacy).
-- **`scripts/colab_watch.sh`**: Colab health monitor (legacy).
-- **`scripts/test_latency.py`**: Latency benchmarking.
-- **`scripts/test_pipeline_and_export.py`**: End-to-end pipeline test.
+   - **`scripts/start.sh`**: Starts FastAPI and Next.js.
+   - **`scripts/stop.sh`**: Gracefully stops services and frees ports.
+   - **`scripts/restart.sh`**: Restarts all services.
+   - **`scripts/manager.sh`**: Interactive service management menu.
+   - **`scripts/colab.sh`**: Google Colab launcher.
+   - **`scripts/colab_start.sh`**, **`scripts/colab_stop.sh`**, **`scripts/colab_restart.sh`**, **`scripts/colab_status.sh`**: Colab service scripts.
+   - **`scripts/colab_watch.sh`**: Colab health monitor.
+   - **`scripts/test_latency.py`**: Latency benchmarking.
+   - **`scripts/test_pipeline_and_export.py`**: End-to-end pipeline test.
 
 ---
 

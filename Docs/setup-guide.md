@@ -96,7 +96,7 @@ The setup script installs:
 - Python 3.12 + uv + PyTorch (GPU or CPU wheels)
 - Backend Python dependencies
 - Node.js 20 + Bun
-- Optional: Blender, PostgreSQL, Redis
+- Optional: Blender, Redis
 
 ### Method 2: Manual Installation
 
@@ -155,9 +155,8 @@ APP_NAME=AI 3D Studio API
 APP_VERSION=3.9.4
 
 # ===== BACKEND =====
-BACKEND_URL=http://localhost:8000
-DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio
-REDIS_URL=redis://localhost:6379/0
+   BACKEND_URL=http://localhost:8000
+   REDIS_URL=redis://localhost:6379/0
 
 # ===== GPU / CUDA =====
 CUDA_DEVICE=auto

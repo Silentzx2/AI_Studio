@@ -108,7 +108,7 @@ The `WorkspaceShell` (`features/workspace/WorkspaceShell.tsx`) is the main appli
 | ⌘1 | Navigate to Dashboard |
 | ⌘2 | Navigate to Assets |
 | ⌘3 | Navigate to System |
-| ⌘4 | Navigate to ComfyUI view |
+| ⌘3 | Navigate to System |
 | ⌘, | Navigate to Settings |
 | G | Generate tool |
 | R | Remesh tool |

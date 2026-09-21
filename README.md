@@ -203,7 +203,6 @@ flowchart LR
 | **Backend Framework** | FastAPI, Python 3.12+, Pydantic V2 | High-throughput async REST API |
 | **Scheduler** | VRAM-aware multiprocess scheduler | GPU mutual exclusion, job queuing |
 | **Queue/Broker** | Redis 7 (multi-worker mode) | Distributed job queue |
-| **Database** | PostgreSQL 16 (optional) | Jobs & asset metadata |
 | **File Storage** | Local filesystem + Redis FileStore | Upload metadata, cross-worker sharing |
 | **Package Manager** | Bun | Frontend dependencies |
 | **Python PM** | uv | Backend virtual environment |
@@ -243,7 +242,7 @@ The setup script installs:
 - Backend Python dependencies (from `backend/requirements.txt`)
 - Node.js 20 + Bun
 - Optional: Blender (for post-processing)
-- Optional: PostgreSQL 16 + Redis 7
+- Optional: Blender, Redis
 
 ### Access Points
 
@@ -289,9 +288,8 @@ APP_NAME=AI 3D Studio API
 APP_VERSION=3.9.4
 
 # ===== BACKEND =====
-BACKEND_URL=http://localhost:8000
-DATABASE_URL=postgresql+asyncpg://ai_studio:ai_studio_dev@127.0.0.1:5432/ai_studio
-REDIS_URL=redis://localhost:6379/0
+   BACKEND_URL=http://localhost:8000
+   REDIS_URL=redis://localhost:6379/0
 
 # ===== GPU / CUDA =====
 CUDA_DEVICE=auto
@@ -491,7 +489,6 @@ AI_Studio/
 ├── scripts/                           # System orchestration
 │   ├── setup.sh                       # Full system setup
 │   ├── start.sh / stop.sh / restart.sh
-│   ├── install_comfyui.sh            # ComfyUI engine installer
 │   └── colab.sh                      # Colab launcher
 │
 ├── Docs/                              # Technical documentation
@@ -512,13 +509,13 @@ nvidia-smi
 # If no GPU is available, the system falls back to CPU mode (slower).
 ```
 
-### 2. Port Already in Use (3000, 8000, or 8188)
-```bash
-bash scripts/stop.sh
-# Or force free specific ports:
-lsof -ti :3000 | xargs -r kill -9
-lsof -ti :8000 | xargs -r kill -9
-```
+### 2. Port Already in Use (3000, 8000)
+   ```bash
+   bash scripts/stop.sh
+   # Or force free specific ports:
+   lsof -ti :3000 | xargs -r kill -9
+   lsof -ti :8000 | xargs -r kill -9
+   ```
 
 ### 3. Out of Memory (CUDA OOM)
 - The VRAM-aware scheduler prevents multi-provider GPU OOM via strict mutual exclusion.

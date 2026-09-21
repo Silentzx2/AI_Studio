@@ -96,7 +96,7 @@ print_section "Phase 2: Waiting for Shutdown"
 info "Waiting for services to stop..."
 echo ""
 for i in {1..15}; do
-    if ! curl -sf http://localhost:8000/api/v1/health &>/dev/null; then
+    if ! curl -sf http://localhost:8000/health &>/dev/null; then
         log_success "All services stopped"
         break
     fi

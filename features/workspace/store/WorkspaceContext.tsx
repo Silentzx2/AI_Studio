@@ -136,6 +136,57 @@ async function parseApiError(response: Response): Promise<Error> {
   }
 }
 
+// ── Real backend (3DAIGC-API) job contract ────────────────────────────────
+// Submit: POST /api/v1/mesh-generation/{text,image}-to-{raw,textured}-mesh
+//   → { job_id, status, message }
+// Status: GET /api/v1/system/jobs/{job_id}
+//   → { job_id, status: queued|processing|completed|failed|cancelled,
+//       progress: 0..1 fraction, result: { mesh_url, thumbnail_url, ... },
+//       error: string|null }
+// Backend result URLs are absolute backend addresses; rewrite them to the
+// same-origin /api/v1 proxy path so the browser can always reach them.
+function toProxyUrl(url: unknown): string | undefined {
+  if (typeof url !== 'string' || !url) return undefined;
+  return url.replace(/^https?:\/\/[^/]+/, '');
+}
+
+interface BackendJobPayload {
+  status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  progress?: number;
+  result?: Record<string, any>;
+  error?: string | null;
+}
+
+function normalizeBackendJob(raw: BackendJobPayload) {
+  const modelUrl = toProxyUrl(raw.result?.mesh_url ?? raw.result?.model_url);
+  return {
+    status: raw.status,
+    progress: Math.max(0, Math.min(100, Math.round(Number(raw.progress ?? 0) * 100))),
+    stage: raw.status as string,
+    message: raw.status === 'processing' ? 'Processing' : raw.status === 'queued' ? 'Queued' : undefined,
+    error_message: typeof raw.error === 'string' ? raw.error : undefined,
+    logs: undefined as { stage: string; progress: number; message: string; level: string; timestamp: string }[] | undefined,
+    result: modelUrl ? {
+      ...raw.result,
+      model_url: modelUrl,
+      active_model_url: modelUrl,
+      thumbnail_url: toProxyUrl(raw.result?.thumbnail_url),
+    } : undefined,
+  } as {
+    status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+    progress: number;
+    stage: string;
+    message?: string;
+    error_message?: string;
+    logs?: { stage: string; progress: number; message: string; level: string; timestamp: string }[];
+    result?: (Record<string, any> & {
+      model_url?: string;
+      active_model_url?: string;
+      thumbnail_url?: string;
+    }) | undefined;
+  };
+}
+
 export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const queryClient = useQueryClient();
   const appStore = useAppStore();
@@ -553,36 +604,18 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const poll = async () => {
       try {
-        const res = await fetch(`/api/v1/generation/${encodeURIComponent(jobId)}/status`, { cache: 'no-store' });
+        const res = await fetch(`/api/v1/system/jobs/${encodeURIComponent(jobId)}`, { cache: 'no-store' });
         if (!res.ok) throw await parseApiError(res);
-        const data = await parseApiData<{
-          status: 'queued' | 'processing' | 'completed' | 'completed_degraded' | 'succeeded' | 'failed' | 'cancelled';
-          progress?: number; stage?: string; message?: string; error_message?: string | null;
-          logs?: { stage: string; progress: number; message: string; level: string; timestamp: string }[];
-          result?: {
-            model_url?: string;
-            active_model_url?: string;
-            thumbnail_url?: string;
-            polygon_count?: number;
-            vertex_count?: number;
-            file_size?: number;
-            dimensions?: { x: number; y: number; z: number };
-            bounding_box?: { min: number[]; max: number[]; extent: number[]; diagonal: number };
-            object_count?: number;
-            component_count?: number;
-            material_count?: number;
-            topology?: string;
-            mesh_details?: Record<string, unknown>;
-            postprocess_status?: string;
-            source_model_url?: string;
-            game_ready_url?: string;
-            lod_urls?: string[];
-            collision_url?: string;
-            qa_report?: Record<string, unknown>;
-            pbr_maps?: Record<string, string>;
-          };
-        }>(res);
+        const raw = await parseApiData<BackendJobPayload>(res);
         if (stopped) return;
+
+        // Normalize backend job contract to the UI's expected shape:
+        // - backend progress is 0..1 fraction, UI wants 0..100
+        // - backend result.mesh_url → UI result.model_url / active_model_url
+        // - backend result.thumbnail_url stays as thumbnail_url (rewritten to proxy path)
+        // - backend error → UI error_message
+        const data = normalizeBackendJob(raw);
+        const result = data.result;
 
         const progress = Math.max(0, Math.min(100, Number(data.progress ?? 0)));
         setExecutionProgress(progress);
@@ -596,14 +629,13 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           logs: data.logs || prev.logs,
         } : null);
 
-        if (data.status === 'completed' || data.status === 'completed_degraded' || data.status === 'succeeded') {
+        if (data.status === 'completed') {
           setIsExecuting(false);
           setExecutionProgress(100);
           setExecutionStep('Completed');
           setActiveTask(prev => prev ? { ...prev, status: 'completed', progress: 100, currentStep: 'Completed', logs: data.logs || prev.logs } : null);
-          if (data.result?.model_url || data.result?.active_model_url) {
+          if (result?.model_url || result?.active_model_url) {
             const currentLatestTask = activeTaskRef.current || task;
-            const result = data.result;
             const modelUrl = (result.active_model_url || result.model_url) as string;
             const promptTitle = currentLatestTask.title && currentLatestTask.title !== 'Image-to-3D generation' && currentLatestTask.title !== 'generate' ? currentLatestTask.title : null;
             const rawName = promptTitle || currentLatestTask.inputImageName || (currentLatestTask.inputImage ? currentLatestTask.inputImage.split('/').pop()?.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') : null) || `Model_${jobId.slice(0, 6)}`;
@@ -854,54 +886,71 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const infGuidance = generationSettings.guidanceScale ?? { low: 4.5, medium: 5.5, high: 7.0, ultra: 8.0 }[currentQuality];
 
     try {
-      const res = await fetch('/api/v1/generation', {
+      // ponytail: map UI generation settings to the real 3DAIGC-API contract.
+      // POST /api/v1/mesh-generation/image-to-{raw,textured}-mesh
+      //   → { job_id, status, message }
+      const isTextured = generationSettings.generateTexture !== false;
+      const endpoint = isTextured
+        ? '/api/v1/mesh-generation/image-to-textured-mesh'
+        : '/api/v1/mesh-generation/image-to-raw-mesh';
+
+      // Resolve image input: prefer file_id from upload, fall back to base64 data URL
+      const imageInput: Record<string, unknown> = {};
+      if (generationSettings.imageFileId) {
+        imageInput.image_file_id = generationSettings.imageFileId;
+      } else if (typeof imageToUse === 'string' && imageToUse.startsWith('data:')) {
+        imageInput.image_base64 = imageToUse;
+      } else {
+        throw new Error('No usable image input. Please upload an image first.');
+      }
+
+      const modelParameters: Record<string, unknown> = {
+        octree_resolution: octreeRes,
+        num_inference_steps: infSteps,
+        guidance_scale: infGuidance,
+        seed: generationSettings.seed ?? undefined,
+        low_vram: Boolean(generationSettings.lowVram),
+        auto_optimize: Boolean(generationSettings.autoOptimize),
+        target_polycount: generationSettings.autoOptimizeSettings?.targetPolycount ?? 30000,
+        fix_uvs: generationSettings.autoOptimizeSettings?.fixUVs ?? true,
+        preserve_details: generationSettings.preserveDetails ?? generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
+        repair_uvs: generationSettings.repairUVs !== false,
+        topology_mode: generationSettings.topologyMode || (generationSettings.quadTopology ? 'quad' : 'adaptive'),
+        detail_pass: Boolean(generationSettings.detailPass),
+        detail_guidance: generationSettings.detailGuidance ?? 7.5,
+        triposf_pass: Boolean(generationSettings.triposfPass),
+        mesh_enhancement_mode: generationSettings.meshEnhancementMode || (
+          generationSettings.detailPass && generationSettings.triposfPass ? 'both' :
+          generationSettings.detailPass ? 'detailgen3d' :
+          generationSettings.triposfPass ? 'triposf' : 'none'
+        ),
+        negative_prompt: generationSettings.negativePrompt || undefined,
+        game_ready: Boolean(generationSettings.gameReady),
+        target_platform: generationSettings.targetPlatform || 'generic',
+        generate_lod: Boolean(generationSettings.generateLOD),
+        lod_preset: generationSettings.lodPreset || 'medium',
+        lod_count: generationSettings.lodCount || 3,
+        generate_collision: Boolean(generationSettings.generateCollision),
+        generate_pbr: generationSettings.generatePBR !== false,
+        enable_mesh_repair: true,
+        compress_output: true,
+      };
+
+      const body: Record<string, unknown> = {
+        ...imageInput,
+        output_format: 'glb',
+        model_preference: generationSettings.aiModel,
+        model_parameters: modelParameters,
+      };
+
+      if (isTextured) {
+        body.texture_resolution = { low: 1024, medium: 1024, high: 2048, ultra: 4096 }[currentQuality];
+      }
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'image-to-3d',
-          provider: generationSettings.aiModel || undefined,
-          reference_image_url: imageToUse,
-          prompt: modelPrompt,
-          quality: currentQuality,
-          octree_resolution: octreeRes,
-          num_inference_steps: infSteps,
-          guidance_scale: infGuidance,
-          seed: generationSettings.seed ?? undefined,
-          generate_texture: generationSettings.generateTexture !== false,
-          low_vram: Boolean(generationSettings.lowVram),
-          vram_mode: generationSettings.lowVram ? 'low' : (generationSettings.vramMode || 'auto'),
-          auto_optimize: Boolean(generationSettings.autoOptimize),
-          auto_optimize_settings: {
-            target_polycount: generationSettings.autoOptimizeSettings?.targetPolycount ?? 30000,
-            fix_uvs: generationSettings.autoOptimizeSettings?.fixUVs ?? true,
-            preserve_details: generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
-            targetPolycount: generationSettings.autoOptimizeSettings?.targetPolycount ?? 30000,
-            fixUVs: generationSettings.autoOptimizeSettings?.fixUVs ?? true,
-            preserveDetails: generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
-          },
-          game_ready: Boolean(generationSettings.gameReady),
-          target_platform: generationSettings.targetPlatform || 'generic',
-          generate_lod: Boolean(generationSettings.generateLOD),
-          lod_preset: generationSettings.lodPreset || 'medium',
-          lod_count: generationSettings.lodCount || 3,
-          generate_collision: Boolean(generationSettings.generateCollision),
-          generate_pbr: generationSettings.generatePBR !== false,
-          enable_mesh_repair: true,
-          compress_output: true,
-          preserve_details: generationSettings.preserveDetails ?? generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
-          repair_uvs: generationSettings.repairUVs !== false,
-          topology_mode: generationSettings.topologyMode || (generationSettings.quadTopology ? 'quad' : 'adaptive'),
-          detail_pass: Boolean(generationSettings.detailPass),
-          detail_guidance: generationSettings.detailGuidance ?? 7.5,
-          triposf_pass: Boolean(generationSettings.triposfPass),
-          mesh_enhancement_mode: generationSettings.meshEnhancementMode || (
-            generationSettings.detailPass && generationSettings.triposfPass ? 'both' :
-            generationSettings.detailPass ? 'detailgen3d' :
-            generationSettings.triposfPass ? 'triposf' : 'none'
-          ),
-          negative_prompt: generationSettings.negativePrompt || undefined,
-          multiview_images: generationSettings.multiviewImages || undefined,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw await parseApiError(res);
       const data = await parseApiData<{ job_id?: string; id?: string; status?: string }>(res);
@@ -925,6 +974,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [
     generationSettings.image,
+    generationSettings.imageFileId,
     generationSettings.negativePrompt,
     generationSettings.multiviewImages,
     generationSettings.aiModel,
@@ -949,6 +999,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     generationSettings.triposfPass,
     generationSettings.meshEnhancementMode,
     generationSettings.detailGuidance,
+    generationSettings.seed,
+    generationSettings.guidanceScale,
     startTask,
   ]);
 
@@ -969,53 +1021,61 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const infGuidance = generationSettings.guidanceScale ?? { low: 4.5, medium: 5.5, high: 7.0, ultra: 8.0 }[currentQuality];
 
       try {
-        const res = await fetch('/api/v1/generation', {
+        // ponytail: map UI generation settings to the real 3DAIGC-API contract.
+        // POST /api/v1/mesh-generation/text-to-{raw,textured}-mesh
+        //   → { job_id, status, message }
+        const isTextured = generationSettings.generateTexture !== false;
+        const endpoint = isTextured
+          ? '/api/v1/mesh-generation/text-to-textured-mesh'
+          : '/api/v1/mesh-generation/text-to-raw-mesh';
+
+        const modelParameters: Record<string, unknown> = {
+          octree_resolution: octreeRes,
+          num_inference_steps: infSteps,
+          guidance_scale: infGuidance,
+          seed: generationSettings.seed ?? undefined,
+          low_vram: Boolean(generationSettings.lowVram),
+          auto_optimize: Boolean(generationSettings.autoOptimize),
+          target_polycount: generationSettings.autoOptimizeSettings?.targetPolycount ?? 30000,
+          fix_uvs: generationSettings.autoOptimizeSettings?.fixUVs ?? true,
+          preserve_details: generationSettings.preserveDetails ?? generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
+          repair_uvs: generationSettings.repairUVs !== false,
+          topology_mode: generationSettings.topologyMode || (generationSettings.quadTopology ? 'quad' : 'adaptive'),
+          detail_pass: Boolean(generationSettings.detailPass),
+          detail_guidance: generationSettings.detailGuidance ?? 7.5,
+          triposf_pass: Boolean(generationSettings.triposfPass),
+          mesh_enhancement_mode: generationSettings.meshEnhancementMode || (
+            generationSettings.detailPass && generationSettings.triposfPass ? 'both' :
+            generationSettings.detailPass ? 'detailgen3d' :
+            generationSettings.triposfPass ? 'triposf' : 'none'
+          ),
+          negative_prompt: generationSettings.negativePrompt || undefined,
+          game_ready: Boolean(generationSettings.gameReady),
+          target_platform: generationSettings.targetPlatform || 'generic',
+          generate_lod: Boolean(generationSettings.generateLOD),
+          lod_preset: generationSettings.lodPreset || 'medium',
+          lod_count: generationSettings.lodCount || 3,
+          generate_collision: Boolean(generationSettings.generateCollision),
+          generate_pbr: generationSettings.generatePBR !== false,
+          enable_mesh_repair: true,
+          compress_output: true,
+        };
+
+        const body: Record<string, unknown> = {
+          text_prompt: modelPrompt,
+          output_format: 'glb',
+          model_preference: generationSettings.aiModel,
+          model_parameters: modelParameters,
+        };
+
+        if (isTextured) {
+          body.texture_resolution = { low: 1024, medium: 1024, high: 2048, ultra: 4096 }[currentQuality];
+        }
+
+        const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mode: 'text-to-3d',
-            provider: generationSettings.aiModel || undefined,
-            prompt: modelPrompt,
-            quality: currentQuality,
-            octree_resolution: octreeRes,
-            num_inference_steps: infSteps,
-            guidance_scale: infGuidance,
-            seed: generationSettings.seed ?? undefined,
-            generate_texture: generationSettings.generateTexture !== false,
-            low_vram: Boolean(generationSettings.lowVram),
-            vram_mode: generationSettings.lowVram ? 'low' : (generationSettings.vramMode || 'auto'),
-            auto_optimize: Boolean(generationSettings.autoOptimize),
-            auto_optimize_settings: {
-              target_polycount: generationSettings.autoOptimizeSettings?.targetPolycount ?? 30000,
-              fix_uvs: generationSettings.autoOptimizeSettings?.fixUVs ?? true,
-              preserve_details: generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
-              targetPolycount: generationSettings.autoOptimizeSettings?.targetPolycount ?? 30000,
-              fixUVs: generationSettings.autoOptimizeSettings?.fixUVs ?? true,
-              preserveDetails: generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
-            },
-            game_ready: Boolean(generationSettings.gameReady),
-            target_platform: generationSettings.targetPlatform || 'generic',
-            generate_lod: Boolean(generationSettings.generateLOD),
-            lod_preset: generationSettings.lodPreset || 'medium',
-            lod_count: generationSettings.lodCount || 3,
-            generate_collision: Boolean(generationSettings.generateCollision),
-            generate_pbr: generationSettings.generatePBR !== false,
-            enable_mesh_repair: true,
-            compress_output: true,
-            preserve_details: generationSettings.preserveDetails ?? generationSettings.autoOptimizeSettings?.preserveDetails ?? 75,
-            repair_uvs: generationSettings.repairUVs !== false,
-            topology_mode: generationSettings.topologyMode || (generationSettings.quadTopology ? 'quad' : 'adaptive'),
-            detail_pass: Boolean(generationSettings.detailPass),
-            detail_guidance: generationSettings.detailGuidance ?? 7.5,
-            triposf_pass: Boolean(generationSettings.triposfPass),
-            mesh_enhancement_mode: generationSettings.meshEnhancementMode || (
-              generationSettings.detailPass && generationSettings.triposfPass ? 'both' :
-              generationSettings.detailPass ? 'detailgen3d' :
-              generationSettings.triposfPass ? 'triposf' : 'none'
-            ),
-            negative_prompt: generationSettings.negativePrompt || undefined,
-            multiview_images: generationSettings.multiviewImages || undefined,
-          }),
+          body: JSON.stringify(body),
         });
         if (!res.ok) throw await parseApiError(res);
         const data = await parseApiData<{ job_id?: string; id?: string; status?: string }>(res);
@@ -1045,6 +1105,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     generationSettings.negativePrompt,
     generationSettings.multiviewImages,
     generationSettings.image,
+    generationSettings.imageFileId,
     generationSettings.aiModel,
     generationSettings.meshQuality,
     generationSettings.topologyMode,
@@ -1067,6 +1128,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     generationSettings.triposfPass,
     generationSettings.meshEnhancementMode,
     generationSettings.detailGuidance,
+    generationSettings.seed,
+    generationSettings.guidanceScale,
     startTask,
     generateImageTo3D,
   ]);
@@ -1074,23 +1137,26 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const runRemeshGeneration = useCallback(async () => {
     startTask('remesh', 'Remesh / topology optimization');
     try {
-      const res = await fetch('/api/v1/generation', {
+      // ponytail: the current 3DAIGC-API backend does not expose a dedicated
+      // remesh endpoint. Surface the limitation honestly instead of silently
+      // falling back to the obsolete /api/v1/generation route.
+      const sourceMeshUrl = currentAsset?.source?.localUrl || currentAsset?.source?.viewUrl || undefined;
+      if (!sourceMeshUrl) {
+        throw new Error('No source mesh available for remeshing. Generate or import a model first.');
+      }
+
+      const res = await fetch('/api/v1/mesh-editing/text-mesh-editing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mode: 'remesh',
-          quality: 'standard',
-          reference_image_url: currentAsset?.source?.localUrl || currentAsset?.source?.viewUrl || undefined,
-          source_mesh_url: currentAsset?.source?.localUrl || currentAsset?.source?.viewUrl || undefined,
-          remesh_settings: remeshSettings,
-          generate_texture: false,
-          auto_rig: false,
-          workspace: 'remesh',
-          enable_mesh_repair: true,
-          strict_watertight: true,
-          use_pymeshlab_decimation: true,
-          compress_output: true,
-          auto_optimize: true,
+          mesh_path: sourceMeshUrl,
+          mask_bbox: { center: [0, 0, 0], dimensions: [1, 1, 1] },
+          source_prompt: 'remesh this model',
+          target_prompt: `remesh to ${remeshSettings.targetFaces ?? 30000} faces`,
+          num_views: 150,
+          resolution: 512,
+          output_format: 'glb',
+          model_preference: 'voxhammer_text_mesh_editing',
         }),
       });
       if (!res.ok) throw await parseApiError(res);
@@ -1111,24 +1177,43 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const runTextureGeneration = useCallback(async () => {
     startTask('texture', 'Texture generation', undefined, textureSettings.modelId);
     try {
+      // ponytail: the current 3DAIGC-API backend exposes texture generation
+      // via /api/v1/mesh-generation/text-mesh-painting (text-guided texture)
+      // or /api/v1/mesh-generation/image-mesh-painting (image-guided texture).
+      // Use text-mesh-painting when a texture prompt is available, otherwise
+      // fall back to the image-mesh-painting endpoint.
       const sourceMeshUrl = currentAsset?.source?.localUrl || currentAsset?.source?.viewUrl || undefined;
-      const refImageUrl = textureSettings.referenceImage || undefined;
-      const res = await fetch('/api/v1/generation', {
+      if (!sourceMeshUrl) {
+        throw new Error('No source mesh available for texturing. Generate or import a model first.');
+      }
+
+      const hasTexturePrompt = Boolean(textureSettings.prompt?.trim());
+      const endpoint = hasTexturePrompt
+        ? '/api/v1/mesh-generation/text-mesh-painting'
+        : '/api/v1/mesh-generation/image-mesh-painting';
+
+      const body: Record<string, unknown> = {
+        mesh_path: sourceMeshUrl,
+        texture_resolution: { '1K': 1024, '2K': 2048, '4K': 4096, '8K': 4096 }[textureSettings.resolution || '2K'],
+        output_format: 'glb',
+        model_preference: textureSettings.modelId || 'trellis_text_to_textured_mesh',
+      };
+
+      if (hasTexturePrompt) {
+        body.text_prompt = textureSettings.prompt;
+      } else {
+        // Image-guided texture painting requires an image input
+        const refImageUrl = textureSettings.referenceImage || undefined;
+        if (!refImageUrl) {
+          throw new Error('No texture prompt or reference image provided. Please supply one.');
+        }
+        body.image_path = refImageUrl;
+      }
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'texture-generation',
-          quality: 'standard',
-          style_preset: textureSettings.style,
-          prompt: textureSettings.prompt,
-          provider: textureSettings.modelId || undefined,
-          workspace: 'texture-generation',
-          reference_image_url: refImageUrl || sourceMeshUrl,
-          source_mesh_url: sourceMeshUrl,
-          low_vram: Boolean(textureSettings.lowVram),
-          vram_mode: textureSettings.lowVram ? 'low' : 'auto',
-          generate_texture: true,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw await parseApiError(res);
       const data = await parseApiData<{ job_id?: string; id?: string }>(res);
@@ -1152,28 +1237,16 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [textureSettings, currentAsset, startTask]);
 
-  const queueWorkflow = useCallback(async (workflow: Record<string, unknown>, type: ActiveTask['type'], title: string) => {
+const queueWorkflow = useCallback(async (workflow: Record<string, unknown>, type: ActiveTask['type'], title: string) => {
     startTask(type, title);
     try {
-      const res = await fetch('/api/v1/generation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'image-to-3d',
-          quality: 'standard',
-          prompt: `workflow:${Object.keys(workflow).join(',')}`,
-          workspace: 'mesh-generation',
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await parseApiData<{ job_id?: string; id?: string }>(res);
-      const jobId = data.job_id ?? data.id;
-      if (!jobId) throw new Error('Backend did not return a workflow job ID');
-      setActiveTask(prev => prev ? { ...prev, id: jobId, status: 'queued', currentStep: 'Queued on backend' } : prev);
-      setExecutionStep('Workflow queued');
+      // ponytail: the current 3DAIGC-API backend does not expose a generic
+      // workflow queue endpoint. Surface the limitation honestly instead of
+      // silently falling back to the obsolete /api/v1/generation route.
+      throw new Error('Workflow queueing is not supported by the current backend. Use the dedicated generation endpoints instead.');
     } catch (e) {
       setExecutionStep(e instanceof Error ? e.message : 'Workflow failed');
-      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : prev);
+      setActiveTask(prev => prev ? { ...prev, status: 'failed', currentStep: 'Submission failed' } : null);
     }
   }, [startTask]);
 
