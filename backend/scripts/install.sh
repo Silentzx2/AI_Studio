@@ -2,13 +2,15 @@
 
 UV_PIP="uv pip"
 echo "========================================"
-echo "Starting 3DAIGC-API Installation"
+echo "Starting Backend-API Installation"
 echo "========================================"
 echo "The installation may take a while, please wait..."
 echo ""
+echo "[INFO] Initializing Conda..."
+source "$(conda info --base)/etc/profile.d/conda.sh"
 
 echo "[INFO] Creating conda environment '3daigc-api' with Python 3.10..."
-# conda create -n 3daigc-api python=3.10 -y
+conda create -n 3daigc-api python=3.10 -y
 if [ $? -eq 0 ]; then
     echo "[SUCCESS] Conda environment created successfully"
 else
@@ -17,7 +19,7 @@ else
 fi
 
 echo "[INFO] Activating conda environment..."
-# conda activate 3daigc-api
+conda activate 3daigc-api
 
 echo "[INFO] Installing PyTorch with CUDA 12.4 support..."
 ## install pytorch for specific cuda versions

@@ -1,786 +1,172 @@
 #!/usr/bin/env bash
-# ═══════════════════════════════════════════════════════════════════════════
-# [ENVIRONMENT: VPS / DEDICATED SERVER / LOCAL MACHINE ONLY]
-# ⚠️  DO NOT USE THIS SCRIPT ON GOOGLE COLAB!
-# For Google Colab, use: bash scripts/colab.sh --setup
-#
-# AI 3D Studio — Automatic Setup Script (Non-Docker VPS)
-   # Direct system installation without Docker containers
-   # Supports Ubuntu 20.04/22.04/24.04 with NVIDIA GPU
-   # Usage: sudo bash scripts/setup.sh
-
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-MAGENTA='\033[0;35m'
-BOLD='\033[1m'
-DIM='\033[2m'
-NC='\033[0m'
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; MAGENTA='\033[0;35m'; WHITE='\033[1;37m'; DIM='\033[2m'; BOLD='\033[1m'; NC='\033[0m'
 
-log()   { echo -e "${GREEN}[SETUP]${NC}  ✔ $*"; }
-warn()  { echo -e "${YELLOW}[WARN]${NC}   ⚠ $*"; }
-err()   { echo -e "${RED}[ERROR]${NC}  ✖ $*" >&2; }
-head_() { echo -e "\n${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n  ${BOLD}${MAGENTA}➜ $*${NC}\n"; }
-info()  { echo -e "${CYAN}[INFO]${NC}   ℹ $*"; }
-done_() { echo -e "  ${GREEN}${BOLD}✔ Done!${NC}"; }
+log(){ printf "${GREEN}[SETUP]${NC} %s\n" "$*"; }
+info(){ printf "${CYAN}[INFO]${NC}  %s\n" "$*"; }
+warn(){ printf "${YELLOW}[WARN]${NC}  %s\n" "$*"; }
+fail(){ printf "${RED}[ERROR]${NC} %s\n" "$*" >&2; exit 1; }
+section(){ printf "\n${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n${WHITE}${BOLD}  %s${NC}\n${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n" "$*"; }
 
-# ── SIGINT / Ctrl+C handler ───────────────────────────────────────────
-_setup_on_sigint() {
-    echo ""
-    warn "Setup interrupted by user (Ctrl+C)."
-    local child_pids
-    child_pids=$(jobs -p 2>/dev/null || true)
-    if [[ -n "$child_pids" ]]; then
-        kill -TERM $child_pids 2>/dev/null || true
-    fi
-    exit 130
-}
-trap '_setup_on_sigint' INT
+banner(){
+  clear 2>/dev/null || true
+  printf "${CYAN}"
+  cat <<'ART'
 
-# ── Progress bar ─────────────────────────────────────────────────────────
-_progress_bar() {
-    local current=$1
-    local total=$2
-    local width=30
-    local percentage=$((current * 100 / total))
-    local filled=$((width * current / total))
-    local empty=$((width - filled))
-    printf "\r  ${DIM}[${NC}"
-    printf '%*s' "$filled" '' | tr ' ' '█'
-    printf "${DIM}"
-    printf '%*s' "$empty" '' | tr ' ' '░'
-    printf "${NC}] ${BOLD}%3d%%${NC}" "$percentage"
+ █████╗ ██╗     ███████╗████████╗██╗   ██╗██████╗ ██╗ ██████╗
+██╔══██╗██║     ██╔════╝╚══██╔══╝██║   ██║██╔══██╗██║██╔═══██╗
+███████║██║     ███████╗   ██║   ██║   ██║██║  ██║██║██║   ██║
+██╔══██║██║     ╚════██║   ██║   ██║   ██║██║  ██║██║██║   ██║
+██║  ██║██║     ███████║   ██║   ╚██████╔╝██████╔╝██║╚██████╔╝
+╚═╝  ╚═╝╚═╝      ╚══════╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝ ╚═════╝
+
+                         3D GENERATIVE STUDIO
+ART
+  printf "${NC}\n"
 }
 
-_spinner() {
-    local pid=$1
-    local msg="${2:─Waiting}"
-    local delay=0.08
-    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-    while kill -0 "$pid" 2>/dev/null; do
-        local temp=${spinstr#?}
-        printf "\r  ${CYAN}%s${NC}  %s" "${spinstr:0:1}" "$msg"
-        local spinstr=$temp${spinstr%"$temp"}
-        sleep $delay
-    done
-    wait "$pid" 2>/dev/null
-    printf "\r  ${GREEN}✔${NC}  %s\n" "$msg"
-}
 
-# ── Prerequisites ─────────────────────────────────────────────────────────────
-
-check_root() {
-  if [[ $EUID -ne 0 ]]; then
-    if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet systemd 2>/dev/null; then
-      err "This script must be run as root on a systemd host (use: sudo bash scripts/setup.sh)"
-      exit 1
-    else
-      warn "Not root and no systemd — installing in user mode; start.sh will use SQLite/broker fallbacks."
-      ROOTLESS=1
-    fi
-  fi
-}
-
-check_os() {
-  head_ "Checking OS"
-  if [[ -f /etc/os-release ]]; then
-    # shellcheck disable=SC1091
-    . /etc/os-release
-    OS=$ID
-    log "Detected: $PRETTY_NAME"
-  else
-    err "Cannot detect OS. Supported: Ubuntu 20.04, 22.04, 24.04"
-    exit 1
-  fi
-  if [[ "$OS" != "ubuntu" ]] && [[ "$OS" != "debian" ]]; then
-    warn "Unsupported OS: $OS — proceeding anyway (Ubuntu/Debian recommended)"
-  fi
-}
-
-detect_gpu() {
-  head_ "GPU Detection"
-  GPU_AVAILABLE=false
-  GPU_NAME=""
-  CUDA_VERSION=""
-
-  # Testing mode: simulate CUDA presence
-  if [[ "${CUDA_FORCE_PRESENT:-}" == "1" ]]; then
-    GPU_NAME="Simulated GPU (TEST_MODE)"
-    GPU_AVAILABLE=true
-    CUDA_VERSION="${CUDA_FORCE_VERSION:-124}"
-    log "GPU detected : ${CYAN}${GPU_NAME}${NC}"
-    log "CUDA (test) : cu${CUDA_VERSION}"
-    return 0
-  fi
-
-  if command -v nvidia-smi &>/dev/null; then
-    GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || true)
-    if [[ -n "$GPU_NAME" ]]; then
-      GPU_AVAILABLE=true
-      DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || echo "unknown")
-      log "GPU detected : ${CYAN}${GPU_NAME}${NC}"
-      log "Driver       : $DRIVER_VER"
-    fi
-  fi
-
-  # Detect CUDA version: driver first (more reliable), nvcc fallback
-  # ponytail: driver version determines max supported CUDA toolkit version.
-  # Newer drivers support newer CUDA — don't cap, pass through to PyTorch.
-  if command -v nvidia-smi &>/dev/null; then
-    DRIVER_MAJOR=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | awk -F. '{print $1}')
-    if [[ -n "$DRIVER_MAJOR" ]]; then
-      if [[ "$DRIVER_MAJOR" -ge 570 ]]; then
-        CUDA_VERSION="128"
-      elif [[ "$DRIVER_MAJOR" -ge 560 ]]; then
-        CUDA_VERSION="126"
-      elif [[ "$DRIVER_MAJOR" -ge 550 ]]; then
-        CUDA_VERSION="124"
-      elif [[ "$DRIVER_MAJOR" -ge 535 ]]; then
-        CUDA_VERSION="121"
-      elif [[ "$DRIVER_MAJOR" -ge 525 ]]; then
-        CUDA_VERSION="118"
-      else
-        CUDA_VERSION="121"
-      fi
-      log "CUDA (from driver): ${CYAN}cu${CUDA_VERSION}${NC}"
-    fi
-  fi
-
-  # Fallback: check nvcc if driver detection failed
-  if [[ -z "$CUDA_VERSION" ]] && command -v nvcc &>/dev/null; then
-    CUDA_FULL=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
-    if [[ -n "$CUDA_FULL" ]]; then
-      CUDA_VERSION=$(echo "$CUDA_FULL" | awk -F. '{print $1$2}')
-      log "CUDA toolkit : ${CYAN}${CUDA_FULL}${NC}"
-    fi
-  fi
-
-  if [[ "$GPU_AVAILABLE" == "false" ]]; then
-    warn "No NVIDIA GPU detected — AI inference requires CUDA-capable hardware."
-    warn "The stack will start, but generation jobs will fail without a GPU."
-    if [[ "${REQUIRE_GPU:-}" == "1" ]]; then
-      err "REQUIRE_GPU=1 is set — aborting without GPU."
-      exit 1
-    fi
-    if [[ -t 0 ]] && [[ "${CI:-}" != "true" ]] && [[ "${NONINTERACTIVE:-}" != "1" ]]; then
-      read -rp "  Continue without GPU? [y/N] " choice
-      if [[ "${choice,,}" != "y" ]]; then
-        err "Aborting. Install an NVIDIA GPU + driver and re-run."
-        exit 1
-      fi
-    else
-      warn "Non-interactive environment detected — proceeding with CPU fallback."
-      warn "Generation jobs will fail without a GPU."
-    fi
-  fi
-}
-
-install_uv() {
-  head_ "Installing uv (Python Package Manager)"
-  if command -v uv &>/dev/null; then
-    log "Already installed: $(uv --version)"
-    return 0
-  fi
-
-  log "Downloading uv installer..."
-  curl -LsSf https://astral.sh/uv/install.sh | sh || {
-    err "Failed to install uv — this is a critical dependency"
-    return 1
-  }
-
-  # Add uv to PATH for this session
-  export PATH="$HOME/.local/bin:$PATH"
-
-  # Also ensure it's on the default PATH for future sessions
-  if [[ -f "$HOME/.local/bin/uv" ]] && [[ ! -f /usr/local/bin/uv ]]; then
-    ln -sf "$HOME/.local/bin/uv" /usr/local/bin/uv 2>/dev/null || true
-  fi
-
-  # Verify installation
-  if command -v uv &>/dev/null; then
-    log "uv installed: $(uv --version)"
-  else
-    err "uv installed but not found on PATH — manual PATH fix may be needed"
-    return 1
-  fi
-}
-
-# ── Clean up conflicting CUDA APT sources ──────────────────────────────────
-_sanitize_apt_cuda_sources() {
-  # Remove duplicate/conflicting NVIDIA repository lists that cause APT "Conflicting values set for option Signed-By"
-  rm -f /etc/apt/sources.list.d/*cuda*.list \
-        /etc/apt/sources.list.d/*nvidia*.list \
-        /etc/apt/sources.list.d/*cuda*.sources \
-        /etc/apt/sources.list.d/*nvidia*.sources 2>/dev/null || true
-  if [[ -f /etc/apt/sources.list ]]; then
-    sed -i '/developer\.download\.nvidia\.com/d' /etc/apt/sources.list 2>/dev/null || true
-  fi
-  for src in /etc/apt/sources.list.d/*.sources; do
-    if [[ -f "$src" ]] && grep -q "developer.download.nvidia.com" "$src" 2>/dev/null; then
-      sed -i '/developer\.download\.nvidia\.com/d' "$src" 2>/dev/null || true
-    fi
+require_commands(){
+  section "Environment Check"
+  local missing=()
+  for cmd in git curl python3; do
+    command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
   done
-  for lst in /etc/apt/sources.list.d/*.list; do
-    if [[ -f "$lst" ]] && grep -q "developer.download.nvidia.com" "$lst" 2>/dev/null; then
-      sed -i '/developer\.download\.nvidia\.com/d' "$lst" 2>/dev/null || true
-    fi
-  done
+  if ((${#missing[@]})); then
+    fail "Missing required commands: ${missing[*]}"
+  fi
+  log "Git: $(git --version)"
+  log "Python: $(python3 --version 2>&1)"
+  log "Curl: available"
+
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    log "GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)"
+  else
+    warn "nvidia-smi not found. 3D AI generation requires a compatible NVIDIA runtime."
+  fi
 }
 
-setup_cuda_124() {
-  head_ "CUDA Toolkit 12.4 — Detection & Installation"
+ensure_bun_or_npm(){
+  section "Frontend Toolchain"
+  export PATH="$HOME/.bun/bin:$PATH"
 
-  # ── Detect NVIDIA driver ──────────────────────────────────────────────────
-  local DRIVER_VER=""
-  if command -v nvidia-smi &>/dev/null; then
-    DRIVER_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || true)
-    log "NVIDIA driver: ${CYAN}${DRIVER_VER}${NC}"
-  else
-    warn "nvidia-smi not found — skipping CUDA setup"
+  if command -v bun >/dev/null 2>&1; then
+    log "Bun: $(bun --version)"
     return 0
   fi
 
-  # Check driver supports CUDA 12.4 (requires >= 525.60.13)
-  local DRIVER_MAJOR
-  DRIVER_MAJOR=$(echo "$DRIVER_VER" | awk -F. '{print $1}')
-  if [[ -n "$DRIVER_MAJOR" ]] && [[ "$DRIVER_MAJOR" -lt 525 ]]; then
-    err "NVIDIA driver ${DRIVER_VER} is too old for CUDA 12.4 (requires >= 525.60.13)"
-    err "Please update your NVIDIA driver: https://www.nvidia.com/drivers"
-    return 1
-  fi
-
-  # ── 1. Check if /usr/local/cuda-12.4 is already on disk ──────────────────
-  if [[ -d /usr/local/cuda-12.4 ]] && [[ -x /usr/local/cuda-12.4/bin/nvcc ]]; then
-    ok "Found CUDA 12.4 at /usr/local/cuda-12.4 — switching symlink"
-    rm -f /usr/local/cuda
-    ln -sf /usr/local/cuda-12.4 /usr/local/cuda
-    _persist_cuda_paths
-    _verify_cuda
-    return 0
-  fi
-
-  # ── 2. Detect installed CUDA Toolkit version ─────────────────────────────
-  local CURRENT_CUDA=""
-  local NVCC_PATH=""
-  if command -v nvcc &>/dev/null; then
-    NVCC_PATH=$(command -v nvcc)
-    CURRENT_CUDA=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
-    log "CUDA toolkit found: ${CYAN}${CURRENT_CUDA}${NC} at ${NVCC_PATH}"
-  elif [[ -L /usr/local/cuda ]] && [[ -e /usr/local/cuda/bin/nvcc ]]; then
-    NVCC_PATH="/usr/local/cuda/bin/nvcc"
-    CURRENT_CUDA=$("$NVCC_PATH" --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
-    log "CUDA toolkit found: ${CYAN}${CURRENT_CUDA}${NC} via /usr/local/cuda symlink"
-  else
-    info "No CUDA toolkit found — will install CUDA 12.4"
-  fi
-
-  # ── 3. Check if CUDA 12.4 is already active ───────────────────────────────
-  if [[ -n "$CURRENT_CUDA" ]]; then
-    local CUDA_MINOR
-    CUDA_MINOR=$(echo "$CURRENT_CUDA" | awk -F. '{print $1$2}')
-    if [[ "$CUDA_MINOR" == "124" ]]; then
-      ok "CUDA 12.4 is already installed and active — no changes needed"
-      _persist_cuda_paths
-      _verify_cuda
-      return 0
-    else
-      warn "CUDA ${CURRENT_CUDA} installed — switching to CUDA 12.4"
-    fi
-  fi
-
-  # ── 4. Install CUDA Toolkit 12.4 ──────────────────────────────────────────
-  info "Installing CUDA Toolkit 12.4..."
-
-  # Pre-clean conflicting NVIDIA repo lists to prevent APT Signed-By conflict
-  _sanitize_apt_cuda_sources
-
-  # Check OS support
-  local OS_ID; OS_ID=$(. /etc/os-release && echo "$ID")
-  local UBUNTU_VER=""
-  if [[ "$OS_ID" == "ubuntu" ]]; then
-    UBUNTU_VER=$(lsb_release -rs)
-    local UBUNTU_MAJOR
-    UBUNTU_MAJOR=$(echo "$UBUNTU_VER" | awk -F. '{print $1}')
-    if [[ "$UBUNTU_MAJOR" -lt 20 ]]; then
-      warn "Ubuntu ${UBUNTU_VER} may not fully support CUDA 12.4 — proceeding anyway"
-    fi
-  elif [[ "$OS_ID" != "debian" ]]; then
-    warn "Unsupported OS: ${OS_ID} — CUDA 12.4 install may fail"
-  fi
-
-  # Check architecture
-  local ARCH; ARCH=$(dpkg --print-architecture)
-  if [[ "$ARCH" != "amd64" && "$ARCH" != "arm64" ]]; then
-    err "Unsupported architecture: ${ARCH}"
-    return 1
-  fi
-
-  local UBUNTU_VER_NODOT; UBUNTU_VER_NODOT=$(lsb_release -rs | tr -d '.')
-  local URL_ARCH="x86_64"
-
-  # NVIDIA published CUDA 12.4 for Ubuntu 20.04 (2004) and 22.04 (2204), but NOT for 24.04 (2404).
-  # If running on Ubuntu >= 24.04 (e.g. Noble), use the 2204 repository for CUDA 12.4 packages.
-  local CUDA_REPO_VER="${UBUNTU_VER_NODOT}"
-  if [[ "${UBUNTU_VER_NODOT}" -ge 2404 ]]; then
-    CUDA_REPO_VER="2204"
-  fi
-
-  echo "deb [trusted=yes] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${CUDA_REPO_VER}/${URL_ARCH}/ /" > /etc/apt/sources.list.d/cuda-12-4.list
-
-  apt-get update -qq 2>/dev/null || true
-
-  # Install CUDA 12.4 toolkit / nvcc / dev libraries
-  apt-get install -y --no-install-recommends cuda-toolkit-12-4 2>/dev/null || \
-  apt-get install -y --no-install-recommends cuda-nvcc-12-4 cuda-cudart-dev-12-4 libcublas-dev-12-4 libcusparse-dev-12-4 libcusolver-dev-12-4 libcufft-dev-12-4 2>/dev/null || {
-    warn "Failed to install CUDA 12.4 packages — falling back to existing CUDA ${CURRENT_CUDA:-unknown}"
-  }
-
-  # Clean up temporary 12.4 source list
-  rm -f /etc/apt/sources.list.d/cuda-12-4.list 2>/dev/null || true
-
-  # ── Point /usr/local/cuda to CUDA 12.4 ────────────────────────────────────
-  if [[ -d /usr/local/cuda-12.4 ]]; then
-    # Remove old symlink if it exists (never remove a real directory)
-    if [[ -L /usr/local/cuda ]]; then
-      rm -f /usr/local/cuda
-    elif [[ -d /usr/local/cuda ]]; then
-      # Backup existing real directory
-      mv /usr/local/cuda /usr/local/cuda-old-backup 2>/dev/null || true
-    fi
-    ln -sf /usr/local/cuda-12.4 /usr/local/cuda
-    ok "/usr/local/cuda → /usr/local/cuda-12.4"
-  elif [[ -d /usr/local/cuda ]]; then
-    ok "CUDA toolkit installed at /usr/local/cuda"
-  else
-    warn "CUDA toolkit installed but location unknown — check /usr/local/"
-  fi
-
-  # ── Persist PATH and LD_LIBRARY_PATH ───────────────────────────────────────
-  _persist_cuda_paths
-
-  # ── Verify installation ───────────────────────────────────────────────────
-  _verify_cuda
-}
-
-# ── Persist CUDA environment variables ──────────────────────────────────────────
-_persist_cuda_paths() {
-  local cuda_dir="/usr/local/cuda"
-  if [[ -d /usr/local/cuda-12.4 ]]; then
-    cuda_dir="/usr/local/cuda-12.4"
-  fi
-
-  local nproc_count; nproc_count=$(nproc 2>/dev/null || echo 4)
-  export MAX_JOBS="$nproc_count"
-  export CMAKE_BUILD_PARALLEL_LEVEL="$nproc_count"
-  export CMAKE_GENERATOR="Ninja"
-  export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-7.5;8.0;8.6;8.9;9.0+PTX}"
-
-  cat > /etc/profile.d/cuda.sh << CUDA_ENV
-export PATH=${cuda_dir}/bin:/usr/local/cuda/bin:\$PATH
-export LD_LIBRARY_PATH=${cuda_dir}/lib64:/usr/local/cuda/lib64:\${LD_LIBRARY_PATH:-}
-export CUDA_HOME=${cuda_dir}
-export MAX_JOBS=${nproc_count}
-export CMAKE_BUILD_PARALLEL_LEVEL=${nproc_count}
-export CMAKE_GENERATOR=Ninja
-export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}"
-CUDA_ENV
-  chmod +x /etc/profile.d/cuda.sh
-
-  # Apply for this session
-  export PATH="${cuda_dir}/bin:/usr/local/cuda/bin:$PATH"
-  export LD_LIBRARY_PATH="${cuda_dir}/lib64:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}"
-  export CUDA_HOME="${cuda_dir}"
-  if [[ -d "${cuda_dir}/include" ]]; then
-    export CPATH="${cuda_dir}/include:${CPATH:-}"
-  fi
-
-  # Also write to /etc/ld.so.conf.d for persistent library loading
-  if [[ -d "${cuda_dir}/lib64" ]]; then
-    echo "${cuda_dir}/lib64" > /etc/ld.so.conf.d/cuda.conf
-    ldconfig 2>/dev/null || true
-  fi
-
-  _ensure_cuda_dev_headers "$cuda_dir"
-
-  ok "CUDA environment configured (persisted to /etc/profile.d/cuda.sh)"
-}
-
-_ensure_cuda_dev_headers() {
-  local cuda_root="${1:-/usr/local/cuda-12.4}"
-  [[ -d "$cuda_root" ]] || cuda_root="/usr/local/cuda"
-  if [[ -d "$cuda_root/include" ]]; then
-    python3 -c "
-import glob, os, shutil
-cuda_inc = '${cuda_root}/include'
-venv_dirs = ['${PROJECT_ROOT}/backend/.venv', '/content/AI_Studio/backend/.venv', '${HOME}/.venv']
-for vd in venv_dirs:
-    for inc in glob.glob(os.path.join(vd, 'lib/python*/site-packages/nvidia/*/include')):
-        for f in os.listdir(inc):
-            s = os.path.join(inc, f)
-            d = os.path.join(cuda_inc, f)
-            if not os.path.exists(d):
-                try:
-                    shutil.copy2(s, d) if not os.path.isdir(s) else shutil.copytree(s, d)
-                except Exception:
-                    pass
-" 2>/dev/null || true
-  fi
-}
-
-# ── Verify CUDA is working ─────────────────────────────────────────────────────
-_verify_cuda() {
-  echo ""
-  info "Verifying CUDA installation..."
-
-  # Check nvcc
-  local NVCC_BIN=""
-  if [[ -x /usr/local/cuda-12.4/bin/nvcc ]]; then
-    NVCC_BIN="/usr/local/cuda-12.4/bin/nvcc"
-  elif command -v nvcc &>/dev/null; then
-    NVCC_BIN=$(command -v nvcc)
-  elif [[ -x /usr/local/cuda/bin/nvcc ]]; then
-    NVCC_BIN="/usr/local/cuda/bin/nvcc"
-  fi
-
-  if [[ -n "$NVCC_BIN" ]]; then
-    local VER
-    VER=$("$NVCC_BIN" --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
-    ok "nvcc: CUDA ${VER}"
-  else
-    warn "nvcc not found — CUDA toolkit may not be properly installed"
-    return 1
-  fi
-
-  # Sanity check: CUDA can see the GPU
-  if command -v nvidia-smi &>/dev/null; then
-    local GPU_COUNT
-    GPU_COUNT=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l)
-    if [[ "$GPU_COUNT" -gt 0 ]]; then
-      ok "GPU accessible: ${GPU_COUNT} device(s) found"
-      nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | head -5 | while IFS= read -r line; do
-        echo "    ${CYAN}${line}${NC}"
-      done
-    else
-      warn "No GPUs visible to nvidia-smi"
-    fi
-  fi
-
-  # Test CUDA runtime: compile and run a tiny program
-  if [[ -n "$NVCC_BIN" ]]; then
-    local TMP_CUDA; TMP_CUDA=$(mktemp /tmp/cuda_test_XXXXXX.cu)
-    cat > "$TMP_CUDA" << 'CUDA_TEST'
-#include <stdio.h>
-__global__ void kernel() { printf("CUDA works! Thread %d\n", threadIdx.x); }
-int main() {
-    kernel<<<1, 1>>>();
-    cudaError_t err = cudaDeviceSynchronize();
-    if (err != cudaSuccess) { printf("CUDA error: %s\n", cudaGetErrorString(err)); return 1; }
-    printf("CUDA runtime OK\n");
-    return 0;
-}
-CUDA_TEST
-    local TMP_BIN; TMP_BIN="${TMP_CUDA%.cu}"
-    if "$NVCC_BIN" -o "$TMP_BIN" "$TMP_CUDA" 2>/dev/null; then
-      if "$TMP_BIN" 2>/dev/null; then
-        ok "CUDA runtime sanity check passed"
-      else
-        warn "CUDA program compiled but failed to run — driver issue?"
-      fi
-    else
-      warn "CUDA compilation sanity check failed"
-    fi
-    rm -f "$TMP_CUDA" "$TMP_BIN"
-  fi
-}
-
-
-# Main backend setup
-
-backend_setup () {
-
-  echo "Starting the backend setup..."
-  bash scripts/clone_thirdparty.sh
-  echo "repo clone completed"
-  bash backend/scripts/install.sh
-}
-
-install_redis() {
-   head_ "Installing Redis 7"
-   if command -v redis-server &>/dev/null; then
-     log "Redis already installed: $(redis-server --version)"
-     return 0
-   fi
-
-   apt-get update -qq
-   apt-get install -y redis-server || {
-     err "Failed to install Redis"
-     return 1
-   }
-
-   systemctl enable redis-server --now
-   log "Redis installed and started"
-}
-
-install_node() {
-  head_ "Installing Node.js 20"
-  if node --version 2>/dev/null | grep -qE 'v2[0-9]'; then
-    log "Already installed: $(node --version)"
-    return 0
-  fi
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - || {
-    err "Failed to add NodeSource repository"
-    return 1
-  }
-  apt-get install -y nodejs || {
-    err "Failed to install Node.js"
-    return 1
-  }
-  log "Node.js installed: $(node --version)"
-
-  if ! command -v bun &>/dev/null; then
-    head_ "Installing Bun"
-    curl -fsSL https://bun.sh/install | bash || warn "Failed to install Bun via bun.sh"
+  info "Bun not found. Installing Bun..."
+  if curl -fsSL https://bun.sh/install | bash >/dev/null 2>&1; then
     export PATH="$HOME/.bun/bin:$PATH"
-    if [[ -f "$HOME/.bun/bin/bun" ]] && [[ ! -e /usr/local/bin/bun ]]; then
-      ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || true
-    fi
-    log "Bun installed: $(bun --version 2>/dev/null || echo 'OK')"
+  fi
+
+  if command -v bun >/dev/null 2>&1; then
+    log "Bun installed: $(bun --version)"
+  elif command -v npm >/dev/null 2>&1; then
+    warn "Bun unavailable; using npm fallback: $(npm --version)"
+  else
+    fail "Neither Bun nor npm is available. Install Node.js 20+ or Bun and rerun setup."
   fi
 }
-install_blender() {
-  head_ "Installing Blender"
-  if command -v blender &>/dev/null; then
-    log "Already installed: $(blender --version 2>/dev/null | head -1)"
+
+ensure_uv(){
+  section "Python Toolchain"
+  export PATH="$HOME/.local/bin:$PATH"
+  if command -v uv >/dev/null 2>&1; then
+    log "uv: $(uv --version)"
     return 0
   fi
-  apt-get install -y blender 2>/dev/null || {
-    warn "Blender not in apt — downloading from blender.org..."
-    BLENDER_VER="4.2.3"
-    BLENDER_URL="https://download.blender.org/release/Blender4.2/blender-${BLENDER_VER}-linux-x64.tar.xz"
-    wget -q "$BLENDER_URL" -O /tmp/blender.tar.xz || {
-      warn "Failed to download Blender — post-processing will be unavailable"
-      return 0
-    }
-    tar -xJf /tmp/blender.tar.xz -C /opt/
-    ln -sf "/opt/blender-${BLENDER_VER}-linux-x64/blender" /usr/local/bin/blender
-    rm -f /tmp/blender.tar.xz
-    log "Blender $BLENDER_VER installed to /opt/"
-  }
+  info "uv not found. Installing uv..."
+  curl -LsSf https://astral.sh/uv/install.sh | sh >/dev/null
+  export PATH="$HOME/.local/bin:$PATH"
+  command -v uv >/dev/null 2>&1 || fail "uv installation completed but uv is not on PATH."
+  log "uv: $(uv --version)"
 }
 
-# ── Project setup ──────────────────────────────────────────────────────────────
+create_directories(){
+  section "Preparing Project Directories"
+  mkdir -p \
+    "$PROJECT_ROOT/logs" \
+    "$PROJECT_ROOT/.pids" \
+    "$PROJECT_ROOT/backend/storage/uploads" \
+    "$PROJECT_ROOT/backend/storage/models" \
+    "$PROJECT_ROOT/backend/storage/thumbnails" \
+    "$PROJECT_ROOT/backend/storage/exports" \
+    "$PROJECT_ROOT/backend/storage/images" \
+    "$PROJECT_ROOT/backend/.hf_cache/hub" \
+    "$PROJECT_ROOT/backend/.runtime_cache" 
 
-setup_folders() {
-   head_ "Creating Project Directory Structure"
-   for dir in \
-     backend/storage/uploads \
-     backend/storage/models \
-     backend/storage/thumbnails \
-     backend/storage/exports \
-     backend/storage/images \
-     backend/.runtime_cache \
-     logs; do
-     mkdir -p "$dir"
-   done
-   # Runtime-owned dirs: 755 is fine (created and written by one user).
-   chmod -R 755 backend/storage backend/.runtime_cache logs 2>/dev/null || true
-   log "Project directories created"
+  # if [[ ! -f "$PROJECT_ROOT/.env" && -f "$PROJECT_ROOT/.env.example" ]]; then
+  #   cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
+  #   log "Created .env from .env.example"
+  # fi
+
+  log "Project runtime directories are ready."
 }
 
+install_frontend_deps(){
+  section "Installing Frontend Dependencies"
+  export PATH="$HOME/.bun/bin:$PATH"
 
-
-install_frontend_deps() {
-  head_ "Installing Frontend Dependencies"
-  if command -v bun &>/dev/null; then
-    bun ci 2>/dev/null || bun install || {
-      warn "Frontend dependency installation had issues — check Bun output"
-      return 0
-    }
+  if command -v bun >/dev/null 2>&1; then
+    bun install --frozen-lockfile || bun install
+    log "Frontend dependencies installed with Bun."
   else
-    npm ci 2>/dev/null || npm install || {
-      warn "Frontend dependency installation had issues — check npm output"
-      return 0
-    }
-  fi
-  log "Frontend dependencies installed"
-}
-
-build_frontend() {
-    head_ "Building Frontend"
-
-    # Fix .next permissions if it exists (prevents EACCES errors)
-    if [[ -d .next ]]; then
-        if command -v sudo &>/dev/null; then
-            sudo chmod -R 755 .next 2>/dev/null || true
-        else
-            chmod -R 755 .next 2>/dev/null || true
-        fi
-    fi
-
-echo -e "  ${BOLD}Building Next.js (this takes 2-5 minutes)${NC}"
-    if command -v bun &>/dev/null; then
-        bun run build 2>&1 | while IFS= -r read -n1 char; do
-            case "$char" in
-                .) printf "${GREEN}█${NC}" ;;
-                $'\n') printf "\n" ;;
-            esac
-        done || {
-            err "Frontend build failed"
-            return 1
-        }
-    else
-        npm run build 2>&1 | while IFS= -r read -n1 char; do
-            case "$char" in
-                .) printf "${GREEN}█${NC}" ;;
-                $'\n') printf "\n" ;;
-            esac
-        done || {
-            err "Frontend build failed"
-            return 1
-        }
-    fi
-    echo ""
-    log "Frontend built successfully"
-}
-# ── Services ───────────────────────────────────────────────────────────────────
-
-print_summary() {
-   head_ "Setup Complete"
-   echo -e "  ${GREEN}${BOLD}╔════════════════════════════════════════════════════════════╗${NC}"
-   echo -e "  ${GREEN}${BOLD}║  ✅ AI 3D Studio v6.0.0 is ready!                        ║${NC}"
-   echo -e "  ${GREEN}${BOLD}╚════════════════════════════════════════════════════════════╝${NC}"
-   echo
-   echo -e "  ${CYAN}Cache    :${NC}  Redis on localhost:6379"
-   echo
-   echo -e "  ${CYAN}Setup complete!${NC} Services auto-start by default."
-   echo -e "    Re-run with ${GREEN}--no-start${NC} to skip and start manually:"
-   echo -e "    ${GREEN}bash scripts/start.sh${NC}"
-   echo
-   echo -e "  Services will start at:"
-   echo -e "    Frontend :  ${CYAN}http://localhost:3000${NC}"
-   echo -e "    Backend  :  ${CYAN}http://localhost:8000${NC}"
-   echo -e "    API Docs :  ${CYAN}http://localhost:8000/docs${NC}"
-   echo
-   if [[ "$GPU_AVAILABLE" == "true" ]]; then
-     echo -e "  ${GREEN}GPU Mode:${NC}  ${GPU_NAME}"
-   else
-     echo -e "  ${YELLOW}GPU Mode:${NC}  None — install NVIDIA GPU for AI inference"
-   fi
-   echo
-   echo -e "  ${CYAN}Storage  :${NC}  backend/storage/"
-   echo -e "  ${CYAN}Config   :${NC}  .env"
-   echo
-   echo -e "  ${BOLD}Command reference:${NC}"
-   echo -e "    Start services  : ${GREEN}bash scripts/start.sh${NC}"
-   echo -e "    Stop services   : ${GREEN}bash scripts/stop.sh${NC}"
-   echo -e "    Restart services: ${GREEN}bash scripts/restart.sh${NC}"
-   echo -e "    Manage services : ${GREEN}bash manager.sh${NC}"
-   echo -e "    Colab launcher  : ${GREEN}bash scripts/colab.sh${NC}"
-   echo
-   echo -e "  ${DIM}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-   echo -e "  ${MAGENTA}${BOLD}🚀 Happy 3D generating!${NC}\n"
-}
-
-# ── Entry point ────────────────────────────────────────────────────────────────
-
-main() {
-  # Auto-start the project when setup finishes (default on; opt out with --no-start).
-  # start.sh backgrounds all services and returns, so this is non-blocking.
-  AUTO_START=true
-  for arg in "$@"; do
-    case "$arg" in
-      --auto-start) AUTO_START=true ;;
-      --no-start)   AUTO_START=false ;;
-    esac
-  done
-
-  echo -e "${RED}${BOLD}"
-  cat << 'BANNER'
-
- ██████╗██╗    ██████╗ ██████╗      ███████╗████████╗██╗   ██╗██████╗ ██╗ ██████╗
-██╔══██╗██║    ╚════██╗██╔══██╗     ██╔════╝╚══██╔══╝██║   ██║██╔══██╗██║██╔═══██╗
-███████║██║     █████╔╝██║  ██║     ███████╗   ██║   ██║   ██║██║  ██║██║██║   ██║
-██╔══██║██║    ╚═══██╗ ██║  ██║     ╚════██║   ██║   ██║   ██║██║  ██║██║██║   ██║
-██║  ██║██║   ██████╔╝ ██████╔╝     ███████║   ██║   ╚██████╔╝██████╔╝██║╚██████╔╝
-╚═╝  ╚═╝╚═╝   ╚═════╝  ╚═════╝      ╚══════╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝ ╚═════╝
-
-BANNER
-  echo -e "${NC}  ${BOLD}Automatic Installer v6.0.0${NC}\n"
-
-  # Check for sudo - required for .next permissions and system services
-  if ! command -v sudo &>/dev/null; then
-    err "sudo is required but not available. Please install sudo and re-run."
-    exit 1
-  fi
-  if ! sudo -n true 2>/dev/null; then
-    warn "sudo requires password. You may be prompted during setup."
-  fi
-
-  # Testing mode: simulate CUDA presence for testing all models
-  if [[ "${TEST_MODE:-}" == "1" ]]; then
-    warn "TEST MODE: Simulating CUDA presence (CUDA_FORCE_PRESENT=1)"
-    export CUDA_FORCE_PRESENT=1
-    export CUDA_FORCE_VERSION="${CUDA_FORCE_VERSION:-124}"
-  fi
-
-# Critical steps — failure aborts setup
-   check_root
-   check_os
-   detect_gpu
-   if [[ "${ROOTLESS:-}" != "1" ]]; then
-     install_redis          || { err "Redis installation failed — aborting"; exit 1; }
-   else
-     warn "Skipping Redis system install (user mode) — start.sh will use in-memory broker fallback."
-   fi
-   install_cuda           || warn "CUDA install had issues — may use CPU fallback"
-   install_uv             || { err "uv installation failed — aborting"; exit 1; }
-   install_node           || { err "Node.js installation failed — aborting"; exit 1; }
-
-   # Non-critical steps — warn but continue
-   install_blender        || warn "Blender install skipped — post-processing may be unavailable"
-  
-# Project setup
-   setup_folders
-   setup_env
-    # Non-critical project steps
-   install_frontend_deps  || warn "Frontend deps had issues — check Bun output above"
-   build_frontend || warn "Frontend build had issues — check Bun output above"
-
-  # setup.sh runs as root; hand ownership back to the real user so that the
-  # non-root `start.sh` can use the venv, read .env, and write logs.
-  if [[ -n "${SUDO_USER:-}" ]]; then
-    log "Returning project ownership to $SUDO_USER..."
-    chown -R "${SUDO_USER}:$(id -gn "$SUDO_USER")" \
-      "${PROJECT_ROOT}" 2>/dev/null || true
-  fi
-
-
-  # Auto-start: launch the project automatically when setup finishes.
-  # Run start.sh as the non-root user so the services are owned by that user
-  # (killable later by scripts/stop.sh without sudo). Postgres/Redis were
-  # already started by the install steps above, so start.sh needs no sudo.
-  if [[ "$AUTO_START" == "true" ]]; then
-    echo ""
-    log "Setup complete — launching services..."
-    echo ""
-    if [[ -n "${SUDO_USER:-}" ]] && [[ "$(id -un)" == "root" ]]; then
-      sudo -u "${SUDO_USER}" bash -c "cd '${PROJECT_ROOT}' && bash scripts/start.sh"
-    else
-      bash scripts/start.sh
-    fi
-  else
-    # Summary — user runs scripts/start.sh manually
-    print_summary
+    npm ci || npm install
+    log "Frontend dependencies installed with npm."
   fi
 }
 
+clone_third_party(){
+  section "Cloning Required 3D Model Repositories"
+  info "Target: backend/thirdparty"
+  THIRD_PARTY_DIR="$PROJECT_ROOT/backend/thirdparty" bash "$PROJECT_ROOT/scripts/clone_thirdparty.sh"
+  log "Third-party model repositories are ready."
+}
 
-main "$@"
+install_backend(){
+  section "Installing Backend Dependencies"
+  # shellcheck disable=SC1091
+  (
+    cd "$PROJECT_ROOT/backend"
+    bash scripts/install.sh
+  )
+  log "Backend dependency installation completed."
+}
+
+summary(){
+  section "Setup Complete"
+  printf "${WHITE}${BOLD}  AI 3D Studio is prepared.${NC}\n\n"
+  printf "  ${DIM}Frontend:${NC}  http://localhost:3000\n"
+  printf "  ${DIM}Backend:${NC}   http://localhost:7842\n"
+  printf "  ${DIM}Docs:${NC}      http://localhost:7842/docs\n"
+  printf "  ${DIM}Health:${NC}    http://localhost:7842/health\n\n"
+  printf "  ${GREEN}Next:${NC} bash scripts/start.sh\n"
+  printf "  ${GREEN}Stop:${NC} bash scripts/stop.sh\n"
+  printf "  ${GREEN}Manage:${NC} bash manager.sh\n\n"
+}
+
+banner
+printf "${WHITE}${BOLD}Setup overview${NC}\n"
+printf "  This setup prepares the existing project in this order:\n"
+printf "  01. Environment check\n"
+printf "  02. Create runtime/storage directories\n"
+printf "  03. Install frontend dependencies\n"
+printf "  04. Prepare backend Python environment\n"
+printf "  05. Run scripts/clone_thirdparty.sh\n"
+printf "  06. Run backend/scripts/install.sh\n\n"
+
+
+require_commands
+ensure_bun_or_npm
+ensure_uv
+create_directories
+install_frontend_deps
+clone_third_party
+install_backend
+summary

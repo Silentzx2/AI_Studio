@@ -425,6 +425,7 @@ docs/vibe_coding_legacy
 
 # debugs thirdparty 
 thirdparty_work
+thirdparty
 
 # dummy intermediate meshes produced by hunyuan 
 assets/example_mesh/white_mesh_remesh.obj 
