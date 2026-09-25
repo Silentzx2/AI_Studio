@@ -1,4 +1,4 @@
-export const APP_NAME = 'AI 3D Studio';
+export const APP_NAME = 'ForMash 3D';
 
 export const ADMIN_NAV_ITEMS = [
   { id: 'overview', label: 'Dashboard', icon: 'LayoutDashboard' },

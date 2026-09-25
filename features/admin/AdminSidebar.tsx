@@ -54,7 +54,7 @@ export default function AdminSidebar({
             <Boxes size={18} className="text-[hsl(var(--foreground))]" />
           </div>
           <div>
-            <p className="text-[11px] font-bold tracking-[0.15em] text-[hsl(var(--neon-purple))] uppercase">AI Studio</p>
+            <p className="text-[11px] font-bold tracking-[0.15em] text-[hsl(var(--neon-purple))] uppercase">ForMash 3D</p>
             <p className="text-xs font-medium text-[hsl(var(--muted-foreground))] mt-0.5">Control Panel</p>
           </div>
         </div>

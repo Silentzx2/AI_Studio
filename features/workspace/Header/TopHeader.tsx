@@ -75,7 +75,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
           <Menu className="w-4 h-4" />
         </button>
 
-        {/* Brand Studio Logo (AI 3D Studio) */}
+        {/* Brand Studio Logo (ForMash 3D) */}
         <div
           onClick={() => navigateToMain('dashboard')}
           className="flex items-center gap-2 cursor-pointer group p-1 flex-shrink-0"
@@ -87,7 +87,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
             </svg>
           </div>
           <span className="font-extrabold text-xs tracking-wider text-white uppercase font-sans hidden sm:inline group-hover:text-primary transition-colors">
-            AI 3D STUDIO
+            ForMash 3D
           </span>
         </div>
 

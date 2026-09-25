@@ -1,4 +1,4 @@
-# AI 3D Studio — Complete API Documentation
+# ForMash 3D — Complete API Documentation
 
 > **Version**: 0.1.0
 > **Base URL**: `http://localhost:7842` (Backend API)
@@ -28,7 +28,7 @@
 
 ## Overview
 
-The AI 3D Studio REST API follows RESTful conventions and returns JSON responses. All endpoints are prefixed with `/api/v1`.
+The ForMash 3D REST API follows RESTful conventions and returns JSON responses. All endpoints are prefixed with `/api/v1`.
 
 ### Standard Response Format
 

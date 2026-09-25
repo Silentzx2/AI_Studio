@@ -389,7 +389,7 @@ main_menu(){
       6) clean_runtime ;;
       7) cmd_cloudflare ;;
       8) cmd_models ;;
-      q|Q) printf "\n${CYAN}AI 3D Studio manager closed.${NC}\n"; exit 0 ;;
+      q|Q) printf "\n${CYAN}ForMash 3D manager closed.${NC}\n"; exit 0 ;;
       *) printf "\n${RED}Invalid option.${NC}\n"; sleep 1 ;;
     esac
   done

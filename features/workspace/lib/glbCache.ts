@@ -6,7 +6,7 @@
  * Tier 3 (L3): Chunked streaming network fetch with real-time download progress.
  */
 
-const CACHE_NAME = 'ai-studio-models-v1';
+const CACHE_NAME = 'formash-3d-models-v1';
 const glbBufferCache = new Map<string, ArrayBuffer>();
 
 export function getCachedGLB(url: string): ArrayBuffer | undefined {

@@ -453,7 +453,7 @@ update_thirdparty(){
 
 summary(){
   section "Setup Complete"
-  printf "${WHITE}${BOLD}  AI 3D Studio is prepared.${NC}\n\n"
+  printf "${WHITE}${BOLD}  ForMash 3D is prepared.${NC}\n\n"
   printf "  ${DIM}Frontend:${NC}  http://localhost:3000\n"
   printf "  ${DIM}Backend:${NC}   http://localhost:7842\n"
   printf "  ${DIM}Docs:${NC}      http://localhost:7842/docs\n"

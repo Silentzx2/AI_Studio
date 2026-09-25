@@ -1,15 +1,15 @@
 <!-- ===================== HERO BANNER ===================== -->
 
 <p align="center">
-  <img src="https://i.postimg.cc/2ScFBzgs/file-000000006864720bb59405440766bb68-2.jpg" alt="AI 3D Studio Banner" width="100%">
+  <img src="assets/banner.png" alt="ForMash 3D Banner" width="100%">
 </p>
 
 <h1 align="center">
-    AI 3D Studio
+    ForMash 3D
 </h1>
 
 <p align="center">
-  <strong>Generative 3D Asset Creation, Optimization & Game-Ready Pipeline</strong><br>
+  <strong>ForMash 3D — AI-powered 3D generation and asset creation platform.</strong><br>
   Neural Reconstruction • Safe Post-Processing • Multi-Tier LODs • Physics Colliders • Automated QA • Multi-Format Export
 </p>
 
@@ -26,7 +26,7 @@
 
 > [!IMPORTANT]
 > **Project Status: Early Pre-Alpha & Experimental**  
-> AI Studio is currently an **early experimental, pre-alpha project** and has not yet reached a stable alpha release. Features, model integrations, workflows, and APIs may change rapidly. Certain components may be incomplete, unoptimized, or experimental. It is provided for developers, researchers, and technical artists to explore, test, and contribute to local generative 3D pipelines.
+> ForMash 3D is currently an **early experimental, pre-alpha project** and has not yet reached a stable alpha release. Features, model integrations, workflows, and APIs may change rapidly. Certain components may be incomplete, unoptimized, or experimental. It is provided for developers, researchers, and technical artists to explore, test, and contribute to local generative 3D pipelines.
 
 > [!NOTE]
 > **Vibe-Coded & AI-Assisted Development Disclosure**  
@@ -34,13 +34,24 @@
 
 > [!NOTE]
 > **Inspiration & Non-Affiliation Disclaimer**  
-> AI Studio draws design and workflow inspiration from the simplicity of modern AI 3D creation platforms such as **Tripo** and **Meshy AI**. However, AI Studio is an independent open-source project and is **not affiliated with, endorsed by, sponsored by, or officially connected to** Tripo, Meshy AI, or their parent entities.  
+> ForMash 3D draws design and workflow inspiration from the simplicity of modern AI 3D creation platforms such as **Tripo** and **Meshy AI**. However, ForMash 3D is an independent open-source project and is **not affiliated with, endorsed by, sponsored by, or officially connected to** Tripo, Meshy AI, or their parent entities.  
 > Technical model identifiers referenced in this repository (such as `TripoSR`, `TripoSG`, and `TripoSF`) are legitimate upstream research model names developed by VAST-AI Research and are preserved strictly for technical identity and provenance.
+
+---
+
+## 📰 Recent Updates
+
+> Compact overview of recent milestone updates (maximum 3 entries preserved; full technical history available in **[Docs/CHANGELOG.md](Docs/CHANGELOG.md)**).
+
+* **2026-09-25** — **Project Rebrand to ForMash 3D**: Executed complete first-party rebrand from AI Studio to ForMash 3D (`ForMash3D`) across UI, API gateway, documentation, and web assets while preserving backward-compatible environment variables.
+* **2026-09-25** — **Repository & Submodule Migration**: Updated canonical repository origin to `Silentzx2/ForMash3D` and submodule tree to `Silentzx2/ForMash3D-ThirdParty` with bundled prebuilt CUDA wheelhouse.
+* **2026-09-21** — **v0.1.0 Architecture Release**: Next.js 16 + FastAPI unified gateway, 19-model registry, VRAM-aware multiprocess scheduler, automated LOD cascade, and mesh QA engine.
 
 ---
 
 ## 📖 Table of Contents
 
+- [📰 Recent Updates](#-recent-updates)
 - [⚡ Overview](#-overview)
 - [🏛️ Backend Provenance](#️-backend-provenance)
 - [⚠️ Script Safety & Security Warnings](#️-script-safety--security-warnings)
@@ -70,7 +81,7 @@
 
 ## ⚡ Overview
 
-**AI 3D Studio** is an open-source generative 3D asset pipeline. It bridges open-source neural shape, texture, and motion synthesis models (**Hunyuan3D-2.1**, **TRELLIS**, **TripoSR**, **TripoSG**, **TripoSF**, **ARDY**, **PartPacker**, **UltraShape**, **PartField**, **FastMesh**, **VoxHammer**) with a post-processing workflow designed to preserve raw master geometry while generating engine-compliant game assets with automated Level-of-Detail (LOD) cascades, physics collision hulls, and objective QA validation scores.
+**ForMash 3D** is an open-source generative 3D asset platform. It bridges open-source neural shape, texture, and motion synthesis models (**Hunyuan3D-2.1**, **TRELLIS**, **TripoSR**, **TripoSG**, **TripoSF**, **ARDY**, **PartPacker**, **UltraShape**, **PartField**, **FastMesh**, **VoxHammer**) with a post-processing workflow designed to preserve raw master geometry while generating engine-compliant game assets with automated Level-of-Detail (LOD) cascades, physics collision hulls, and objective QA validation scores.
 
 ### Key Capabilities
 - **FastAPI Backend**: High-throughput REST API with VRAM-aware multiprocess scheduler and optional Redis multi-worker queue.
@@ -86,7 +97,7 @@
 
 ## 🏛️ Backend Provenance
 
-The backend of AI Studio was forked and adapted from the open-source project **[3DAIGC-API](https://github.com/FishWoWater/3DAIGC-API)** by FishWoWater, and has since been extensively modified and expanded. 
+The backend of ForMash 3D was forked and adapted from the open-source project **[3DAIGC-API](https://github.com/FishWoWater/3DAIGC-API)** by FishWoWater, and has since been extensively modified and expanded. 
 
 Since forking, the backend has been refactored for Next.js 16 frontend coordination, unified under Python 3.10 and PyTorch 2.6 / CUDA 12.4 runtime targets, integrated with a clean public release model catalog, extended with additional generative 3D model adapters (including TRELLIS.2, PartField, UltraShape, TripoSR/SG/SF, UniRig, ARDY), and enhanced with strict VRAM-aware multiprocess scheduling. We gratefully acknowledge the upstream authors and foundational work of [FishWoWater/3DAIGC-API](https://github.com/FishWoWater/3DAIGC-API).
 
@@ -96,14 +107,14 @@ Since forking, the backend has been refactored for Next.js 16 frontend coordinat
 
 > [!WARNING]
 > **Inspect Setup Scripts Before Execution**  
-> AI Studio provides automated setup shell scripts (`scripts/setup.sh`, `backend/scripts/install.sh`, `manager.sh`). Because neural 3D modeling relies on compiled C++/CUDA kernels and specialized GPU toolchains, these scripts may:
+> ForMash 3D provides automated setup shell scripts (`scripts/setup.sh`, `backend/scripts/install.sh`, `manager.sh`). Because neural 3D modeling relies on compiled C++/CUDA kernels and specialized GPU toolchains, these scripts may:
 > - Install system packages via `apt` (requiring `sudo`).
 > - Modify or sanitize system APT CUDA repository sources in `/etc/apt/sources.list.d/`.
 > - Create or modify Conda/venv virtual environments named `3daigc-api`.
 > - Download and install multi-gigabyte PyTorch CUDA wheels.
 > - Modify local environment variables (`PATH`, `LD_LIBRARY_PATH`).
 >
-> **Best Practice**: Developers should inspect scripts before running them. **Always run AI Studio in an isolated container, a disposable cloud GPU instance (e.g. RunPod, Vast.ai), or a dedicated development environment**, rather than a primary personal workstation or production system.
+> **Best Practice**: Developers should inspect scripts before running them. **Always run ForMash 3D in an isolated container, a disposable cloud GPU instance (e.g. RunPod, Vast.ai), or a dedicated development environment**, rather than a primary personal workstation or production system.
 
 ---
 
@@ -238,11 +249,11 @@ The model registry is dynamically configured via `backend/config/models.yaml`.
 
 ### Clone with Submodules
 
-AI Studio manages third-party model source trees via a Git submodule in `backend/thirdparty`. Always clone recursively:
+ForMash 3D manages third-party model source trees via a Git submodule in `backend/thirdparty`. Always clone recursively:
 
 ```bash
-git clone --recurse-submodules https://github.com/Silentzx2/AI_Studio.git
-cd AI_Studio
+git clone --recurse-submodules https://github.com/Silentzx2/ForMash3D.git
+cd ForMash3D
 ```
 
 If you previously cloned without `--recurse-submodules`, initialize the submodule manually:
@@ -314,7 +325,7 @@ Alternatively, models using the Hugging Face Hub (such as TripoSR, TRELLIS) will
 
 ## ⚖️ Third-Party Model Licenses
 
-AI Studio is an open-source project licensed under the **Apache License 2.0**. However, the third-party models integrated into AI Studio are authored by independent research teams and governed by their respective licenses:
+ForMash 3D is an open-source project licensed under the **Apache License 2.0**. However, the third-party models integrated into ForMash 3D are authored by independent research teams and governed by their respective licenses:
 
 - **MIT License**: TRELLIS code, TripoSR.
 - **Apache 2.0**: UniRig, P3-SAM.
@@ -322,7 +333,7 @@ AI Studio is an open-source project licensed under the **Apache License 2.0**. H
 - **NVIDIA Non-Commercial / Research**: PartPacker, PartField, ARDY.
 - **Academic Research Licenses**: PartUV, UltraShape, FastMesh.
 
-AI Studio does **not** own or claim rights to these third-party architectures or weights. For full license terms, author attribution, and commercial use restrictions, please read **[Docs/MODEL_LICENSES.md](Docs/MODEL_LICENSES.md)**.
+ForMash 3D does **not** own or claim rights to these third-party architectures or weights. For full license terms, author attribution, and commercial use restrictions, please read **[Docs/MODEL_LICENSES.md](Docs/MODEL_LICENSES.md)**.
 
 ---
 
@@ -442,7 +453,7 @@ If you find a security vulnerability, please do **NOT** open a public issue. Rev
 ## 📁 Project Structure
 
 ```text
-AI_Studio/
+ForMash3D/
 ├── app/                               # Next.js 16 App Router
 │   ├── layout.tsx                     # Root layout & themes
 │   ├── page.tsx                       # Landing page / workspace entry
@@ -519,6 +530,6 @@ lsof -ti :7842 | xargs -r kill -9
 
 ## 📄 License
 
-AI Studio's original source code is released under the **[Apache License 2.0](LICENSE)**.
+ForMash 3D's original source code is released under the **[Apache License 2.0](LICENSE)**.
 
-Third-party models, libraries, and checkpoints integrated or referenced by AI Studio are governed by their respective author and academic licenses. See **[Docs/MODEL_LICENSES.md](Docs/MODEL_LICENSES.md)** for complete third-party licensing information and attribution.
+Third-party models, libraries, and checkpoints integrated or referenced by ForMash 3D are governed by their respective author and academic licenses. See **[Docs/MODEL_LICENSES.md](Docs/MODEL_LICENSES.md)** for complete third-party licensing information and attribution.

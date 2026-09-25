@@ -54,8 +54,8 @@ const nextConfig: NextConfig = {
   // supervisor restart, watchdog recovery — the standard `npm start` /
   // `next start` production server is used instead. Next.js 16 refuses to run
   // `next start` when output is 'standalone', so leaving it on unconditionally
-  // broke the standard production workflow. Toggle via AI_STUDIO_STANDALONE=1.
-  ...(process.env.AI_STUDIO_STANDALONE === '1' ? { output: 'standalone' } : {}),
+  // broke the standard production workflow. Toggle via FORMASH3D_STANDALONE=1 or AI_STUDIO_STANDALONE=1.
+  ...((process.env.FORMASH3D_STANDALONE === '1' || process.env.AI_STUDIO_STANDALONE === '1') ? { output: 'standalone' } : {}),
   transpilePackages: ['three'],
 
   // Prevents turbopack from resolving workspace root to a parent directory

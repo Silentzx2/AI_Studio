@@ -53,7 +53,7 @@ export const SettingsModal: React.FC = () => {
     const stats = await apiClient.getSystemStats();
     setTesting(false);
     if (stats.status === 'online') {
-      setTestResult({ success: true, msg: 'Connected to AI 3D Studio backend successfully.' });
+      setTestResult({ success: true, msg: 'Connected to ForMash 3D backend successfully.' });
       refreshSystemStats();
     } else {
       setTestResult({ success: false, msg: `Backend server unreachable. Ensure FastAPI is running.` });
@@ -154,7 +154,7 @@ export const SettingsModal: React.FC = () => {
                   )}
                 </div>
               )}
-              <div className="text-[10px] text-zinc-500 pt-1 border-t border-border">AI 3D Studio connects through the configured /api/v1 backend proxy.</div>
+              <div className="text-[10px] text-zinc-500 pt-1 border-t border-border">ForMash 3D connects through the configured /api/v1 backend proxy.</div>
             </div>
           </div>
 

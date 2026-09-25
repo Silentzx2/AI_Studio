@@ -1,5 +1,5 @@
 /**
- * Standardized motion & animation presets for AI Studio UI.
+ * Standardized motion & animation presets for ForMash 3D UI.
  * Consistent timing, easing, and spring physics across panels, drawers, modals, and tabs.
  * Universal format compatible with both framer-motion and motion/react.
  */

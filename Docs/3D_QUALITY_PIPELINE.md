@@ -1,8 +1,8 @@
-# AI Studio: 3D Quality Pipeline Specification
+# ForMash 3D: 3D Quality Pipeline Specification
 
 ## 1. Architectural Overview
 
-The AI Studio 3D Quality Pipeline coordinates image analysis, neural provider inference, safe post-processing, multi-tier LOD generation, and asset packaging.
+The ForMash 3D Quality Pipeline coordinates image analysis, neural provider inference, safe post-processing, multi-tier LOD generation, and asset packaging.
 
 ```mermaid
 flowchart TD

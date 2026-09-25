@@ -4,11 +4,11 @@ import { GoogleFonts } from "@/components/GoogleFonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AI 3D Studio",
-  description: "Production-ready 3D generation and model management studio",
+  title: "ForMash 3D",
+  description: "ForMash 3D — AI-powered 3D generation and asset creation platform.",
   openGraph: {
-    title: "AI 3D Studio",
-    description: "Production-ready 3D generation and model management studio",
+    title: "ForMash 3D",
+    description: "ForMash 3D — AI-powered 3D generation and asset creation platform.",
   },
   keywords: [
     "AI 3D",

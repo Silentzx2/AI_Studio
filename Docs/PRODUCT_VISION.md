@@ -1,16 +1,16 @@
-# 🧭 AI 3D Studio — Product Vision & Architectural North Star
+# 🧭 ForMash 3D — Product Vision & Architectural North Star
 
-> *"The user provides the idea. AI Studio handles the technical 3D production work."*
+> *"The user provides the idea. ForMash 3D handles the technical 3D production work."*
 
 ---
 
 ## 🎯 Executive Vision
 
-**AI 3D Studio** is an automated, local AI 3D asset factory. It bridges state-of-the-art open-source generative 3D models (**TRELLIS**, **Hunyuan3D-2.1**, **PartPacker**, **UltraShape**) with an intelligent post-processing pipeline inspired by the workflow simplicity of modern 3D creation platforms (e.g., Tripo, Meshy AI; independently developed without affiliation, endorsement, or sponsorship), running locally and transparently on your own hardware.
+**ForMash 3D** is an automated, local AI 3D asset factory. It bridges state-of-the-art open-source generative 3D models (**TRELLIS**, **Hunyuan3D-2.1**, **PartPacker**, **UltraShape**) with an intelligent post-processing pipeline inspired by the workflow simplicity of modern 3D creation platforms (e.g., Tripo, Meshy AI; independently developed without affiliation, endorsement, or sponsorship), running locally and transparently on your own hardware.
 
 ### The Paradigm Shift
-- **What AI 3D Studio is NOT**: A simplistic demo wrapper that executes a single generation step.
-- **What AI 3D Studio IS**: An end-to-end 3D production pipeline that takes an image or prompt and automatically produces the highest-quality practical 3D asset possible, processes it intelligently, validates it, optimizes it, and gives the user a usable game-ready result.
+- **What ForMash 3D is NOT**: A simplistic demo wrapper that executes a single generation step.
+- **What ForMash 3D IS**: An end-to-end 3D production pipeline that takes an image or prompt and automatically produces the highest-quality practical 3D asset possible, processes it intelligently, validates it, optimizes it, and gives the user a usable game-ready result.
 
 ```mermaid
 flowchart LR
@@ -76,7 +76,7 @@ The raw AI generation output (`source.glb`) is immutable and sacred:
 - Derived assets (`game_ready.glb`, `lods/`, `collision.glb`) are saved distinctly and never overwrite the master.
 
 ### 5. Game-Ready Output
-For supported assets, AI 3D Studio automatically delivers:
+For supported assets, ForMash 3D automatically delivers:
 - Clean geometry with recalculated, consistent face normals.
 - Valid UV coordinates with preserved PBR textures.
 - Optimized polycounts tailored to target engine budgets.
@@ -97,7 +97,7 @@ Different neural architectures have unique strengths:
 - **UltraShape**: Arbitrary-topology mesh reconstruction.
 
 ### 8. Production-Minded Architecture
-AI 3D Studio is a modular, enterprise-grade application:
+ForMash 3D is a modular, enterprise-grade application:
 - Built on proven primitives: FastAPI, Python 3.10 (Conda env `3daigc-api`), Pydantic V2, Next.js 16, Three.js, Bun.
 - VRAM-aware multiprocess scheduling for safe GPU utilization.
 - Optional Redis multi-worker queue for horizontal scaling.
@@ -151,4 +151,4 @@ flowchart TB
 
 ## 🚀 Guiding Compass for Future Engineering
 
-> *"Does this make AI 3D Studio feel more like an intelligent, automated 3D asset factory while preserving raw quality, truthfulness, and reliability?"*
+> *"Does this make ForMash 3D feel more like an intelligent, automated 3D asset factory while preserving raw quality, truthfulness, and reliability?"*

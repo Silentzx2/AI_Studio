@@ -8,7 +8,7 @@
 
 ## Overview
 
-AI 3D Studio provides support for Google Colab environments. The Colab scripts automate environment bootstrapping, dependency installation, service orchestration (FastAPI + Next.js), and secure Cloudflare public tunneling.
+ForMash 3D provides support for Google Colab environments. The Colab scripts automate environment bootstrapping, dependency installation, service orchestration (FastAPI + Next.js), and secure Cloudflare public tunneling.
 
 > **Note**: Google Colab notebooks (`colab.ipynb`, `AI_Studio_Colab.ipynb`) are not included in this repository. The Colab workflow is handled via shell scripts that can be adapted for notebook cells.
 
@@ -24,15 +24,15 @@ AI 3D Studio provides support for Google Colab environments. The Colab scripts a
 
 ### Cell 1: Environment Setup
 ```python
-!git clone --recurse-submodules https://github.com/Silentzx2/AI_Studio.git /content/AI_Studio
-%cd /content/AI_Studio
+!git clone --recurse-submodules https://github.com/Silentzx2/ForMash3D.git /content/ForMash3D
+%cd /content/ForMash3D
 !git submodule update --init --recursive
 !bash backend/scripts/install.sh --no-start
 ```
 
 ### Cell 2: Start Services
 ```python
-!cd /content/AI_Studio && bash scripts/start.sh &
+!cd /content/ForMash3D && bash scripts/start.sh &
 ```
 
 ### Cell 3: Access URLs
@@ -90,11 +90,11 @@ nvidia-smi
 !curl -s http://localhost:7842/health
 
 # View logs
-!tail -f /content/AI_Studio/backend/logs/api.log
+!tail -f /content/ForMash3D/backend/logs/api.log
 ```
 
 ### Free Up Memory
 ```bash
 # Restart services to clear GPU memory
-!bash /content/AI_Studio/scripts/restart.sh
+!bash /content/ForMash3D/scripts/restart.sh
 ```

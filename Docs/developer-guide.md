@@ -1,4 +1,4 @@
-# Developer Guide — AI 3D Studio
+# Developer Guide — ForMash 3D
 
 > **Version**: 0.1.0
 > **Last Updated**: September 2026
@@ -7,7 +7,7 @@
 
 ## 1. Architectural Principles
 
-AI 3D Studio follows a clean separation between presentation, API gateway, and model execution:
+ForMash 3D follows a clean separation between presentation, API gateway, and model execution:
 
 ```mermaid
 flowchart TB

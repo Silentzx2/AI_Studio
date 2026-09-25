@@ -1,6 +1,6 @@
 # Security Policy
 
-The AI Studio project takes the security and safety of developers and users seriously. As an early experimental, pre-alpha project that incorporates local AI model runners, file processors, and system execution scripts, security vigilance is essential.
+The ForMash 3D project takes the security and safety of developers and users seriously. As an early experimental, pre-alpha project that incorporates local AI model runners, file processors, and system execution scripts, security vigilance is essential.
 
 ---
 
@@ -17,7 +17,7 @@ Only the latest commit on the `main` branch is actively monitored for security v
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability or sensitive security issue within AI Studio (such as remote code execution, arbitrary file writes/path traversals, unauthorized credential exposure, or injection vulnerabilities):
+If you discover a security vulnerability or sensitive security issue within ForMash 3D (such as remote code execution, arbitrary file writes/path traversals, unauthorized credential exposure, or injection vulnerabilities):
 
 **Please do NOT open a public GitHub issue or disclose the vulnerability publicly.**
 
@@ -42,7 +42,7 @@ Instead, please report the vulnerability privately through one of the following 
 
 ## Security Best Practices for Users & Developers
 
-1. **Environment Isolation**: Because generative 3D modeling relies on custom C++/CUDA kernels, deep system bindings, and third-party research code, **always run AI Studio in an isolated container, disposable VM, or dedicated workstation**.
+1. **Environment Isolation**: Because generative 3D modeling relies on custom C++/CUDA kernels, deep system bindings, and third-party research code, **always run ForMash 3D in an isolated container, disposable VM, or dedicated workstation**.
 2. **Review Setup Scripts**: Always inspect shell scripts (such as `scripts/setup.sh` and `backend/scripts/install.sh`) before execution. These scripts may modify CUDA toolkits, APT sources, and Python virtual environments.
 3. **Protect API Keys and Tokens**: Keep your `.env` file private and never commit your Hugging Face API token (`HF_TOKEN`) or other credentials to version control.
-4. **Network Exposure**: AI Studio's FastAPI backend and Next.js frontend are designed by default for local development (`localhost`). If exposing instances to public networks, place them behind a secure reverse proxy (e.g., NGINX/Caddy) with HTTPS and authentication enabled.
+4. **Network Exposure**: ForMash 3D's FastAPI backend and Next.js frontend are designed by default for local development (`localhost`). If exposing instances to public networks, place them behind a secure reverse proxy (e.g., NGINX/Caddy) with HTTPS and authentication enabled.

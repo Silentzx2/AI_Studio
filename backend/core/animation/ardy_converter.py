@@ -3,7 +3,7 @@ ARDY Motion Converter
 
 Converts ARDY autoregressive motion generation outputs (.npz or dict)
 into browser-playable motion.json format consumed by MeshViewer.tsx
-and the AI Studio animation studio.
+and the ForMash 3D animation studio.
 """
 
 import json

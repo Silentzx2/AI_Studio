@@ -122,9 +122,11 @@ echo "The installation may take a while, please wait..."
 echo ""
 
 choose_env_manager() {
-  local default="${AI_STUDIO_ENV_MANAGER:-conda}"
+  local default="${FORMASH3D_ENV_MANAGER:-${AI_STUDIO_ENV_MANAGER:-conda}}"
   local choice=""
-  if [[ -n "${AI_STUDIO_ENV_MANAGER:-}" ]]; then
+  if [[ -n "${FORMASH3D_ENV_MANAGER:-}" ]]; then
+    choice="${FORMASH3D_ENV_MANAGER}"
+  elif [[ -n "${AI_STUDIO_ENV_MANAGER:-}" ]]; then
     choice="${AI_STUDIO_ENV_MANAGER}"
   else
     read -r -p "Select environment manager [conda|venv] (default: ${default}): " choice
@@ -133,11 +135,13 @@ choose_env_manager() {
   case "${choice}" in
     conda|venv)
       ENV_MANAGER="${choice}"
+      export FORMASH3D_ENV_MANAGER="${ENV_MANAGER}"
       export AI_STUDIO_ENV_MANAGER="${ENV_MANAGER}"
       ;;
     *)
       echo "[WARN] Invalid choice '${choice}'. Falling back to ${default}."
       ENV_MANAGER="${default}"
+      export FORMASH3D_ENV_MANAGER="${ENV_MANAGER}"
       export AI_STUDIO_ENV_MANAGER="${ENV_MANAGER}"
       ;;
   esac
@@ -152,17 +156,31 @@ ENV_NAME="3daigc-api"
 
 if [[ "${ENV_MANAGER}" == "conda" ]]; then
   if ! command -v conda >/dev/null 2>&1; then
+    for candidate in "$HOME/miniconda3" "/opt/conda" "$HOME/anaconda3" "/root/miniconda3"; do
+      if [[ -f "$candidate/etc/profile.d/conda.sh" ]]; then
+        # shellcheck disable=SC1091
+        source "$candidate/etc/profile.d/conda.sh"
+        export PATH="$candidate/bin:$PATH"
+        break
+      fi
+    done
+  fi
+  if ! command -v conda >/dev/null 2>&1; then
     echo "[INFO] Conda not found. Installing Miniconda..."
-    local CONDA_HOME="${CONDA_HOME:-$HOME/miniconda3}"
-    local MKDIR_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
-    local INSTALLER="/tmp/miniconda-installer.sh"
-    if curl -fsSL "$MKDIR_URL" -o "$INSTALLER"; then
-      bash "$INSTALLER" -b -p "$CONDA_HOME" || exit 1
+    CONDA_HOME="${CONDA_HOME:-$HOME/miniconda3}"
+    MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+    INSTALLER="/tmp/miniconda-installer.sh"
+    if curl -fsSL "$MINICONDA_URL" -o "$INSTALLER"; then
+      bash "$INSTALLER" -b -u -p "$CONDA_HOME" || exit 1
+      rm -f "$INSTALLER"
     else
       echo "[ERROR] Could not download Miniconda installer"
+      rm -f "$INSTALLER"
       exit 1
     fi
+    export PATH="$CONDA_HOME/bin:$PATH"
     if [[ -f "$CONDA_HOME/etc/profile.d/conda.sh" ]]; then
+      # shellcheck disable=SC1091
       source "$CONDA_HOME/etc/profile.d/conda.sh"
     fi
   fi

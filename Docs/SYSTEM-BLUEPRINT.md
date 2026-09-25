@@ -1,4 +1,4 @@
-# 🏛️ AI 3D Studio — Complete System Architecture & Pipeline Blueprint
+# 🏛️ ForMash 3D — Complete System Architecture & Pipeline Blueprint
 
 > **System Version**: 0.1.0 (FastAPI + Next.js 16, Python 3.10)
 > **Target Deployments**: Single-GPU Linux / Cloud GPU / Local Workstations
@@ -8,7 +8,7 @@
 
 ## 1. Executive System Overview
 
-AI 3D Studio is an end-to-end generative 3D reconstruction and asset optimization platform that converts 2D images or text prompts into game-ready 3D assets (`.glb`, `.obj`, `.fbx`, `.stl`, PBR textures, LOD cascades, collision hulls).
+ForMash 3D is an end-to-end generative 3D reconstruction and asset optimization platform that converts 2D images or text prompts into game-ready 3D assets (`.glb`, `.obj`, `.fbx`, `.stl`, PBR textures, LOD cascades, collision hulls).
 
 ### Core Stack
 - **Frontend**: Next.js 16 (React 19, TypeScript, Three.js, React Three Fiber, Tailwind CSS)

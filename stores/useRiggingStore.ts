@@ -272,7 +272,7 @@ export const useRiggingStore = create<RiggingState>((set, get) => ({
         bones,
         skeleton: 'Biped Humanoid (UniRig)',
       };
-      localStorage.setItem('ai-studio-rigging-asset', JSON.stringify(rigSnapshot));
+      localStorage.setItem('formash-3d-rigging-asset', JSON.stringify(rigSnapshot));
       return true;
     } catch (err) {
       console.error('Failed to save rig:', err);

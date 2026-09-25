@@ -1,8 +1,8 @@
-# Contributing to AI Studio
+# Contributing to ForMash 3D
 
-Thank you for your interest in contributing to **AI Studio**!
+Thank you for your interest in contributing to **ForMash 3D**!
 
-AI Studio is an early, experimental, pre-alpha project that has been heavily AI-assisted and vibe-coded. As a result, there are rough edges, areas for optimization, technical debt, and bugs. We welcome contributions from developers, researchers, technical artists, and 3D enthusiasts to make the platform more reliable, modular, and performant.
+ForMash 3D is an early, experimental, pre-alpha project that has been heavily AI-assisted and vibe-coded. As a result, there are rough edges, areas for optimization, technical debt, and bugs. We welcome contributions from developers, researchers, technical artists, and 3D enthusiasts to make the platform more reliable, modular, and performant.
 
 ---
 
@@ -30,11 +30,11 @@ AI Studio is an early, experimental, pre-alpha project that has been heavily AI-
 
 ### 1. Clone the Repository (with Submodules)
 
-AI Studio depends on the `AI_Studio-ThirdParty` repository as a submodule under `backend/thirdparty`. Always clone recursively:
+ForMash 3D depends on the `ForMash3D-ThirdParty` repository as a submodule under `backend/thirdparty`. Always clone recursively:
 
 ```bash
-git clone --recurse-submodules https://github.com/Silentzx2/AI_Studio.git
-cd AI_Studio
+git clone --recurse-submodules https://github.com/Silentzx2/ForMash3D.git
+cd ForMash3D
 ```
 
 If you previously cloned without `--recurse-submodules`, initialize them manually:

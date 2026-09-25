@@ -93,7 +93,7 @@ export function ExportBackupSection() {
       
       const link = document.createElement('a');
       link.href = url;
-      link.download = `ai-3d-studio-backup-${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `formash-3d-backup-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

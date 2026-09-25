@@ -1,1 +1,1 @@
-"""Animation core utilities for AI Studio."""
+"""Animation core utilities for ForMash 3D."""

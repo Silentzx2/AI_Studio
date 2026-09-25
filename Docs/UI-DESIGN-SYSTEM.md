@@ -2,7 +2,7 @@
 
 ## 1. Design Tokens (`app/globals.css`)
 
-All colors and surfaces in AI 3D Studio use HSL CSS variable design tokens. Direct hex color literals in UI code are strictly disallowed.
+All colors and surfaces in ForMash 3D use HSL CSS variable design tokens. Direct hex color literals in UI code are strictly disallowed.
 
 | Token | CSS Variable Value | Purpose / Usage |
 | :--- | :--- | :--- |

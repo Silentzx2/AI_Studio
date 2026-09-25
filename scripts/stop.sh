@@ -91,7 +91,7 @@ kill_by_port(){
   fi
 }
 
-section "Stopping AI 3D Studio"
+section "Stopping ForMash 3D"
 kill_group_from_file "$PID_DIR/frontend.pid" "Frontend"
 kill_group_from_file "$PID_DIR/backend.pid" "Backend supervisor"
 kill_backend_children
@@ -107,4 +107,4 @@ stop_local_redis
 
 rm -f "$PID_DIR"/*.pid "$BACKEND_RUN_DIR"/*.pid 2>/dev/null || true
 # Note: Cloudflare tunnels (.cloudflare_tunnels) are independent and intentionally preserved.
-log "AI 3D Studio services stopped. (Cloudflare tunnels remain active)"
+log "ForMash 3D services stopped. (Cloudflare tunnels remain active)"

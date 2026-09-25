@@ -1,4 +1,4 @@
-# AI 3D Studio — System & Runtime Architecture
+# ForMash 3D — System & Runtime Architecture
 
 > **Architecture Version**: 0.1.0 (FastAPI + Next.js 16)  
 > **Last Verified**: September 2026  
@@ -8,7 +8,7 @@
 
 ## 1. Architectural Mission & Overview
 
-AI 3D Studio is an end-to-end generative 3D asset pipeline. The system is architected around a clean separation of concerns:
+ForMash 3D is an end-to-end generative 3D asset pipeline. The system is architected around a clean separation of concerns:
 - **Presentation Layer**: Next.js 16 frontend with interactive Three.js 3D viewport, studio workspace tooling, and model management.
 - **API Gateway**: FastAPI backend (Python 3.10, Conda env `3daigc-api`) with VRAM-aware multiprocess scheduler, request validation, rate limiting, and static file delivery.
 - **Model Adapters**: Python adapters for each AI model (TRELLIS, Hunyuan3D, PartPacker, UltraShape, PartField, P3-SAM, UniRig, FastMesh, VoxHammer, TripoSR, TripoSG, ARDY).

@@ -1,4 +1,4 @@
-# AI 3D Studio — Setup & Installation Guide
+# ForMash 3D — Setup & Installation Guide
 
 > **Version**: 0.1.0
 > **Difficulty**: Intermediate
@@ -81,8 +81,8 @@
 
 ```bash
 # Clone the repository recursively with submodules
-git clone --recurse-submodules https://github.com/Silentzx2/AI_Studio.git
-cd AI_Studio
+git clone --recurse-submodules https://github.com/Silentzx2/ForMash3D.git
+cd ForMash3D
 git submodule update --init --recursive
 
 # Make scripts executable
@@ -107,8 +107,8 @@ The setup script (`backend/scripts/install.sh`) installs:
 
 ```bash
 # 1. Clone and enter project (with submodules)
-git clone --recurse-submodules https://github.com/Silentzx2/AI_Studio.git
-cd AI_Studio
+git clone --recurse-submodules https://github.com/Silentzx2/ForMash3D.git
+cd ForMash3D
 git submodule update --init --recursive
 
 # 2. Install Python dependencies
@@ -160,7 +160,7 @@ cp .env.example .env
 # ===== APPLICATION =====
 ENVIRONMENT=development
 DEBUG=true
-APP_NAME=AI 3D Studio API
+APP_NAME=ForMash 3D API
 APP_VERSION=0.1.0
 
 # ===== BACKEND =====

@@ -1,4 +1,4 @@
-# AI Studio: 3D Quality Benchmark & Validation Results
+# ForMash 3D: 3D Quality Benchmark & Validation Results
 
 ## 1. Evaluation Methodology
 
@@ -41,7 +41,9 @@ curl -s http://localhost:7842/health | jq .
 
 The frontend TypeScript types can be checked with:
 ```bash
-npx tsc --noEmi
+npx tsc --noEmit
+```
+
 ---
 
 ## 4. QA Score Rubric Summary

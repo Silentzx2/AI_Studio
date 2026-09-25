@@ -1,4 +1,4 @@
-# AI 3D Studio - Pipeline Implementation Status
+# ForMash 3D - Pipeline Implementation Status
 
 > **Version**: 0.1.0
 > **Status**: Active development
@@ -109,7 +109,7 @@ Per-feature model definitions with:
 ## v0.1.0 — Project Structure
 
 ```
-AI_Studio/
+ForMash3D/
 ├── app/                               # Next.js 16 App Router
 │   ├── layout.tsx                     # Root layout with Providers
 │   ├── page.tsx                       # Landing → WorkspaceShell redirect
