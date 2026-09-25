@@ -67,7 +67,8 @@ hf_download() {
     elif command -v huggingface-cli >/dev/null 2>&1; then
         huggingface-cli download "${HF_EXTRA_ARGS[@]}" "$@"
     else
-        python3 -m huggingface_hub.cli.download "${HF_EXTRA_ARGS[@]}" "$@"
+        local py_bin="${PYTHON_EXEC:-$(command -v python3 || command -v python)}"
+        "$py_bin" -m huggingface_hub.cli.download "${HF_EXTRA_ARGS[@]}" "$@"
     fi
 }
 

@@ -43,9 +43,9 @@
 
 > Compact overview of recent milestone updates (maximum 3 entries preserved; full technical history available in **[Docs/CHANGELOG.md](Docs/CHANGELOG.md)**).
 
+* **2026-09-25** — **Backend Environment Discovery & Startup Fix**: Resolved Google Colab/VPS backend launch failure by implementing auto-discovery of Conda (`3daigc-api`) and Venv environments in non-interactive subshells, eliminating disk-exhausting raw PyPI downloads on startup.
 * **2026-09-25** — **Project Rebrand to ForMash 3D**: Executed complete first-party rebrand from AI Studio to ForMash 3D (`ForMash3D`) across UI, API gateway, documentation, and web assets while preserving backward-compatible environment variables.
 * **2026-09-25** — **Repository & Submodule Migration**: Updated canonical repository origin to `Silentzx2/ForMash3D` and submodule tree to `Silentzx2/ForMash3D-ThirdParty` with bundled prebuilt CUDA wheelhouse.
-* **2026-09-21** — **v0.1.0 Architecture Release**: Next.js 16 + FastAPI unified gateway, 19-model registry, VRAM-aware multiprocess scheduler, automated LOD cascade, and mesh QA engine.
 
 ---
 

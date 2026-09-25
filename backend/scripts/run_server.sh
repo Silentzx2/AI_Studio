@@ -165,88 +165,127 @@ mkdir -p "$PID_DIR" "$LOG_DIR"
 SCHEDULER_PID_FILE="$PID_DIR/scheduler.pid"
 API_PID_FILE="$PID_DIR/api.pid"
 
-# Locate Python binary - strictly prioritize virtual environment (.venv)
+# Locate Python 3.10 binary
 PYTHON_BIN=""
-for env_path in \
-    "$PROJECT_ROOT/.venv/bin/python" \
-    "${VIRTUAL_ENV:-}/bin/python" \
-    "${CONDA_PREFIX:-}/bin/python" \
-    "${CONDA_BASE:-}/envs/3daigc-api/bin/python"; do
-    if [ -n "$env_path" ] && [ -x "$env_path" ]; then
-        PYTHON_BIN="$env_path"
-        break
-    fi
-done
 
-# If .venv does not exist yet, create it with Python 3.10
-if [ -z "$PYTHON_BIN" ]; then
-    VENV_DIR="$PROJECT_ROOT/.venv"
-    if ! command -v python3.10 >/dev/null 2>&1 && command -v uv >/dev/null 2>&1; then
-        echo "🔧 Installing Python 3.10 via uv..."
-        uv python install 3.10 || true
+# 1. Direct explicit override via .env or environment
+if [ -n "${PYTHON_EXEC:-}" ] && [ -x "$PYTHON_EXEC" ]; then
+    PYTHON_BIN="$PYTHON_EXEC"
+fi
+
+ENV_PREF="${FORMASH3D_ENV_MANAGER:-${AI_STUDIO_ENV_MANAGER:-${ENV_MANAGER:-conda}}}"
+
+# 2. Conda lookup (checked first when manager preference is conda or unset)
+if [ -z "$PYTHON_BIN" ] && [ "$ENV_PREF" != "venv" ]; then
+    CONDA_ROOT=""
+    for cand in \
+        "$(command -v conda >/dev/null 2>&1 && conda info --base 2>/dev/null || true)" \
+        "${CONDA_HOME:-}" \
+        "${CONDA_PREFIX:-}" \
+        "$HOME/miniconda3" \
+        "/opt/conda" \
+        "$HOME/anaconda3" \
+        "/root/miniconda3" \
+        "/content/miniconda3" \
+        "$HOME/miniconda" \
+        "/usr/local/miniconda3" \
+        "/usr/local/anaconda3"; do
+        if [ -n "$cand" ] && [ -d "$cand" ]; then
+            if [ -f "$cand/etc/profile.d/conda.sh" ] || [ -x "$cand/bin/conda" ]; then
+                CONDA_ROOT="$cand"
+                break
+            fi
+        fi
+    done
+
+    if [ -n "$CONDA_ROOT" ]; then
+        [ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ] && source "$CONDA_ROOT/etc/profile.d/conda.sh" 2>/dev/null || true
+        export PATH="$CONDA_ROOT/bin:$PATH"
     fi
-    echo "🔧 Virtual environment not found. Creating at $VENV_DIR with Python 3.10..."
-    if command -v uv >/dev/null 2>&1; then
-        uv venv "$VENV_DIR" --python 3.10
-    elif command -v python3.10 >/dev/null 2>&1; then
-        python3.10 -m venv "$VENV_DIR"
-    else
-        python3 -m venv "$VENV_DIR"
-    fi
-    if [ -x "$VENV_DIR/bin/python" ]; then
-        PYTHON_BIN="$VENV_DIR/bin/python"
+
+    # Check known candidate paths for conda env 3daigc-api
+    for py_candidate in \
+        "${CONDA_PREFIX:-}/bin/python" \
+        "${CONDA_ROOT:-}/envs/3daigc-api/bin/python"; do
+        if [ -n "$py_candidate" ] && [ -x "$py_candidate" ]; then
+            PYTHON_BIN="$py_candidate"
+            break
+        fi
+    done
+
+    # If still not located directly, query conda env list
+    if [ -z "$PYTHON_BIN" ] && command -v conda >/dev/null 2>&1; then
+        eval "$(conda shell.bash hook 2>/dev/null || true)"
+        env_dir="$(conda info --envs 2>/dev/null | awk '$1 == "3daigc-api" {print $NF}')"
+        if [ -n "$env_dir" ] && [ -x "$env_dir/bin/python" ]; then
+            PYTHON_BIN="$env_dir/bin/python"
+        fi
     fi
 fi
 
-# Fallback to python3 if venv creation/location failed
-[ -z "$PYTHON_BIN" ] && PYTHON_BIN="$(command -v python3 || command -v python)"
+# 3. Virtualenv lookup (checked if conda was not found, or if venv was preferred)
+if [ -z "$PYTHON_BIN" ]; then
+    for venv_py in \
+        "$PROJECT_ROOT/3daigc-api/bin/python" \
+        "$PROJECT_ROOT/.venv/bin/python" \
+        "$PROJECT_ROOT/backend/.venv/bin/python" \
+        "${VIRTUAL_ENV:-}/bin/python"; do
+        if [ -n "$venv_py" ] && [ -x "$venv_py" ]; then
+            PYTHON_BIN="$venv_py"
+            break
+        fi
+    done
+fi
 
-# ── [CONDA-ORIGINAL] Uncomment below to restore original Conda lookup ──────
-# for candidate in "$HOME/miniconda3/bin" "/opt/conda/bin" "$HOME/anaconda3/bin" "/root/miniconda3/bin"; do
-#     if [ -x "$candidate/conda" ]; then
-#         export PATH="$candidate:$PATH"
-#         break
-#     fi
-# done
-# 
-# if command -v conda >/dev/null 2>&1; then
-#     CONDA_BASE="$(conda info --base 2>/dev/null || true)"
-#     if [ -n "$CONDA_BASE" ] && [ -f "$CONDA_BASE/etc/profile.d/conda.sh" ]; then
-#         # shellcheck disable=SC1090
-#         source "$CONDA_BASE/etc/profile.d/conda.sh" 2>/dev/null || true
-#     fi
-# fi
-# 
-# for env_path in \
-#     "${CONDA_PREFIX:-}/bin/python" \
-#     "${CONDA_BASE:-}/envs/3daigc-api/bin/python" \
-#     "$HOME/miniconda3/envs/3daigc-api/bin/python" \
-#     "/opt/conda/envs/3daigc-api/bin/python" \
-#     "/root/miniconda3/envs/3daigc-api/bin/python"; do
-#     if [ -n "$env_path" ] && [ -x "$env_path" ]; then
-#         PYTHON_BIN="$env_path"
-#         break
-#     fi
-# done
-# 
-# if [ -z "$PYTHON_BIN" ] && command -v conda >/dev/null 2>&1; then
-#     echo "🔧 Conda env '3daigc-api' not found. Creating with Python 3.10..."
-#     conda create -n 3daigc-api python=3.10 -y
-#     CONDA_BASE="$(conda info --base 2>/dev/null || true)"
-#     PYTHON_BIN="$CONDA_BASE/envs/3daigc-api/bin/python"
-# fi
-# ── [END CONDA-ORIGINAL] ─────────────────────────────────────────────────────
+# 4. Fallback check: system Python 3.10 with installed backend packages
+if [ -z "$PYTHON_BIN" ]; then
+    for sys_py in $(command -v python3.10 2>/dev/null || true) $(command -v python3 2>/dev/null || true); do
+        if [ -x "$sys_py" ]; then
+            if "$sys_py" -c "import sys; assert sys.version_info[:2] == (3, 10); import fastapi, yaml" >/dev/null 2>&1; then
+                PYTHON_BIN="$sys_py"
+                break
+            fi
+        fi
+    done
+fi
 
-# If dependencies are missing, install them into the Python 3.10 environment
-if ! "$PYTHON_BIN" -c "import pydantic_settings, fastapi, uvicorn, yaml, sqlalchemy, email_validator, trimesh, open3d, torch" >/dev/null 2>&1; then
-    echo "⚠️  Installing backend dependencies into $PYTHON_BIN..."
-    if command -v uv >/dev/null 2>&1; then
-        uv pip install --python "$PYTHON_BIN" -r requirements.txt || true
-        uv pip install --python "$PYTHON_BIN" "setuptools<70.0.0" || true
-    else
-        "$PYTHON_BIN" -m pip install -r requirements.txt 2>/dev/null || true
-        "$PYTHON_BIN" -m pip install "setuptools<70.0.0" 2>/dev/null || true
+# If no environment was found, do NOT create a blind .venv that fills disk space
+if [ -z "$PYTHON_BIN" ]; then
+    echo "❌ Python 3.10 environment '3daigc-api' not found."
+    echo "   Neither Conda environment '3daigc-api' nor virtualenv in '$PROJECT_ROOT/3daigc-api' / '$PROJECT_ROOT/.venv' exists."
+    echo "💡 Please run the setup script first to configure the environment:"
+    echo "   ./manager.sh (option 1: Run Full Setup)"
+    echo "   # or: bash scripts/setup.sh"
+    echo "   # or: cd backend && bash scripts/install.sh"
+    exit 1
+fi
+
+# Activate environment paths for current process and spawned child workers
+ENV_DIR="$(dirname "$(dirname "$PYTHON_BIN")")"
+export PATH="$ENV_DIR/bin:$PATH"
+if [ -d "$ENV_DIR/conda-meta" ]; then
+    export CONDA_PREFIX="$ENV_DIR"
+    if command -v conda >/dev/null 2>&1; then
+        eval "$(conda shell.bash hook 2>/dev/null || true)"
+        conda activate 3daigc-api 2>/dev/null || true
     fi
+else
+    export VIRTUAL_ENV="$ENV_DIR"
+fi
+
+echo "🐍 Using Python runtime: $PYTHON_BIN"
+
+# Verify Python version strictly conforms to Python 3.10
+PY_VER="$("$PYTHON_BIN" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "unknown")"
+if [ "$PY_VER" != "3.10" ]; then
+    echo "⚠️  Warning: Python version is $PY_VER (expected 3.10). 3D AI dependencies require Python 3.10."
+fi
+
+# Verify core dependencies are present
+if ! "$PYTHON_BIN" -c "import fastapi, uvicorn, yaml, pydantic_settings" >/dev/null 2>&1; then
+    echo "❌ Core backend dependencies (fastapi, uvicorn, pyyaml, pydantic-settings) missing in $PYTHON_BIN."
+    echo "💡 Please run installation: cd backend && bash scripts/install.sh"
+    exit 1
 fi
 
 

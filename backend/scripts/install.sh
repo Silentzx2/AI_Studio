@@ -196,6 +196,9 @@ if [[ "${ENV_MANAGER}" == "conda" ]]; then
   conda activate "$ENV_NAME" || exit 1
 else
   ENV_DIR="$PROJECT_ROOT/3daigc-api"
+  if [[ ! -d "$ENV_DIR" && -d "$PROJECT_ROOT/.venv" && -x "$PROJECT_ROOT/.venv/bin/python" ]]; then
+    ENV_DIR="$PROJECT_ROOT/.venv"
+  fi
   if [[ ! -d "$ENV_DIR" ]]; then
     echo "[INFO] Creating Python 3.10 virtual environment at $ENV_DIR..."
     if command -v uv >/dev/null 2>&1; then
@@ -212,6 +215,28 @@ fi
 
 echo "[INFO] Using environment manager: $ENV_MANAGER"
 echo "[INFO] Active environment: $(python -c 'import sys; print(sys.executable)')"
+ACTIVE_PYTHON="$(python -c 'import sys; print(sys.executable)')"
+
+# Persist environment manager and Python binary to .env
+persist_env_config() {
+  local env_file="$PROJECT_ROOT/.env"
+  if [[ ! -f "$env_file" && -f "$PROJECT_ROOT/.env.example" ]]; then
+    cp "$PROJECT_ROOT/.env.example" "$env_file"
+  fi
+  if [[ -f "$env_file" ]]; then
+    for pair in "FORMASH3D_ENV_MANAGER=${ENV_MANAGER}" "AI_STUDIO_ENV_MANAGER=${ENV_MANAGER}" "PYTHON_EXEC=${ACTIVE_PYTHON}"; do
+      local k="${pair%%=*}"
+      local v="${pair#*=}"
+      if grep -q "^${k}=" "$env_file"; then
+        sed -i "s|^${k}=.*|${k}=${v}|" "$env_file"
+      else
+        echo "${k}=${v}" >> "$env_file"
+      fi
+    done
+    echo "[INFO] Persisted environment config to $env_file"
+  fi
+}
+persist_env_config
 
 if ! python -c "import uv" >/dev/null 2>&1; then
   echo "[INFO] Installing uv into active environment..."
@@ -598,6 +623,7 @@ echo "========================================"
 echo "Installation Complete!"
 echo "========================================"
 echo "All installation done successfully!"
+persist_env_config 2>/dev/null || true
 
 echo "Checking CUDA availability..."
 python -c "import torch; print(torch.cuda.is_available())" && echo "CUDA installed successfully" || echo "Failed"

@@ -59,8 +59,7 @@ print("Health Check: http://localhost:7842/health")
 
 - **8GB Swapfile Safety Net**: Colab free-tier instances provide limited RAM. The bootstrap script allocates an 8GB `/swapfile` to prevent OOM kills during heavy tensor operations.
 - **CUDA 12.4 Runtime**: Enforces PyTorch 2.6.0 with CUDA 12.4 across GPU hosts. Auto-links CUDA dev headers (`cusparse.h`, `cusolverDn.h`, `cufft.h`) from venv into system CUDA include path.
-- **Multi-Core Ninja Build**: Preconfigures `MAX_JOBS`, `CMAKE_BUILD_PARALLEL_LEVEL`, and `CMAKE_GENERATOR="Ninja"` for fast C++/CUDA extension builds.
-- **Python 3.10**: Uses Conda environment `3daigc-api` with Python 3.10.
+- **Python 3.10**: Uses Conda environment `3daigc-api` with Python 3.10 (or venv if selected). Automatically discovered across non-interactive subshells and persisted in `.env` as `PYTHON_EXEC`. Server startup uses the existing environment without re-downloading packages.
 
 ---
 

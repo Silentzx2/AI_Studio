@@ -178,6 +178,10 @@ STORAGE_LOCAL_PATH=./backend/storage
 DOWNLOAD_CHUNK_SIZE_MB=5
 DOWNLOAD_MAX_RETRIES=3
 
+# ===== ENVIRONMENT & RUNTIME =====
+FORMASH3D_ENV_MANAGER=conda  # conda (default) or venv
+PYTHON_EXEC=                 # auto-discovered or custom Python 3.10 path
+
 # ===== API =====
 API_V1_PREFIX=/api/v1
 CORS_ORIGINS=["http://localhost:3000"]
