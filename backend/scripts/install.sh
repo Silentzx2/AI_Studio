@@ -1,0 +1,605 @@
+#!/bin/bash
+
+UV_PIP="uv pip"
+
+# Project root (install.sh lives in backend/scripts/)
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+WHEEL_DIR="$PROJECT_ROOT/backend/thirdparty/wheels"
+
+# Load .env if present
+if [[ -f "$PROJECT_ROOT/.env" ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$PROJECT_ROOT/.env"
+    set +a
+fi
+
+
+# Let pip-based third-party setup scripts also see the local wheelhouse.
+if [ -d "$WHEEL_DIR" ]; then
+    export PIP_FIND_LINKS="$WHEEL_DIR"
+    echo "[INFO] Local wheelhouse enabled: $WHEEL_DIR"
+else
+    echo "[WARN] Local wheelhouse not found: $WHEEL_DIR"
+    echo "[WARN] Ensure clone_thirdparty.sh has been run to populate backend/thirdparty/wheels/"
+fi
+
+# If the wheelhouse lives inside a git repo with LFS-tracked wheels, ensure
+# the real binary objects are materialized instead of LFS pointer stubs.
+_ensure_lfs_wheels() {
+    local whl_dir="$1"
+    [ -d "$whl_dir" ] || return 0
+    local gitdir
+    gitdir="$(git -C "$whl_dir" rev-parse --show-toplevel 2>/dev/null || true)"
+    [ -n "$gitdir" ] || return 0
+    if [ -f "$gitdir/.gitattributes" ] && grep -q "filter=lfs" "$gitdir/.gitattributes" 2>/dev/null; then
+        echo "[INFO] Detected Git LFS-tracked wheelhouse; ensuring LFS objects are present..."
+        if ! git lfs version >/dev/null 2>&1; then
+            echo "[INFO] Git LFS not found; attempting auto-install..."
+            if command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get update -qq 2>/dev/null || true
+                sudo apt-get install -y --no-install-recommends git-lfs 2>/dev/null || true
+            fi
+            if ! git lfs version >/dev/null 2>&1; then
+                echo "[WARN] Git LFS install did not succeed; continuing without LFS objects."
+                echo "[WARN] Install git-lfs manually and rerun, or run: git -C \"$gitdir\" lfs pull"
+                return 0
+            fi
+        fi
+        git -C "$gitdir" lfs install --local >/dev/null 2>&1 || true
+        git -C "$gitdir" lfs pull || true
+    fi
+}
+
+_ensure_lfs_wheels "$WHEEL_DIR"
+
+# Validate that a wheel file is a real zip archive (not an LFS pointer stub).
+_wheel_is_valid() {
+    local whl="$1"
+    [ -f "$whl" ] || return 1
+    unzip -tqq "$whl" >/dev/null 2>&1
+}
+
+# Retry a command up to N times with a delay between attempts.
+# Usage: _retry 3 5 <command> [args...]
+_retry() {
+    local max="${1:-3}"
+    local delay="${2:-5}"
+    shift 2
+    local n=1
+    while true; do
+        if "$@"; then
+            return 0
+        fi
+        if [ "$n" -ge "$max" ]; then
+            return 1
+        fi
+        echo "[WARN] Command failed (attempt $n/$max). Retrying in ${delay}s..."
+        sleep "$delay"
+        n=$((n+1))
+    done
+}
+
+# Normal dependency install: local compatible wheels first, then the
+# existing configured package index.
+uv_install() {
+    if [ -d "$WHEEL_DIR" ]; then
+        $UV_PIP install --find-links="$WHEEL_DIR" "$@"
+    else
+        $UV_PIP install "$@"
+    fi
+}
+
+# Install one matching local wheel if available and valid.
+# Returns 0 if installed, 1 if no valid matching wheel exists.
+install_local_wheel() {
+    local pattern="$1"
+    local label="$2"
+    local wheel=""
+
+    if [ -d "$WHEEL_DIR" ]; then
+        wheel="$(find "$WHEEL_DIR" -maxdepth 1 -type f -name "$pattern" -print -quit)"
+    fi
+
+    if [ -n "$wheel" ]; then
+        if ! _wheel_is_valid "$wheel"; then
+            echo "[WARN] Local wheel for $label appears corrupted or incomplete: $(basename "$wheel"); skipping."
+            return 1
+        fi
+        echo "[INFO] Using local prebuilt wheel for $label: $(basename "$wheel")"
+        if $UV_PIP install "$wheel"; then
+            return 0
+        fi
+        echo "[WARN] Local wheel for $label failed to install; falling back to source build."
+    fi
+
+    return 1
+}
+echo "========================================"
+echo "Starting Backend-API Installation"
+echo "========================================"
+echo "The installation may take a while, please wait..."
+echo ""
+
+choose_env_manager() {
+  local default="${AI_STUDIO_ENV_MANAGER:-conda}"
+  local choice=""
+  if [[ -n "${AI_STUDIO_ENV_MANAGER:-}" ]]; then
+    choice="${AI_STUDIO_ENV_MANAGER}"
+  else
+    read -r -p "Select environment manager [conda|venv] (default: ${default}): " choice
+    choice="${choice:-${default}}"
+  fi
+  case "${choice}" in
+    conda|venv)
+      ENV_MANAGER="${choice}"
+      export AI_STUDIO_ENV_MANAGER="${ENV_MANAGER}"
+      ;;
+    *)
+      echo "[WARN] Invalid choice '${choice}'. Falling back to ${default}."
+      ENV_MANAGER="${default}"
+      export AI_STUDIO_ENV_MANAGER="${ENV_MANAGER}"
+      ;;
+  esac
+  echo "[INFO] Using environment manager: ${ENV_MANAGER}"
+  echo "[INFO] Target environment: 3daigc-api (Python 3.10)"
+}
+
+choose_env_manager
+
+# ── Unified Environment Activation (3daigc-api, Python 3.10) ──────────────────
+ENV_NAME="3daigc-api"
+
+if [[ "${ENV_MANAGER}" == "conda" ]]; then
+  if ! command -v conda >/dev/null 2>&1; then
+    echo "[INFO] Conda not found. Installing Miniconda..."
+    local CONDA_HOME="${CONDA_HOME:-$HOME/miniconda3}"
+    local MKDIR_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+    local INSTALLER="/tmp/miniconda-installer.sh"
+    if curl -fsSL "$MKDIR_URL" -o "$INSTALLER"; then
+      bash "$INSTALLER" -b -p "$CONDA_HOME" || exit 1
+    else
+      echo "[ERROR] Could not download Miniconda installer"
+      exit 1
+    fi
+    if [[ -f "$CONDA_HOME/etc/profile.d/conda.sh" ]]; then
+      source "$CONDA_HOME/etc/profile.d/conda.sh"
+    fi
+  fi
+  command -v conda >/dev/null 2>&1 || { echo "[ERROR] Conda is not available after install."; exit 1; }
+  echo "[INFO] Conda: $(conda --version)"
+  conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main 2>/dev/null || true
+  conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>/dev/null || true
+  eval "$(conda shell.bash hook 2>/dev/null || true)"
+  if ! conda info --envs | awk '{print $1}' | grep -qx "$ENV_NAME"; then
+    echo "[INFO] Creating conda env '$ENV_NAME' with Python 3.10..."
+    conda create -n "$ENV_NAME" python=3.10 -y || exit 1
+  fi
+  conda activate "$ENV_NAME" || exit 1
+else
+  ENV_DIR="$PROJECT_ROOT/3daigc-api"
+  if [[ ! -d "$ENV_DIR" ]]; then
+    echo "[INFO] Creating Python 3.10 virtual environment at $ENV_DIR..."
+    if command -v uv >/dev/null 2>&1; then
+      uv venv "$ENV_DIR" --python 3.10 || exit 1
+    elif command -v python3.10 >/dev/null 2>&1; then
+      python3.10 -m venv "$ENV_DIR" || exit 1
+    else
+      python3 -m venv "$ENV_DIR" || exit 1
+    fi
+  fi
+  # shellcheck disable=SC1090,SC1091
+  source "$ENV_DIR/bin/activate" || exit 1
+fi
+
+echo "[INFO] Using environment manager: $ENV_MANAGER"
+echo "[INFO] Active environment: $(python -c 'import sys; print(sys.executable)')"
+
+if ! python -c "import uv" >/dev/null 2>&1; then
+  echo "[INFO] Installing uv into active environment..."
+  python -m pip install --upgrade pip
+  python -m pip install uv
+fi
+
+echo "[INFO] Installing build toolchain in conda env (scikit-build-core, pybind11, ninja, setuptools, wheel, cython)..."
+$UV_PIP install scikit-build-core pybind11 ninja setuptools wheel cython packaging setuptools-scm
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] Build toolchain installed in conda env"
+else
+    echo "[WARN] Build toolchain install had warnings; continuing..."
+fi
+
+echo "[INFO] Installing PyTorch with CUDA 12.4 support..."
+## install pytorch for specific cuda versions
+$UV_PIP install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] PyTorch installation completed"
+else
+    echo "[ERROR] Failed to install PyTorch"
+    exit 1
+fi
+
+# ── Disable build isolation ─────────────────────────────────────────────────
+# flash-attn, nvdiffrec_render, nvdiffrast and friends import torch in their
+# setup.py/pyproject at *metadata* time. Under build isolation pip spins up a
+# clean env with NO torch, so "Getting requirements to build wheel" dies with
+# "No available output" and the whole install aborts. Reusing the active env
+# (where torch 2.6.0 + cu124 is already installed) makes those builds work.
+# This survives re-clones of thirdparty repos since it's an env var, not a file
+# edit inside them.
+export PIP_NO_BUILD_ISOLATION=1
+export UV_NO_BUILD_ISOLATION=1
+echo "[INFO] Build isolation: disabled (PIP_NO_BUILD_ISOLATION=1)"
+
+echo ""
+echo "========================================"
+echo "Installing Project Requirements"
+echo "========================================"
+echo "[INFO] Installing backend/requirements.txt..."
+$UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/requirements.txt"
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] backend/requirements.txt installed"
+else
+    echo "[ERROR] Failed to install backend/requirements.txt"
+    exit 1
+fi
+
+echo ""
+echo "========================================"
+echo "Installing TRELLIS Dependencies"
+echo "========================================"
+### we startup with the environment of trellis ###
+echo "[INFO] Changing directory to thirdparty/TRELLIS..."
+cd thirdparty/TRELLIS.2
+echo "[INFO] Running TRELLIS.2 setup script..."
+echo "[INFO] Running TRELLIS.2 basic setup..."
+# Ensure third-party setup.sh uses uv pip instead of bare pip.
+pip() { uv pip "$@"; }
+. ./setup.sh --basic
+unset -f pip
+
+echo "[INFO] Installing TRELLIS.2 native components with local-wheel preference..."
+
+# flash-attn
+if ! install_local_wheel "flash_attn-*.whl" "flash-attn"; then
+    echo "[INFO] No local flash-attn wheel; using the existing package/build path..."
+    uv_install flash-attn==2.7.3 --no-build-isolation
+fi
+
+# nvdiffrast
+if ! install_local_wheel "nvdiffrast-*.whl" "nvdiffrast"; then
+    mkdir -p /tmp/extensions
+    rm -rf /tmp/extensions/nvdiffrast
+    _retry 3 5 git clone -b v0.4.0 https://github.com/NVlabs/nvdiffrast.git /tmp/extensions/nvdiffrast
+    $UV_PIP install /tmp/extensions/nvdiffrast --no-build-isolation
+fi
+
+# nvdiffrec
+if ! install_local_wheel "nvdiffrec_render-*.whl" "nvdiffrec"; then
+    mkdir -p /tmp/extensions
+    rm -rf /tmp/extensions/nvdiffrec
+    _retry 3 5 git clone -b renderutils https://github.com/JeffreyXiang/nvdiffrec.git /tmp/extensions/nvdiffrec
+    $UV_PIP install /tmp/extensions/nvdiffrec --no-build-isolation
+fi
+
+# CuMesh
+if ! install_local_wheel "cumesh-*.whl" "CuMesh"; then
+    mkdir -p /tmp/extensions
+    rm -rf /tmp/extensions/CuMesh
+    _retry 3 5 git clone https://github.com/JeffreyXiang/CuMesh.git /tmp/extensions/CuMesh --recursive
+    $UV_PIP install /tmp/extensions/CuMesh --no-build-isolation
+fi
+
+# FlexGEMM (no matching wheel shown in the supplied wheel directory).
+# Disabled for now — uncomment when a compatible wheel or stable source build is available.
+# if ! install_local_wheel "flexgemm-*.whl" "FlexGEMM"; then
+#     mkdir -p /tmp/extensions
+#     rm -rf /tmp/extensions/FlexGEMM
+#     _retry 3 5 git clone https://github.com/JeffreyXiang/FlexGEMM.git /tmp/extensions/FlexGEMM --recursive
+#     $UV_PIP install /tmp/extensions/FlexGEMM --no-build-isolation
+# fi
+
+# o-voxel
+if ! install_local_wheel "o_voxel-*.whl" "o-voxel"; then
+    mkdir -p /tmp/extensions
+    rm -rf /tmp/extensions/o-voxel
+    cp -r o-voxel /tmp/extensions/o-voxel
+    $UV_PIP install /tmp/extensions/o-voxel --no-build-isolation
+fi
+
+echo "[SUCCESS] TRELLIS.2 native dependencies installed"
+$UV_PIP install --find-links="$WHEEL_DIR" kaolin -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-2.6.0_cu124.html
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] TRELLIS setup completed"
+else
+    echo "[ERROR] TRELLIS setup failed"
+    exit 1
+fi
+
+echo "[INFO] Installing TRELLIS(v1) requirements on top of TRELLIS.2..."
+$UV_PIP install --find-links="$WHEEL_DIR" pymeshfix igraph 
+if ! install_local_wheel "diff_gaussian_rasterization-*.whl" "diff-gaussian-rasterization"; then
+    _retry 3 5 git clone https://github.com/autonomousvision/mip-splatting.git /tmp/extensions/mip-splatting
+    $UV_PIP install /tmp/extensions/mip-splatting/submodules/diff-gaussian-rasterization/
+fi
+
+# for systems with glibc < 2.29 , you may need to build kaolin from source manually
+echo "[NOTE] For systems with glibc < 2.29, you may need to build kaolin from source manually"
+
+echo ""
+echo "========================================"
+echo "Installing PartField Dependencies"
+echo "========================================"
+# install PartField for mesh segmentation 
+echo "[INFO] Changing directory to thirdparty/PartField..."
+cd ../../thirdparty/PartField 
+echo "[INFO] Installing PartField core dependencies..."
+$UV_PIP install --find-links="$WHEEL_DIR" lightning==2.2 h5py yacs trimesh scikit-image loguru boto3
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] PartField core dependencies installed"
+else
+    echo "[ERROR] Failed to install PartField core dependencies"
+    exit 1
+fi
+
+echo "[INFO] Installing additional PartField dependencies..."
+$UV_PIP install --find-links="$WHEEL_DIR" mesh2sdf tetgen pymeshlab plyfile einops libigl polyscope potpourri3d simple_parsing arrgh open3d psutil 
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] Additional PartField dependencies installed"
+else
+    echo "[ERROR] Failed to install additional PartField dependencies"
+    exit 1
+fi
+
+echo "[INFO] Installing PyTorch Geometric extensions..."
+$UV_PIP install --find-links="$WHEEL_DIR" torch-scatter torch_cluster -f https://data.pyg.org/whl/torch-2.6.0+cu124.html
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] PyTorch Geometric extensions installed"
+else
+    echo "[ERROR] Failed to install PyTorch Geometric extensions"
+    exit 1
+fi
+# installation for PartField end 
+echo "[SUCCESS] PartField installation completed"
+
+
+echo ""
+echo "========================================"
+echo "Installing Hunyuan3D 2.1 Dependencies"
+echo "========================================"
+### installation for hunyuan3d 2.1  ###
+echo "[INFO] Changing directory to thirdparty/Hunyuan3D-2.1..."
+cd ../../thirdparty/Hunyuan3D-2.1
+echo "[INFO] Installing custom rasterizer for Hunyuan3D 2.1..."
+cd hy3dpaint/custom_rasterizer
+if ! install_local_wheel "custom_rasterizer-*.whl" "Hunyuan3D custom_rasterizer"; then
+    $UV_PIP install -e . --no-build-isolation
+fi
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] Hunyuan3D 2.1 custom rasterizer installed"
+else
+    echo "[ERROR] Failed to install Hunyuan3D 2.1 custom rasterizer"
+    exit 1
+fi
+
+echo "[INFO] Building differentiable renderer for Hunyuan3D 2.1..."
+cd ../..
+cd hy3dpaint/DifferentiableRenderer
+if ! install_local_wheel "hy3d_mesh_inpaint_processor-*.whl" "Hunyuan3D mesh inpaint processor"; then
+    bash compile_mesh_painter.sh
+fi
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] Hunyuan3D 2.1 differentiable renderer built successfully"
+else
+    echo "[ERROR] Failed to build Hunyuan3D 2.1 differentiable renderer"
+    exit 1
+fi
+cd ../..
+echo "[INFO] Installing Hunyuan3D 2.1 requirements..."
+$UV_PIP install --find-links="$WHEEL_DIR" -r requirements-inference.txt --index-strategy unsafe-best-match 
+### installation for hunyuan3d 2.1 end ###
+echo "[SUCCESS] Hunyuan3D 2.1 installation completed"
+
+echo ""
+echo "========================================"
+echo "Installing UniRig Dependencies"
+echo "========================================"
+### unirig for auto-rigging  ###
+echo "[INFO] Changing directory to thirdparty/UniRig..."
+cd ../../thirdparty/UniRig
+echo "[INFO] Installing spconv-cu120 for UniRig..."
+$UV_PIP install --find-links="$WHEEL_DIR" spconv-cu120
+$UV_PIP install --find-links="$WHEEL_DIR" pyrender fast-simplification python-box timm
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] UniRig dependencies installed"
+else
+    echo "[ERROR] Failed to install UniRig dependencies"
+    exit 1
+fi
+
+echo ""
+echo "========================================"
+echo "Installing PartPacker Dependencies"
+echo "========================================"
+### part packer  ###
+echo "[INFO] Changing directory to thirdparty/PartPacker..."
+cd ../../thirdparty/PartPacker
+echo "[INFO] Installing PartPacker requirements..."
+$UV_PIP install --find-links="$WHEEL_DIR" pybind11==3.0.1
+$UV_PIP install --find-links="$WHEEL_DIR" meshiki kiui fpsample pymcubes einops
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] PartPacker requirements installed"
+else
+    echo "[ERROR] Failed to install PartPacker requirements"
+    exit 1
+fi
+### part packer end ###
+echo "[SUCCESS] PartPacker installation completed"
+
+### partuv(requires only bpy, partuv) ###
+echo "[INFO] Installing partuv requirements..."
+$UV_PIP install --find-links="$WHEEL_DIR" seaborn partuv 
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] partuv requirements installed"
+else
+    echo "[ERROR] Failed to install partuv requirements"
+    exit 1
+fi
+$UV_PIP install --find-links="$WHEEL_DIR" blenderproc 
+### partuv end ###
+
+### P3-SAM (Hunyuan3D-Part) ###
+echo ""
+echo "========================================"
+echo "Installing P3-SAM Dependencies"
+echo "========================================"
+cd ../../thirdparty/Hunyuan3DPart/P3SAM
+echo "[INFO] Installing P3-SAM requirements..."
+# Install numba for acceleration
+$UV_PIP install --find-links="$WHEEL_DIR" numba scikit-learn fpsample
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] P3-SAM requirements installed"
+else
+    echo "[ERROR] Failed to install P3-SAM requirements"
+    exit 1
+fi
+### P3-SAM end ###
+
+### FastMesh ###
+cd ../../../thirdparty/FastMesh 
+echo "[INFO] Installing FastMesh requirements..."
+$UV_PIP install --find-links="$WHEEL_DIR" -r requirement_extra.txt
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] FastMesh requirements installed"
+else
+    echo "[ERROR] Failed to install FastMesh requirements"
+    exit 1
+fi
+### FastMesh end ###
+
+### UltraShape ###
+echo ""
+echo "========================================"
+echo "Installing UltraShape Dependencies"
+echo "========================================"
+cd ../../../thirdparty/UltraShape || echo "[WARN] UltraShape directory not found; continuing..."
+echo "[INFO] Installing UltraShape requirements..."
+# $UV_PIP install -r requirements.txt
+# actually only cubvh is required based besides trellis.2 env  
+if ! install_local_wheel "cubvh-*.whl" "cubvh"; then
+    _retry 3 5 $UV_PIP install git+https://github.com/ashawkey/cubvh --no-build-isolation
+fi
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] UltraShape requirements installed"
+else
+    echo "[ERROR] Failed to install UltraShape requirements"
+    exit 1
+fi
+### UltraShape end ###
+
+### VoxHammer ###
+echo ""
+echo "========================================"
+echo "Installing VoxHammer Dependencies"
+echo "========================================"
+cd ../VoxHammer
+echo "[INFO] Installing VoxHammer requirements..."
+# $UV_PIP install -r requirements.txt
+# only bpy-renderer and pysdf are required besides trellis.2 env  
+$UV_PIP install git+https://github.com/huanngzh/bpy-renderer.git
+$UV_PIP install --find-links="$WHEEL_DIR" pysdf sentencepiece
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] VoxHammer requirements installed"
+else
+    echo "[ERROR] Failed to install VoxHammer requirements"
+    exit 1
+fi
+echo "[NOTE] VoxHammer uses TRELLIS pipeline which is already installed"
+### VoxHammer end ###
+
+### TripoSF, TripoSG, TripoSR, ardy Dependencies ###
+echo ""
+echo "========================================"
+echo "Installing TripoSF, TripoSG, TripoSR, ardy Dependencies"
+echo "========================================"
+if [ -d "$PROJECT_ROOT/backend/thirdparty/TripoSF" ]; then
+    echo "[INFO] Installing TripoSF requirements..."
+    $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSF/requirements.txt" || true
+fi
+if [ -d "$PROJECT_ROOT/backend/thirdparty/TripoSG" ]; then
+    echo "[INFO] Installing TripoSG requirements..."
+    $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSG/requirements.txt" || true
+fi
+if [ -d "$PROJECT_ROOT/backend/thirdparty/TripoSR" ]; then
+    echo "[INFO] Installing TripoSR requirements..."
+    $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSR/requirements.txt" || true
+fi
+if [ -d "$PROJECT_ROOT/backend/thirdparty/ardy" ]; then
+    echo "[INFO] Installing ardy requirements..."
+    $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/ardy/requirements.txt" || true
+fi
+
+cd "$PROJECT_ROOT/backend"
+
+echo ""
+echo "========================================"
+echo "Installing Project Dependencies"
+echo "========================================"
+### for this project (fastapi / uvicorn relevant etc.)  ###
+echo "[INFO] Installing main project requirements..."
+$UV_PIP install --find-links="$WHEEL_DIR" -r requirements.txt 
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] Main project requirements installed"
+else
+    echo "[ERROR] Failed to install main project requirements"
+    exit 1
+fi
+
+echo "[INFO] Installing test requirements..."
+# testing 
+$UV_PIP install --find-links="$WHEEL_DIR" -r requirements-test.txt 
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] Test requirements installed"
+else
+    echo "[ERROR] Failed to install test requirements"
+    exit 1
+fi
+
+echo "[INFO] Installing huggingface_hub for model downloading..."
+# for downloading models 
+$UV_PIP install --find-links="$WHEEL_DIR" huggingface_hub
+if [ $? -eq 0 ]; then
+    echo "[SUCCESS] huggingface_hub installed"
+else
+    echo "[ERROR] Failed to install huggingface_hub"
+    exit 1
+fi
+
+echo ""
+echo "========================================"
+echo "Installation Complete!"
+echo "========================================"
+echo "All installation done successfully!"
+
+echo "Checking CUDA availability..."
+python -c "import torch; print(torch.cuda.is_available())" && echo "CUDA installed successfully" || echo "Failed"
+
+echo "Checking PyTorch version..."
+python -c "import torch; print(torch.__version__)" && echo "PyTorch installed successfully" || echo "Failed"
+
+echo "Checking Blender availability..."
+python -c "import bpy" && echo "Blender installed successfully" || echo "Failed"
+
+echo "Checking Other Packages..."
+python -c "import kaolin; print(kaolin.__version__)" && echo "Kaolin installed successfully" || echo "Failed"
+python -c "import open3d; import pymeshlab" && echo "Open3D and pymeshlab installed successfully" || echo "Failed"
+
+# install other runtime dependencies
+sudo apt update
+sudo apt install -y --no-install-recommends \
+  libsm6 \
+  libegl-mesa0 \
+  libgl1-mesa-dev
+
+
+
