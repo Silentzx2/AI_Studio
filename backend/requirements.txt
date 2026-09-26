@@ -10,8 +10,8 @@ torchaudio==2.8.0
 
 # transformers/diffusers version pinning to avoid torch.float8_e8m0fnu
 # and PreTrainedModel circular import issues
-transformers==4.43.2
-diffusers==0.24.0
+transformers==5.10.1
+diffusers==0.38.0
 huggingface_hub>=0.24.0
 
 # Core FastAPI and web server dependencies
