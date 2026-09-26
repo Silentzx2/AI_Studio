@@ -13,17 +13,17 @@ All notable changes, architectural updates, and feature implementations for ForM
   - Implemented worker process initialization handshake via `control_response_queue`, eliminating false worker starts when model loading fails.
   - Replaced endless `"NO_VRAM"` requeue loops on worker startup failure with `"MODEL_LOAD_FAILED"` that immediately marks the job `FAILED` in the job queue with actionable diagnostic details.
   - Added 600s timeout handling in `_handle_job_result`.
-  - Added pending future resolution in `_cleanup_dead_workers` so the scheduler never hangs when worker processes terminate unexpectedly.
+  - Added pending future resolution in `_cleanup_dead_workers` with explicit `job_id`-to-`callback_id` tracking, ensuring dead workers immediately resolve pending futures with failure results, clean up tracking dictionaries, and deallocate VRAM safely without raising `InvalidStateError`.
   - Added `proc.is_alive()` validation in `_find_available_worker`.
   - Hardened `JobQueue.fail_job` to look up and mark failed jobs in both `_processing_cache` and `_queue_cache`.
 - **Installer Hardening**:
-  - Removed masked `|| true` errors on TripoSF, TripoSG, TripoSR, and ardy requirements in `backend/scripts/install.sh`, halting on failure with model-specific diagnostics.
+  - Removed masked `|| true` errors on TripoSF, TripoSG, TripoSR, ardy, and required apt system runtime packages (`libsm6`, `libegl-mesa0`, `libgl1-mesa-dev`) in `backend/scripts/install.sh`, halting on failure with clear diagnostics and suppressing false success completion banners.
   - Added comprehensive post-installation runtime environment diagnostics (Python, PyTorch, Torch CUDA, GPU name, capability, NumPy, Diffusers, Transformers, Open3D, MeshLab, Trimesh).
 - **Jobs UI Consolidation**:
   - Added authoritative `Jobs` entry to the main workspace left navigation rail (`features/workspace/Navigation/LeftNavigation.tsx`) with hotkey shortcut `⌘3`, linking directly to `/workspace/jobs`.
   - Consolidated Admin `JobsTab.tsx`: eliminated artificial 50% progress bars in favor of truthful status badges, removed non-functional fake "Try Repair" button and toast, added canonical inspector header banner, and preserved deep-linking to `/workspace/jobs?id={id}`.
 - **Model Registry Documentation Alignment**: Reconciled documentation in `README.md` to reflect all 23 discrete registered model adapters configured across 15 neural architectures.
-- **Unit Test Suite**: Added `backend/tests/test_fix_plan_verification.py` verifying TripoSR/TripoSG error handling, output validation, worker liveness, dead worker future resolution, and immediate failure propagation on model load errors.
+- **Unit & Shell Test Suite**: Added `backend/tests/test_fix_plan_verification.py` verifying TripoSR/TripoSG error handling, output validation, worker liveness, real dead worker future resolution via callback tracking, and immediate failure propagation on model load errors; extended `scripts/test_env_resolution.sh` with automated installer apt-failure verification.
 
 ### 🔧 Backend Environment Discovery & Startup Resilience
 - **Robust Conda & Venv Resolution**: Rewrote Python 3.10 runtime lookup in `backend/scripts/run_server.sh` to auto-detect Conda installations (`/opt/conda`, `~/miniconda3`, `/content/miniconda3`) and locate the `3daigc-api` environment even within non-interactive subshells.

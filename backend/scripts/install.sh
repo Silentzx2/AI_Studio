@@ -632,10 +632,36 @@ fi
 
 echo ""
 echo "========================================"
-echo "Installation Complete!"
+echo "Installing System Runtime Libraries"
 echo "========================================"
-echo "All installation done successfully!"
-persist_env_config 2>/dev/null || true
+
+if command -v apt-get >/dev/null 2>&1 || command -v apt >/dev/null 2>&1; then
+    APT_BIN="$(command -v apt-get 2>/dev/null || command -v apt 2>/dev/null)"
+    echo "[INFO] Debian/Ubuntu detected. Installing system runtime packages (libsm6, libegl-mesa0, libgl1-mesa-dev)..."
+    SUDO_CMD=""
+    if [ "$(id -u)" -ne 0 ]; then
+        if command -v sudo >/dev/null 2>&1; then
+            SUDO_CMD="sudo"
+        else
+            echo "[ERROR] Root or sudo access required to install system dependencies via apt."
+            exit 1
+        fi
+    fi
+
+    if ! $SUDO_CMD "$APT_BIN" update -qq; then
+        echo "[ERROR] Failed to update apt repositories."
+        exit 1
+    fi
+
+    if ! $SUDO_CMD "$APT_BIN" install -y --no-install-recommends libsm6 libegl-mesa0 libgl1-mesa-dev; then
+        echo "[ERROR] Failed to install required system runtime libraries (libsm6, libegl-mesa0, libgl1-mesa-dev) via apt."
+        exit 1
+    fi
+    echo "[SUCCESS] System runtime libraries installed successfully"
+else
+    echo "[WARN] apt package manager not found. Skipping apt system library installation."
+    echo "[WARN] Ensure libsm6, libegl-mesa0, and OpenGL runtime libraries are installed for your platform."
+fi
 
 echo ""
 echo "========================================"
@@ -669,14 +695,13 @@ for pkg in ['numpy', 'diffusers', 'transformers', 'pymeshlab', 'open3d', 'trimes
         print(f'{pkg}: NOT FOUND ({e})')
 "
 
-# install other runtime dependencies
-if command -v apt >/dev/null 2>&1; then
-    sudo apt update || true
-    sudo apt install -y --no-install-recommends \
-      libsm6 \
-      libegl-mesa0 \
-      libgl1-mesa-dev || true
-fi
+persist_env_config 2>/dev/null || true
+
+echo ""
+echo "========================================"
+echo "Installation Complete!"
+echo "========================================"
+echo "All installation done successfully!"
 
 
 

@@ -110,37 +110,39 @@ class TestSchedulerResilience(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.scheduler._find_available_worker(["dead_worker", "alive_worker"]), "alive_worker")
 
     async def test_dead_worker_cleanup_resolves_pending_futures(self):
-        """Dead workers must resolve pending result futures so scheduler does not hang."""
+        """Dead workers must resolve pending result futures via real _cleanup_dead_workers."""
         dead_worker_id = "test_dead_worker"
         mock_proc = MagicMock()
         mock_proc.is_alive.return_value = False
 
         self.scheduler.workers[dead_worker_id] = mock_proc
         self.scheduler.worker_current_job[dead_worker_id] = "job-123"
+        self.scheduler.worker_current_callback[dead_worker_id] = "cb-123"
+        self.scheduler.job_to_callback["job-123"] = "cb-123"
 
         # Register a pending future
         fut = asyncio.Future()
         self.scheduler.pending_results["cb-123"] = fut
 
-        # Run one cleanup iteration
+        # Run real cleanup iteration
         with patch.object(self.scheduler, "_destroy_worker", return_value=None):
             with patch.object(self.scheduler.job_queue, "fail_job", return_value=None):
-                dead_workers = [dead_worker_id]
-                for worker_id in dead_workers:
-                    job_id = self.scheduler.worker_current_job.get(worker_id)
-                    with self.scheduler.result_lock:
-                        for cb_id, future in list(self.scheduler.pending_results.items()):
-                            if not future.done():
-                                future.set_result({
-                                    "success": False,
-                                    "error": f"Worker process {worker_id} terminated unexpectedly during execution",
-                                    "job_id": job_id,
-                                })
+                await self.scheduler._cleanup_dead_workers(run_once=True)
 
         self.assertTrue(fut.done())
         res = fut.result()
         self.assertFalse(res["success"])
+        self.assertEqual(res["job_id"], "job-123")
         self.assertIn("terminated unexpectedly", res["error"])
+
+        # Test that cleanup removes the pending mapping
+        self.assertNotIn("cb-123", self.scheduler.pending_results)
+        self.assertNotIn("job-123", self.scheduler.job_to_callback)
+
+        # Test that cleanup on an already-completed future does not raise InvalidStateError
+        with patch.object(self.scheduler, "_destroy_worker", return_value=None):
+            with patch.object(self.scheduler.job_queue, "fail_job", return_value=None):
+                await self.scheduler._cleanup_dead_workers(run_once=True)
 
     async def test_model_load_failure_fails_job_immediately(self):
         """When worker model load fails, job must immediately fail without requeuing."""

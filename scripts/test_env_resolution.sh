@@ -76,4 +76,83 @@ chmod +x "$FAKE_ROOT/backend/scripts/scheduler_service.py"
 OUT=$(cd "$FAKE_ROOT/backend" && env -u CONDA_PREFIX -u CONDA_DEFAULT_ENV -u VIRTUAL_ENV -u PYTHON_EXEC HOME="$TMP_TEST_DIR" PATH="$TMP_TEST_DIR/bin:/usr/bin:/bin" bash scripts/run_server.sh --help 2>&1)
 echo "✓ Conda environment discovery check passed"
 
+# Check 4: install.sh halts with non-zero exit code if required apt installation fails
+echo "Testing installer failure handling..."
+MOCK_APT_DIR="$TMP_TEST_DIR/mock_apt"
+mkdir -p "$MOCK_APT_DIR"
+
+cat << 'EOF' > "$MOCK_APT_DIR/sudo"
+#!/bin/sh
+exec "$@"
+EOF
+chmod +x "$MOCK_APT_DIR/sudo"
+
+cat << 'EOF' > "$MOCK_APT_DIR/apt-get"
+#!/bin/sh
+for arg in "$@"; do
+    if [ "$arg" = "install" ]; then
+        echo "E: Sub-process /usr/bin/dpkg returned an error code (1)" >&2
+        exit 1
+    fi
+done
+exit 0
+EOF
+chmod +x "$MOCK_APT_DIR/apt-get"
+
+cat << 'EOF' > "$MOCK_APT_DIR/python"
+#!/bin/sh
+case "$*" in
+    *"import uv"*) exit 0 ;;
+    *"import sys"*) echo "/usr/bin/python3"; exit 0 ;;
+    *) exit 0 ;;
+esac
+EOF
+chmod +x "$MOCK_APT_DIR/python"
+
+# Mock uv
+cat << 'EOF' > "$MOCK_APT_DIR/uv"
+#!/bin/sh
+exit 0
+EOF
+chmod +x "$MOCK_APT_DIR/uv"
+
+cat << 'EOF' > "$MOCK_APT_DIR/git"
+#!/bin/sh
+exit 0
+EOF
+chmod +x "$MOCK_APT_DIR/git"
+
+cat << 'EOF' > "$MOCK_APT_DIR/pip"
+#!/bin/sh
+exit 0
+EOF
+chmod +x "$MOCK_APT_DIR/pip"
+
+FAKE_INSTALL_ROOT="$TMP_TEST_DIR/fake_install_repo"
+mkdir -p "$FAKE_INSTALL_ROOT/backend/scripts" "$FAKE_INSTALL_ROOT/3daigc-api/bin"
+cp "$PROJECT_ROOT/backend/scripts/install.sh" "$FAKE_INSTALL_ROOT/backend/scripts/install.sh"
+chmod +x "$FAKE_INSTALL_ROOT/backend/scripts/install.sh"
+cp "$MOCK_APT_DIR/python" "$FAKE_INSTALL_ROOT/3daigc-api/bin/python"
+chmod +x "$FAKE_INSTALL_ROOT/3daigc-api/bin/python"
+cat << 'EOF' > "$FAKE_INSTALL_ROOT/3daigc-api/bin/activate"
+export VIRTUAL_ENV="/fake/venv"
+EOF
+
+set +e
+APT_TEST_OUT=$(cd "$FAKE_INSTALL_ROOT/backend" && env -u CONDA_PREFIX -u CONDA_DEFAULT_ENV -u PYTHON_EXEC FORMASH3D_ENV_MANAGER="venv" HOME="$TMP_TEST_DIR" PATH="$MOCK_APT_DIR:/usr/bin:/bin" bash scripts/install.sh 2>&1)
+APT_TEST_CODE=$?
+set -e
+
+if [ "$APT_TEST_CODE" -eq 0 ]; then
+    echo "✗ Expected install.sh to fail on apt error, but it exited with 0"
+    exit 1
+fi
+
+if echo "$APT_TEST_OUT" | grep -q "All installation done successfully!"; then
+    echo "✗ install.sh printed success banner after apt installation failure!"
+    exit 1
+fi
+
+echo "✓ Installer halts with non-zero exit code on required apt failure"
+
 echo "All environment resolution checks passed!"
