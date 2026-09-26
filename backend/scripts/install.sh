@@ -567,19 +567,31 @@ echo "Installing TripoSF, TripoSG, TripoSR, ardy Dependencies"
 echo "========================================"
 if [ -d "$PROJECT_ROOT/backend/thirdparty/TripoSF" ]; then
     echo "[INFO] Installing TripoSF requirements..."
-    $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSF/requirements.txt" || true
+    if ! $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSF/requirements.txt"; then
+        echo "[ERROR] Failed to install TripoSF requirements."
+        exit 1
+    fi
 fi
 if [ -d "$PROJECT_ROOT/backend/thirdparty/TripoSG" ]; then
     echo "[INFO] Installing TripoSG requirements..."
-    $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSG/requirements.txt" || true
+    if ! $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSG/requirements.txt"; then
+        echo "[ERROR] Failed to install TripoSG requirements."
+        exit 1
+    fi
 fi
 if [ -d "$PROJECT_ROOT/backend/thirdparty/TripoSR" ]; then
     echo "[INFO] Installing TripoSR requirements..."
-    $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSR/requirements.txt" || true
+    if ! $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSR/requirements.txt"; then
+        echo "[ERROR] Failed to install TripoSR requirements."
+        exit 1
+    fi
 fi
 if [ -d "$PROJECT_ROOT/backend/thirdparty/ardy" ]; then
     echo "[INFO] Installing ardy requirements..."
-    $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/ardy/requirements.txt" || true
+    if ! $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/ardy/requirements.txt"; then
+        echo "[ERROR] Failed to install ardy requirements."
+        exit 1
+    fi
 fi
 
 cd "$PROJECT_ROOT/backend"
@@ -625,25 +637,46 @@ echo "========================================"
 echo "All installation done successfully!"
 persist_env_config 2>/dev/null || true
 
-echo "Checking CUDA availability..."
-python -c "import torch; print(torch.cuda.is_available())" && echo "CUDA installed successfully" || echo "Failed"
+echo ""
+echo "========================================"
+echo "Validating Runtime Environment"
+echo "========================================"
 
-echo "Checking PyTorch version..."
-python -c "import torch; print(torch.__version__)" && echo "PyTorch installed successfully" || echo "Failed"
+python -c "
+import sys
+print(f'Python Executable: {sys.executable}')
+print(f'Python Version: {sys.version.split()[0]}')
 
-echo "Checking Blender availability..."
-python -c "import bpy" && echo "Blender installed successfully" || echo "Failed"
+try:
+    import torch
+    print(f'PyTorch Version: {torch.__version__}')
+    print(f'PyTorch CUDA Version: {torch.version.cuda}')
+    cuda_avail = torch.cuda.is_available()
+    print(f'CUDA Available: {cuda_avail}')
+    if cuda_avail:
+        print(f'GPU Device Name: {torch.cuda.get_device_name(0)}')
+        print(f'GPU Device Capability: {torch.cuda.get_device_capability(0)}')
+    else:
+        print('GPU Device Name: None (CPU mode)')
+except Exception as e:
+    print(f'PyTorch/CUDA check error: {e}')
 
-echo "Checking Other Packages..."
-python -c "import kaolin; print(kaolin.__version__)" && echo "Kaolin installed successfully" || echo "Failed"
-python -c "import open3d; import pymeshlab" && echo "Open3D and pymeshlab installed successfully" || echo "Failed"
+for pkg in ['numpy', 'diffusers', 'transformers', 'pymeshlab', 'open3d', 'trimesh']:
+    try:
+        mod = __import__(pkg)
+        print(f'{pkg}: {getattr(mod, \"__version__\", \"installed\")}')
+    except Exception as e:
+        print(f'{pkg}: NOT FOUND ({e})')
+"
 
 # install other runtime dependencies
-sudo apt update
-sudo apt install -y --no-install-recommends \
-  libsm6 \
-  libegl-mesa0 \
-  libgl1-mesa-dev
+if command -v apt >/dev/null 2>&1; then
+    sudo apt update || true
+    sudo apt install -y --no-install-recommends \
+      libsm6 \
+      libegl-mesa0 \
+      libgl1-mesa-dev || true
+fi
 
 
 

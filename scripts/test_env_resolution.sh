@@ -35,7 +35,7 @@ EOF
 chmod +x "$TMP_TEST_DIR/bin/redis-cli"
 
 set +e
-OUT=$(cd "$FAKE_ROOT/backend" && env HOME="$TMP_TEST_DIR" PATH="$TMP_TEST_DIR/bin:/usr/bin:/bin" bash scripts/run_server.sh 2>&1)
+OUT=$(cd "$FAKE_ROOT/backend" && env -u CONDA_PREFIX -u CONDA_DEFAULT_ENV -u VIRTUAL_ENV -u PYTHON_EXEC HOME="$TMP_TEST_DIR" PATH="$TMP_TEST_DIR/bin:/usr/bin:/bin" bash scripts/run_server.sh 2>&1)
 CODE=$?
 set -e
 
@@ -73,7 +73,7 @@ exit 0
 EOF
 chmod +x "$FAKE_ROOT/backend/scripts/scheduler_service.py"
 
-OUT=$(cd "$FAKE_ROOT/backend" && env HOME="$TMP_TEST_DIR" PATH="$TMP_TEST_DIR/bin:/usr/bin:/bin" bash scripts/run_server.sh --help 2>&1)
+OUT=$(cd "$FAKE_ROOT/backend" && env -u CONDA_PREFIX -u CONDA_DEFAULT_ENV -u VIRTUAL_ENV -u PYTHON_EXEC HOME="$TMP_TEST_DIR" PATH="$TMP_TEST_DIR/bin:/usr/bin:/bin" bash scripts/run_server.sh --help 2>&1)
 echo "✓ Conda environment discovery check passed"
 
 echo "All environment resolution checks passed!"

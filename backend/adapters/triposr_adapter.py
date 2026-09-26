@@ -63,6 +63,15 @@ class TripoSRImageToRawMeshAdapter(ImageToMeshModel):
         self.mesh_processor = MeshProcessor()
         self.path_generator = OutputPathGenerator(base_output_dir="outputs")
 
+    def _resolve_model_path(self) -> str:
+        candidates = [Path(self.model_path), Path(__file__).resolve().parent.parent / "pretrained" / "TripoSR"]
+        local_path = next((str(cand) for cand in candidates if (cand / "config.yaml").exists()), None)
+        if local_path:
+            logger.info(f"Resolved local TripoSR model path: {local_path}")
+            return local_path
+        logger.info("Local TripoSR weights not found; falling back to remote 'stabilityai/TripoSR'")
+        return "stabilityai/TripoSR"
+
     def _ensure_triposr_in_path(self):
         root_str = str(self.triposr_root)
         if root_str not in sys.path:
@@ -72,34 +81,42 @@ class TripoSRImageToRawMeshAdapter(ImageToMeshModel):
         """Load TripoSR model from local weights or Hugging Face repository."""
         try:
             self._ensure_triposr_in_path()
-            logger.info(f"Loading TripoSR model from {self.model_path} (root: {self.triposr_root})")
+            model_source = self._resolve_model_path()
+            logger.info(f"Loading TripoSR model from {model_source} (root: {self.triposr_root})")
 
-            from tsr.system import TSR
-
-            # Determine weights source: local path if exists, otherwise HF repo id
-            weights_path = Path(self.model_path)
-            if weights_path.exists() and (weights_path / "config.yaml").exists():
-                model_source = str(weights_path)
-            else:
-                model_source = "stabilityai/TripoSR"
+            try:
+                from tsr.system import TSR
+            except (ImportError, OSError) as e:
+                err_msg = (
+                    f"TripoSR native/code dependency import failed ({e}). "
+                    "If this is torchmcubes or libcudart, ensure native extensions match the current CUDA/PyTorch environment."
+                )
+                logger.error(err_msg)
+                raise RuntimeError(err_msg) from e
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
 
-            self.tsr_model = TSR.from_pretrained(
-                model_source,
-                config_name="config.yaml",
-                weight_name="model.ckpt",
-            )
+            try:
+                self.tsr_model = TSR.from_pretrained(
+                    model_source,
+                    config_name="config.yaml",
+                    weight_name="model.ckpt",
+                )
+            except Exception as load_err:
+                err_msg = f"TripoSR checkpoint load failed for source '{model_source}': {load_err}"
+                logger.error(err_msg)
+                raise RuntimeError(err_msg) from load_err
+
             self.tsr_model.renderer.set_chunk_size(self.chunk_size)
             self.tsr_model.to(device)
             self.tsr_model.eval()
 
-            logger.info(f"TripoSR model loaded successfully on {device}")
+            logger.info(f"TripoSR model loaded successfully on {device} from {model_source}")
             return self.tsr_model
 
         except Exception as e:
             logger.error(f"Failed to load TripoSR model: {e}")
-            raise RuntimeError(f"Failed to load TripoSR model: {e}")
+            raise RuntimeError(f"Failed to load TripoSR model: {e}") from e
 
     def _unload_model(self):
         """Unload TripoSR model and free GPU memory."""
@@ -190,7 +207,10 @@ class TripoSRImageToRawMeshAdapter(ImageToMeshModel):
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             mesh = meshes[0]
-            if bake_texture:
+            texture_requested = bake_texture
+            texture_bake_succeeded = False
+
+            if texture_requested:
                 try:
                     import xatlas
                     from tsr.bake_texture import bake_texture as do_bake
@@ -204,14 +224,28 @@ class TripoSRImageToRawMeshAdapter(ImageToMeshModel):
                         bake_output["uvs"],
                         mesh.vertex_normals[bake_output["vmapping"]],
                     )
+                    texture_bake_succeeded = True
                 except Exception as bake_err:
                     logger.warning(f"Texture baking failed ({bake_err}), exporting unbaked mesh")
                     mesh.export(str(output_path))
             else:
                 mesh.export(str(output_path))
 
+            # Validate output mesh file
+            if not output_path.exists() or output_path.stat().st_size == 0:
+                raise RuntimeError(f"TripoSR failed to write output mesh or file is empty: {output_path}")
+
             final_mesh = self.mesh_processor.load_mesh(output_path)
+            if final_mesh is None:
+                raise RuntimeError(f"TripoSR generated output mesh could not be parsed: {output_path}")
+
             mesh_stats = self.mesh_processor.get_mesh_stats(final_mesh)
+            vertex_count = mesh_stats.get("vertex_count", 0)
+            face_count = mesh_stats.get("face_count", 0)
+            if vertex_count <= 0 or face_count <= 0:
+                raise RuntimeError(f"TripoSR generated an invalid empty mesh (vertices: {vertex_count}, faces: {face_count})")
+
+            has_texture = texture_bake_succeeded
 
             response = {
                 "output_mesh_path": str(output_path),
@@ -220,9 +254,11 @@ class TripoSRImageToRawMeshAdapter(ImageToMeshModel):
                     "model": self.model_id,
                     "input_image": str(image_path),
                     "output_format": output_format,
-                    "vertex_count": mesh_stats.get("vertex_count", 0),
-                    "face_count": mesh_stats.get("face_count", 0),
-                    "has_texture": bake_texture,
+                    "vertex_count": vertex_count,
+                    "face_count": face_count,
+                    "texture_requested": texture_requested,
+                    "texture_bake_succeeded": texture_bake_succeeded,
+                    "has_texture": has_texture,
                     "mc_resolution": mc_resolution,
                 },
             }
@@ -234,7 +270,7 @@ class TripoSRImageToRawMeshAdapter(ImageToMeshModel):
         except Exception as e:
             self.status = ModelStatus.ERROR
             logger.error(f"TripoSR generation failed: {e}")
-            raise RuntimeError(f"TripoSR generation failed: {e}")
+            raise RuntimeError(f"TripoSR generation failed: {e}") from e
 
     def get_supported_formats(self) -> Dict[str, List[str]]:
         return {"input": self.supported_input_formats, "output": self.supported_output_formats}

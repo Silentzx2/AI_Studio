@@ -438,18 +438,22 @@ class JobQueue:
     async def fail_job(self, job_id: str, error: str):
         """Mark job as failed"""
         async with self._cache_lock:
-            if job_id in self._processing_cache:
-                job = self._processing_cache[job_id]
+            job = self._processing_cache.pop(job_id, None)
+            if not job:
+                for i, q_job in enumerate(self._queue_cache):
+                    if q_job.job_id == job_id:
+                        job = q_job
+                        del self._queue_cache[i]
+                        break
+
+            if job:
                 job.mark_failed(error)
 
                 # Save to database
                 if not self.db_manager.save_job(job):
                     logger.error(f"Failed to save failed job {job_id} to database")
 
-                # Move from processing to completed
-                del self._processing_cache[job_id]
                 self._completed_cache[job_id] = job
-
                 logger.error(f"Failed job {job_id}: {error}")
 
     async def cancel_job(self, job_id: str) -> bool:

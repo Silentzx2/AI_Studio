@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import {
@@ -12,26 +12,24 @@ import {
   RefreshCw,
   AlertCircle,
   AlertTriangle,
-  Wrench,
-  CheckCircle2,
-  Sparkles,
   ExternalLink,
+  ArrowRight,
 } from 'lucide-react';
 import { GlassCard } from '@/components/premium/GlassCard';
 import { Badge } from '@/components/premium/Badge';
 import { ProgressBar } from '@/components/premium/ProgressBar';
 import { Spinner } from '@/components/premium/Spinner';
 import { getApiClient } from '@/services/apiClient';
-import { diagnoseJobError, type JobDiagnostic } from '@/lib/jobDiagnostics';
+import { diagnoseJobError } from '@/lib/jobDiagnostics';
 import type { AdminJob } from '@/types';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
 
 const STATUS_CONFIG = {
   completed: { icon: CheckCircle, color: 'text-[hsl(var(--neon-green))]', bg: 'bg-[hsl(var(--neon-green)/0.1)]', label: 'Completed' },
-  generating: { icon: Loader2, color: 'text-[hsl(var(--neon-purple))]', bg: 'bg-[hsl(var(--neon-purple)/0.1)]', label: 'Generating' },
+  generating: { icon: Loader2, color: 'text-[hsl(var(--neon-purple))]', bg: 'bg-[hsl(var(--neon-purple)/0.1)]', label: 'Running' },
   queued: { icon: Clock, color: 'text-[hsl(var(--neon-amber))]', bg: 'bg-[hsl(var(--neon-amber)/0.1)]', label: 'Queued' },
   failed: { icon: XCircle, color: 'text-[hsl(var(--destructive))]', bg: 'bg-[hsl(var(--destructive)/0.1)]', label: 'Failed' },
+  cancelled: { icon: XCircle, color: 'text-zinc-400', bg: 'bg-zinc-500/10', label: 'Cancelled' },
 };
 
 export function JobsTab() {
@@ -40,8 +38,6 @@ export function JobsTab() {
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [repairingJobs, setRepairingJobs] = useState<Record<string, boolean>>({});
-  const [repairedJobs, setRepairedJobs] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     try {
@@ -50,7 +46,7 @@ export function JobsTab() {
         id: j.job_id ?? j.id,
         status: j.status === 'processing' ? 'generating' : j.status,
         type: j.feature ?? 'generation',
-        progress: j.status === 'completed' ? 100 : j.status === 'failed' ? 0 : 50,
+        progress: typeof j.progress === 'number' ? j.progress : j.status === 'completed' ? 100 : j.status === 'failed' ? 0 : undefined,
         created_at: j.created_at,
         completed_at: j.completed_at,
         error: j.error,
@@ -65,7 +61,6 @@ export function JobsTab() {
     }
   }, []);
 
-  // Polling interval for job status updates (every 5 seconds)
   useEffect(() => {
     load();
     const interval = setInterval(() => {
@@ -76,17 +71,7 @@ export function JobsTab() {
     return () => clearInterval(interval);
   }, [load]);
 
-const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
-  const key = job.id;
-  setRepairingJobs(prev => ({ ...prev, [key]: true }));
-  toast.info(`Repair for ${diag.providerLabel} not available in this backend.`, {
-    description: 'The new backend does not support provider repair operations.',
-  });
-  setRepairingJobs(prev => ({ ...prev, [key]: false }));
-};
-
   const filtered = jobs.filter((j) => filter === 'all' || j.status === filter);
-  const repairableJobsCount = jobs.filter(j => diagnoseJobError(j) !== null).length;
 
   if (loading) {
     return (
@@ -101,7 +86,7 @@ const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <AlertCircle className="w-10 h-10 text-muted-foreground/50" />
         <p className="text-sm text-muted-foreground">{error}</p>
-        <button onClick={() => { setLoading(true); load(); }} className="text-xs text-[hsl(var(--neon-purple))] hover:underline flex items-center gap-1.5">
+        <button onClick={() => { setLoading(true); load(); }} className="text-xs text-[hsl(var(--neon-purple))] hover:underline flex items-center gap-1.5 cursor-pointer">
           <RefreshCw className="w-3.5 h-3.5" /> Retry
         </button>
       </div>
@@ -110,16 +95,32 @@ const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
 
   return (
     <div className="p-4 lg:p-6 space-y-4 max-w-[1600px] mx-auto">
+      {/* Canonical Experience Shortcut Banner */}
+      <GlassCard className="p-4 border-[hsl(var(--admin-accent)/0.3)] bg-[hsl(var(--admin-accent)/0.05)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <span>Canonical Workspace Jobs Inspector</span>
+            <Badge variant="default" className="text-[10px]">Authoritative</Badge>
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            View real-time GPU telemetry, stage progress, live logs, and interactive 3D output inspection in the Workspace.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => router.push('/workspace/jobs')}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[hsl(var(--admin-accent))] hover:bg-[hsl(var(--admin-accent)/0.9)] text-white text-xs font-semibold shadow-sm transition-all whitespace-nowrap cursor-pointer"
+        >
+          <span>Open Jobs View</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </GlassCard>
+
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Generation Jobs</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {filtered.length} jobs · {jobs.filter(j => j.status === 'completed').length} completed · {jobs.filter(j => j.status === 'failed').length} failed
-            {repairableJobsCount > 0 && (
-              <span className="ml-2 text-[hsl(var(--destructive))] font-medium">
-                ({repairableJobsCount} runtime {repairableJobsCount === 1 ? 'error' : 'errors'} repairable)
-              </span>
-            )}
           </p>
         </div>
         <button
@@ -143,7 +144,7 @@ const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
                 : 'glass text-muted-foreground border-[hsl(var(--border))] hover:text-foreground'
             )}
           >
-            {f}
+            {f === 'generating' ? 'Running' : f}
           </button>
         ))}
       </div>
@@ -153,8 +154,6 @@ const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
           const cfg = STATUS_CONFIG[job.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.queued;
           const Icon = cfg.icon;
           const diag = diagnoseJobError(job);
-          const isRepairing = Boolean(repairingJobs[job.id]);
-          const isRepaired = Boolean(repairedJobs[job.id]);
 
           return (
             <motion.div key={job.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
@@ -177,7 +176,7 @@ const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
                         onClick={() => router.push(`/workspace/jobs?id=${job.id}`)}
                         className="text-[11px] text-[hsl(var(--admin-accent))] hover:underline flex items-center gap-0.5 font-medium cursor-pointer ml-auto"
                       >
-                        <span>Inspect Run</span>
+                        <span>Inspect in Workspace</span>
                         <ExternalLink className="w-3 h-3" />
                       </button>
                     </div>
@@ -191,53 +190,16 @@ const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
                       <p className="text-xs text-[hsl(var(--destructive))] mt-1 font-mono break-all">{job.error}</p>
                     )}
 
-                    {/* Interpreted RuntimeError Diagnosis & Try Repair Action */}
+                    {/* Interpreted RuntimeError Diagnosis */}
                     {diag && (
-                      <div className="mt-2.5 p-3 rounded-xl bg-[hsl(var(--destructive)/0.08)] border border-[hsl(var(--destructive)/0.25)] space-y-2">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-[hsl(var(--destructive))]">
-                              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                              <span>{diag.issueDescription}</span>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground font-mono break-all pl-5">
-                              {job.error || job.error_message}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2 pl-5 sm:pl-0">
-                            {isRepaired && !isRepairing && (
-                              <span className="text-[11px] text-[hsl(var(--neon-green))] flex items-center gap-1 font-medium">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Repaired
-                              </span>
-                            )}
-                            <button
-                              id={`btn-repair-job-${job.id}`}
-                              type="button"
-                              onClick={() => handleRepair(job, diag)}
-                              disabled={isRepairing}
-                              className={cn(
-                                "px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer whitespace-nowrap",
-                                isRepairing
-                                  ? "bg-[hsl(var(--surface-3))] text-muted-foreground cursor-wait"
-                                  : "bg-[hsl(var(--destructive))] text-white hover:bg-[hsl(var(--destructive)/0.85)] hover:shadow"
-                              )}
-                            >
-                              {isRepairing ? (
-                                <>
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  <span>Repairing Runtime...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Wrench className="w-3.5 h-3.5" />
-                                  <span>Try Repair ({diag.providerLabel})</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
+                      <div className="mt-2.5 p-3 rounded-xl bg-[hsl(var(--destructive)/0.08)] border border-[hsl(var(--destructive)/0.25)] space-y-1">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-[hsl(var(--destructive))]">
+                          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                          <span>{diag.issueDescription}</span>
                         </div>
-
+                        <p className="text-[11px] text-muted-foreground font-mono break-all pl-5">
+                          {job.error || job.error_message}
+                        </p>
                         <div className="text-[10px] text-muted-foreground pl-5 border-t border-[hsl(var(--destructive)/0.15)] pt-1.5">
                           💡 <span className="font-medium text-foreground">Remedy:</span> {diag.suggestedAction}
                         </div>
@@ -248,9 +210,19 @@ const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
                   <div className="w-28 sm:w-32 flex-shrink-0">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-muted-foreground">{cfg.label}</span>
-                      <span className="text-xs font-mono text-foreground">{job.progress}%</span>
+                      {job.progress !== undefined && (
+                        <span className="text-xs font-mono text-foreground">{job.progress}%</span>
+                      )}
                     </div>
-                    <ProgressBar value={job.progress} color={job.status === 'completed' ? 'green' : job.status === 'failed' ? 'pink' : 'purple'} size="sm" />
+                    {job.progress !== undefined ? (
+                      <ProgressBar value={job.progress} color={job.status === 'completed' ? 'green' : job.status === 'failed' ? 'pink' : 'purple'} size="sm" />
+                    ) : (
+                      <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                        {job.status === 'generating' && (
+                          <div className="h-full w-full bg-[hsl(var(--neon-purple))] animate-pulse" />
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </GlassCard>
@@ -268,4 +240,3 @@ const handleRepair = async (job: AdminJob, diag: JobDiagnostic) => {
     </div>
   );
 }
-

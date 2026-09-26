@@ -164,13 +164,24 @@ def model_worker_process(
             if success:
                 loaded_model = model
                 logger.info(f"✓ Worker {worker_id} successfully loaded model '{model_id}' on GPU {gpu_id}")
+                control_response_queue.put(WorkerResponse("init", True, {"model_id": model_id}))
             else:
-                logger.error(f"❌ Worker {worker_id} model.load({gpu_id}) returned False for model '{model_id}'")
+                err_msg = f"Worker {worker_id} model.load({gpu_id}) returned False for model '{model_id}'"
+                logger.error(f"❌ {err_msg}")
+                try:
+                    control_response_queue.put(WorkerResponse("init", False, error=err_msg))
+                except Exception:
+                    pass
                 return  # Exit worker if model loading fails
         except Exception as e:
             import traceback
             tb = traceback.format_exc()
-            logger.error(f"❌ FATAL ERROR loading model '{model_id}' in worker {worker_id}:\n{tb}")
+            err_msg = f"FATAL ERROR loading model '{model_id}' in worker {worker_id}: {e}"
+            logger.error(f"❌ {err_msg}\n{tb}")
+            try:
+                control_response_queue.put(WorkerResponse("init", False, error=f"{err_msg}\n{tb}"))
+            except Exception:
+                pass
             return  # Exit worker if model loading fails
 
         # Main worker loop
@@ -489,6 +500,7 @@ class MultiprocessModelScheduler:
         self.pending_results: Dict[str, asyncio.Future] = {}
         self.result_lock = threading.Lock()
         self.main_event_loop: Optional[asyncio.AbstractEventLoop] = None
+        self.last_worker_error: Dict[str, str] = {}
 
         # Thread pool for async operations
         self.thread_executor = ThreadPoolExecutor(max_workers=4)
@@ -872,6 +884,17 @@ class MultiprocessModelScheduler:
                     f"No models available for feature: {job_request.feature}",
                 )
                 return
+            elif worker_result == "MODEL_LOAD_FAILED":
+                target_model = self._get_model_id_for_job(job_request)
+                load_err = self.last_worker_error.pop(target_model, f"Model '{target_model}' worker startup/load failed")
+                logger.error(
+                    f"Job {job_request.job_id} failed: model '{target_model}' could not be loaded: {load_err}"
+                )
+                await self.job_queue.fail_job(
+                    job_request.job_id,
+                    f"Model load failed: {load_err}",
+                )
+                return
             elif worker_result in ["WORKERS_BUSY", "NO_VRAM"]:
                 # Resources unavailable - put job back at front of queue and wait
                 logger.info(
@@ -944,17 +967,25 @@ class MultiprocessModelScheduler:
         """Handle job result asynchronously without blocking the main processing loop"""
         try:
             logger.info(f"Waiting for result for job {job_id}")
-            result = await result_future
+            result = await asyncio.wait_for(result_future, timeout=600.0)
             logger.info(f"Received result for job {job_id}: {result}")
 
             # Update job status through JobQueue
-            if result["success"]:
-                await self.job_queue.complete_job(job_id, result["result"])
+            if result.get("success"):
+                await self.job_queue.complete_job(job_id, result.get("result"))
                 logger.info(f"Job {job_id} completed successfully")
             else:
-                await self.job_queue.fail_job(job_id, result["error"])
-                logger.info(f"Job {job_id} failed: {result['error']}")
+                await self.job_queue.fail_job(job_id, result.get("error", "Unknown error"))
+                logger.info(f"Job {job_id} failed: {result.get('error')}")
 
+        except asyncio.TimeoutError:
+            logger.error(f"Job {job_id} timed out waiting for worker result (600s)")
+            try:
+                await self.job_queue.fail_job(
+                    job_id, "Job processing timed out after 600 seconds"
+                )
+            except Exception as e_to:
+                logger.error(f"Failed to mark timed-out job {job_id} as failed: {e_to}")
         except Exception as e:
             logger.error(f"Error handling result for job {job_id}: {e}")
             # Try to mark job as failed
@@ -1073,7 +1104,7 @@ class MultiprocessModelScheduler:
         if worker_id:
             return worker_id
         else:
-            return "NO_VRAM"  # Failed to create worker, likely VRAM issue
+            return "MODEL_LOAD_FAILED"
 
     async def _create_worker_for_model(
         self, model_id: str, gpu_id: int
@@ -1138,14 +1169,36 @@ class MultiprocessModelScheduler:
             # Start process
             worker_process.start()
 
-            # Brief wait to catch immediate startup/model-load failures
-            time.sleep(0.5)
-            if not worker_process.is_alive():
-                worker_process.join(timeout=1.0)
+            # Wait for worker process to initialize and report model load status
+            init_success = False
+            error_reason = f"Worker {worker_id} terminated unexpectedly during model initialization"
+            start_wait = time.time()
+            max_load_timeout = 180.0
+
+            while time.time() - start_wait < max_load_timeout:
+                if not worker_process.is_alive():
+                    worker_process.join(timeout=1.0)
+                    break
+                try:
+                    init_resp = control_response_queue.get(timeout=0.2)
+                    if isinstance(init_resp, WorkerResponse) and init_resp.msg_id == "init":
+                        if init_resp.success:
+                            init_success = True
+                        else:
+                            error_reason = init_resp.error or error_reason
+                        break
+                except queue.Empty:
+                    continue
+
+            if not init_success:
                 logger.error(
-                    f"Worker {worker_id} failed during startup (model load failure?)"
+                    f"Worker {worker_id} failed during startup/model-load: {error_reason}"
                 )
+                self.last_worker_error[model_id] = error_reason
                 self._remove_worker_tracking(worker_id, model_id, gpu_id, vram_requirement)
+                if worker_process.is_alive():
+                    worker_process.terminate()
+                    worker_process.join(timeout=2.0)
                 return None
 
             logger.info(
@@ -1319,10 +1372,9 @@ class MultiprocessModelScheduler:
             Available worker ID or None if all are busy
         """
         for worker_id in worker_ids:
-            # Check if worker exists and is not busy
-            if worker_id in self.workers and not self.worker_status.get(
-                worker_id, False
-            ):
+            # Check if worker exists, is alive, and is not busy
+            proc = self.workers.get(worker_id)
+            if proc and proc.is_alive() and not self.worker_status.get(worker_id, False):
                 return worker_id
         return None
 
@@ -1471,6 +1523,17 @@ class MultiprocessModelScheduler:
                         job_id = self.worker_current_job.get(worker_id)
                         await self._destroy_worker(worker_id)
                         self.worker_current_job.pop(worker_id, None)
+
+                        # Clean up pending future for this dead worker's job
+                        if job_id:
+                            with self.result_lock:
+                                fut = self.pending_results.get(job_id)
+                                if fut and not fut.done():
+                                    fut.set_result({
+                                        "success": False,
+                                        "error": f"Worker {worker_id} terminated unexpectedly during execution",
+                                        "job_id": job_id,
+                                    })
 
                         if job_id:
                             try:
