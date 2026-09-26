@@ -65,9 +65,9 @@ export function OverviewTab() {
   }, [load]);
 
   const quickActions = [
-    { label: 'New Generation', icon: Box, color: 'purple' as const, href: '/workspace' },
+    { label: 'New Generation', icon: Box, color: 'amber' as const, href: '/workspace' },
     { label: 'Manage Models', icon: HardDrive, color: 'blue' as const, href: '/admin' },
-    { label: 'View Runtime', icon: Activity, color: 'cyan' as const, href: '/admin' },
+    { label: 'View Runtime', icon: Activity, color: 'amber' as const, href: '/admin' },
     { label: 'System Logs', icon: ScrollText, color: 'green' as const, href: '/admin' },
   ];
 
@@ -84,7 +84,7 @@ export function OverviewTab() {
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <XCircle className="w-10 h-10 text-[hsl(var(--destructive))]" />
         <p className="text-sm text-muted-foreground">{error}</p>
-        <button onClick={() => { setLoading(true); load(); }} className="text-xs text-[hsl(var(--neon-purple))] hover:underline flex items-center gap-1.5">
+        <button onClick={() => { setLoading(true); load(); }} className="text-xs text-primary hover:underline flex items-center gap-1.5 cursor-pointer">
           <RefreshCw className="w-3.5 h-3.5" /> Retry
         </button>
       </div>
@@ -165,14 +165,14 @@ export function OverviewTab() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        <MetricCard label="GPU Usage" value={Math.round(gpu)} unit="%" icon={Cpu} color="purple" delay={0.1}>
-          <div className="mt-3"><ProgressBar value={gpu} color="purple" size="sm" showGlow /></div>
+        <MetricCard label="GPU Usage" value={Math.round(gpu)} unit="%" icon={Cpu} color="amber" delay={0.1}>
+          <div className="mt-3"><ProgressBar value={gpu} color="amber" size="sm" showGlow /></div>
         </MetricCard>
         <MetricCard label="VRAM" value={`${(vram / 1024).toFixed(1)}`} unit={`/ ${(vramTotal / 1024).toFixed(0)} GB`} icon={Zap} color="blue" delay={0.15}>
           <div className="mt-3"><ProgressBar value={(vram / vramTotal) * 100} color="blue" size="sm" /></div>
         </MetricCard>
-        <MetricCard label="CPU" value={Math.round(cpu)} unit="%" icon={Server} color="cyan" delay={0.2}>
-          <div className="mt-3"><ProgressBar value={cpu} color="cyan" size="sm" /></div>
+        <MetricCard label="CPU" value={Math.round(cpu)} unit="%" icon={Server} color="amber" delay={0.2}>
+          <div className="mt-3"><ProgressBar value={cpu} color="amber" size="sm" /></div>
         </MetricCard>
         <MetricCard label="RAM" value={Math.round(ram)} unit="%" icon={MemoryStick} color="green" delay={0.25}>
           <div className="mt-3"><ProgressBar value={ram} color="green" size="sm" /></div>
@@ -187,14 +187,14 @@ export function OverviewTab() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <GlassCard className="p-5" delay={0.4}>
           <div className="flex items-center gap-2 mb-3">
-            <HardDrive className="w-4 h-4 text-[hsl(var(--neon-cyan))]" />
+            <HardDrive className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold">Storage</h3>
           </div>
           <div className="flex items-baseline gap-1 mb-2">
             <span className="text-xl font-bold font-mono">{storage.toFixed(0)}</span>
             <span className="text-sm text-muted-foreground">/ {storageTotal.toFixed(0)} GB</span>
           </div>
-          <ProgressBar value={(storage / storageTotal) * 100} color="cyan" size="sm" showGlow />
+          <ProgressBar value={(storage / storageTotal) * 100} color="amber" size="sm" showGlow />
           <div className="flex justify-between mt-2 text-[10px] text-muted-foreground">
             <span>{((storage / storageTotal) * 100).toFixed(0)}% used</span>
             <span>{(storageTotal - storage).toFixed(0)} GB free</span>
@@ -203,7 +203,7 @@ export function OverviewTab() {
 
         <GlassCard className="p-5" delay={0.45}>
           <div className="flex items-center gap-2 mb-3">
-            <Thermometer className="w-4 h-4 text-[hsl(var(--neon-amber))]" />
+            <Thermometer className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold">Temperature</h3>
           </div>
           <div className="flex items-baseline gap-1 mb-2">
@@ -213,7 +213,7 @@ export function OverviewTab() {
           <ProgressBar value={temp} color="amber" size="sm" />
           <div className="flex justify-between mt-2 text-[10px] text-muted-foreground">
             <span>Normal range</span>
-            <span className={temp > 80 ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--neon-green))]'}>
+            <span className={temp > 80 ? 'text-[hsl(var(--destructive))]' : 'text-emerald-400'}>
               {temp > 80 ? 'High' : 'Optimal'}
             </span>
           </div>
@@ -221,7 +221,7 @@ export function OverviewTab() {
 
         <GlassCard className="p-5" delay={0.5}>
           <div className="flex items-center gap-2 mb-3">
-            <Gauge className="w-4 h-4 text-[hsl(var(--neon-purple))]" />
+            <Gauge className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold">System Status</h3>
           </div>
           <div className="space-y-2">
@@ -234,7 +234,7 @@ export function OverviewTab() {
                 <span className="text-xs text-muted-foreground">{item.label}</span>
                 <div className="flex items-center gap-2">
                   <StatusDot status={item.status} size="sm" />
-                  <span className="text-xs text-[hsl(var(--neon-green))]">{item.status === 'online' ? 'Operational' : 'Offline'}</span>
+                  <span className="text-xs text-emerald-400">{item.status === 'online' ? 'Operational' : 'Offline'}</span>
                 </div>
               </div>
             ))}

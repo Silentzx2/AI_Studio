@@ -32,13 +32,13 @@ class GPUMonitor:
 
     def _update_gpu_list(self):
         """Update list of available GPUs"""
-        if torch.cuda.is_available() and self._has_gputil and GPUtil:
+        if torch.cuda.is_available() and torch.cuda.device_count() > 0 and self._has_gputil and GPUtil:
             try:
                 self.gpus = GPUtil.getGPUs()
             except Exception as e:
                 logger.warning(f"Failed to get GPU list with GPUtil: {e}")
                 self.gpus = []
-        elif torch.cuda.is_available():
+        elif torch.cuda.is_available() and torch.cuda.device_count() > 0:
             # Fallback to torch-only implementation
             gpu_count = torch.cuda.device_count()
             self.gpus = []
@@ -169,7 +169,7 @@ class GPUMonitor:
         self._update_gpu_list()
         status = []
 
-        if self._has_gputil and torch.cuda.is_available():
+        if self._has_gputil and torch.cuda.is_available() and torch.cuda.device_count() > 0:
             # Use GPUtil for detailed stats
             for gpu in self.gpus:
                 gpu_status = {
@@ -193,7 +193,7 @@ class GPUMonitor:
                     )
 
                 status.append(gpu_status)
-        elif torch.cuda.is_available():
+        elif torch.cuda.is_available() and torch.cuda.device_count() > 0:
             # Use torch for basic memory info
             for gpu in self.gpus:
                 gpu_id = gpu["id"]

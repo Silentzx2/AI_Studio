@@ -50,7 +50,20 @@
 | **CPU** | 4 cores | 8+ cores |
 | **RAM** | 8 GB | 16 GB |
 | **Storage** | 50 GB SSD | 100 GB NVMe SSD |
-| **GPU** | None (CPU mode) | NVIDIA GPU with CUDA |
+| **GPU** | NVIDIA GPU with CUDA | NVIDIA GPU with CUDA |
+
+---
+
+## Hardware Requirements
+
+### Minimum Specifications
+
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| **CPU** | 4 cores | 8+ cores |
+| **RAM** | 8 GB | 16 GB |
+| **Storage** | 50 GB SSD | 100 GB NVMe SSD |
+| **GPU** | NVIDIA GPU with CUDA | NVIDIA GPU with CUDA |
 
 ### GPU VRAM Requirements by Model
 
@@ -203,9 +216,6 @@ The setup script automatically detects and installs CUDA 12.4. For manual setup:
 # Verify NVIDIA driver and CUDA
 nvidia-smi
 nvcc --version
-
-# If no GPU, the system falls back to CPU mode
-# Set CUDA_DEVICE=cpu in .env for explicit CPU mode
 ```
 
 ### CUDA Toolkit Installation
@@ -273,7 +283,6 @@ bun run build
 ### 1. GPU / CUDA Detection
 ```bash
 nvidia-smi
-# If no GPU is available, the system falls back to CPU mode (slower).
 ```
 
 ### 2. Port Already in Use (3000, 7842)

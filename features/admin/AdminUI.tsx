@@ -39,7 +39,7 @@ export function Badge({
     warn:    'bg-[hsl(var(--neon-amber))/0.12] text-[hsl(var(--neon-amber))] border-[hsl(var(--neon-amber))]/25',
     error:   'bg-[hsl(var(--destructive))/0.12] text-[hsl(var(--destructive))] border-[hsl(var(--destructive))]/25',
     info:    'bg-[hsl(var(--neon-blue))/0.12] text-[hsl(var(--neon-blue))] border-[hsl(var(--neon-blue))]/25',
-    purple:  'bg-[hsl(var(--neon-purple)/0.15)] text-[hsl(var(--primary))] border-[hsl(var(--neon-purple)/0.3)]',
+    purple:  'bg-primary/15 text-primary border-primary/30',
   }[variant];
   return (
     <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border', cls)}>
@@ -66,8 +66,8 @@ export function Spinner({ size = 16 }: { size?: number }) {
       style={{
         width: size,
         height: size,
-        border: `2px solid hsl(var(--admin-accent) / 0.20)`,
-        borderTopColor: 'hsl(var(--admin-accent) / 0.9)',
+        border: `2px solid hsl(var(--primary) / 0.20)`,
+        borderTopColor: 'hsl(var(--primary))',
       }}
     />
   );
@@ -98,22 +98,17 @@ export function ActionButton({
   const base = 'inline-flex items-center justify-center gap-1.5 font-medium rounded-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]';
   const size = small ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm';
   const cls = {
-    default: 'bg-slate-700/50 hover:bg-slate-600/60 text-[hsl(var(--muted-foreground))] border border-slate-600/40 hover:border-slate-500/60 hover:text-[hsl(var(--foreground))]',
-    primary: 'text-[hsl(var(--foreground))] border border-[hsl(var(--neon-purple)/0.3)] hover:border-violet-400/50 hover:shadow-[0_0_16px_hsl(var(--admin-accent)/0.25)]',
+    default: 'bg-[hsl(var(--surface-2))] hover:bg-[hsl(var(--surface-3))] text-[hsl(var(--muted-foreground))] border border-[hsl(var(--border))] hover:text-[hsl(var(--foreground))]',
+    primary: 'bg-primary text-[#080808] hover:bg-primary/90 font-bold border-none shadow-sm',
     danger:  'bg-red-600/20 hover:bg-red-600/30 text-[hsl(var(--destructive))] border border-[hsl(var(--destructive)/0.2)] hover:border-[hsl(var(--destructive)/0.4)]',
     success: 'bg-emerald-600/20 hover:bg-emerald-600/30 text-[hsl(var(--neon-green))] border border-[hsl(var(--neon-green)/0.2)] hover:border-[hsl(var(--neon-green))]/40',
   }[variant];
-
-  const primaryStyle = variant === 'primary' ? {
-    background: 'linear-gradient(135deg, hsl(var(--admin-accent-deep) / 0.60) 0%, hsl(var(--admin-accent) / 0.50) 100%)',
-  } : {};
 
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       className={cn(base, size, cls)}
-      style={primaryStyle}
     >
       {children}
     </button>
@@ -122,20 +117,20 @@ export function ActionButton({
 
 export function ProgressBar({ value, color = 'violet' }: { value: number; color?: 'violet' | 'cyan' | 'emerald' | 'amber' | 'red' }) {
   const gradient = {
-    violet: 'linear-gradient(90deg, hsl(var(--admin-accent-deep) / 0.9), hsl(var(--admin-accent) / 0.9))',
-    cyan:   'linear-gradient(90deg, hsl(var(--neon-cyan) / 0.9), hsl(var(--neon-blue) / 0.9))',
-    emerald:'linear-gradient(90deg, hsl(var(--neon-green) / 0.8), hsl(var(--neon-green) / 0.9))',
-    amber:  'linear-gradient(90deg, hsl(var(--neon-amber) / 0.8), hsl(var(--neon-amber) / 0.9))',
-    red:    'linear-gradient(90deg, hsl(var(--destructive) / 0.8), hsl(var(--destructive) / 0.9))',
+    violet: 'linear-gradient(90deg, #E0A800, #F5C542)',
+    cyan:   'linear-gradient(90deg, #F5C542, #FFD866)',
+    emerald:'linear-gradient(90deg, #10B981, #34D399)',
+    amber:  'linear-gradient(90deg, #F5C542, #FFD866)',
+    red:    'linear-gradient(90deg, #EF4444, #F87171)',
   }[color];
 
   const pct = Math.min(100, Math.max(0, value));
   const glowColor = {
-    violet: 'hsl(var(--admin-accent) / 0.50)',
-    cyan:   'hsl(var(--neon-cyan) / 0.50)',
-    emerald:'hsl(var(--neon-green) / 0.50)',
-    amber:  'hsl(var(--neon-amber) / 0.50)',
-    red:    'hsl(var(--destructive) / 0.50)',
+    violet: 'hsl(var(--primary) / 0.30)',
+    cyan:   'hsl(var(--primary) / 0.30)',
+    emerald:'rgba(16, 185, 129, 0.30)',
+    amber:  'hsl(var(--primary) / 0.30)',
+    red:    'rgba(239, 68, 68, 0.30)',
   }[color];
 
   return (
@@ -214,19 +209,19 @@ export function MetricCard({
   progress?: number;
 }) {
   const iconColors = {
-    violet: 'text-[hsl(var(--neon-purple))]',
-    cyan:   'text-[hsl(var(--neon-cyan))]',
-    emerald:'text-[hsl(var(--neon-green))]',
-    amber:  'text-[hsl(var(--neon-amber))]',
-    red:    'text-[hsl(var(--destructive))]',
+    violet: 'text-primary',
+    cyan:   'text-primary',
+    emerald:'text-emerald-400',
+    amber:  'text-primary',
+    red:    'text-destructive',
   }[color];
 
   const iconBg = {
-    violet: 'hsl(var(--admin-accent) / 0.10)',
-    cyan:   'hsl(var(--neon-cyan) / 0.10)',
-    emerald:'hsl(var(--neon-green) / 0.10)',
-    amber:  'hsl(var(--neon-amber) / 0.10)',
-    red:    'hsl(var(--destructive) / 0.10)',
+    violet: 'hsl(var(--primary) / 0.10)',
+    cyan:   'hsl(var(--primary) / 0.10)',
+    emerald:'rgba(16, 185, 129, 0.10)',
+    amber:  'hsl(var(--primary) / 0.10)',
+    red:    'rgba(239, 68, 68, 0.10)',
   }[color];
 
   return (

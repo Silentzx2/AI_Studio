@@ -230,7 +230,7 @@ uvicorn api.main_singleworker:app --workers 1 --port 7842
 ```
 - Embedded VRAM-aware scheduler
 - No external broker required
-- Best for single-GPU and CPU deployments
+- Best for single-GPU deployments
 
 **Multi-Worker Mode** (Redis Queue):
 ```bash

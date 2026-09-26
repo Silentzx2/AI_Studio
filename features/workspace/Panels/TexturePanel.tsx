@@ -639,7 +639,7 @@ export const TexturePanel: React.FC = () => {
                 type="button"
                 onClick={runTextureGeneration}
                 disabled={isExecuting || (!textureSettings.referenceImage && !currentAsset?.source?.viewUrl && !currentAsset?.source?.localUrl)}
-                className="w-full h-10 rounded-xl bg-gradient-to-b from-[hsl(var(--neon-amber))] to-[hsl(var(--primary))] hover:from-[#FFE660] hover:to-[#FFD700] text-black font-black tracking-wider text-xs flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(249,207,0,0.25)] hover:shadow-[0_6px_20px_rgba(249,207,0,0.35)] transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className={`w-full h-10 rounded-xl bg-gradient-to-r from-[#FFE066] via-[#FFCC00] to-[#E09800] hover:brightness-105 text-[#080808] font-black tracking-wider text-xs flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(255,204,0,0.38)] hover:shadow-[0_6px_22px_rgba(255,204,0,0.5)] transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer btn-lighting-shine ${isExecuting ? 'is-executing' : ''}`}
               >
                 {isExecuting ? (
                   <>
@@ -749,7 +749,7 @@ export const TexturePanel: React.FC = () => {
                       }`}
                     >
                       <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-colors ${
-                        checked ? 'bg-primary border-primary text-black' : 'border-[#3d4252]'
+                        checked ? 'bg-primary border-primary text-black' : 'border-white/[0.15]'
                       }`}>
                         {checked && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                       </div>

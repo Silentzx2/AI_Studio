@@ -18,20 +18,17 @@ interface ProgressBarProps {
 }
 
 const COLORS: Record<ProgressColor, { from: string; to: string; glow: string }> = {
-  purple: { from: 'hsl(var(--neon-purple))', to: 'hsl(var(--neon-pink))', glow: 'hsl(var(--neon-purple))' },
-  blue: { from: 'hsl(var(--neon-blue))', to: 'hsl(var(--neon-cyan))', glow: 'hsl(var(--neon-blue))' },
-  cyan: { from: 'hsl(var(--neon-cyan))', to: 'hsl(var(--neon-blue))', glow: 'hsl(var(--neon-cyan))' },
-  green: { from: 'hsl(150 80% 55%)', to: 'hsl(150 70% 45%)', glow: 'hsl(150 80% 55%)' },
-  pink: { from: 'hsl(var(--neon-pink))', to: 'hsl(var(--neon-purple))', glow: 'hsl(var(--neon-pink))' },
-  amber: { from: 'hsl(var(--neon-amber))', to: 'hsl(30 100% 55%)', glow: 'hsl(var(--neon-amber))' },
+  purple: { from: '#FFE066', to: '#E09800', glow: 'rgba(255, 204, 0, 0.45)' },
+  blue: { from: '#60A5FA', to: '#3B82F6', glow: 'rgba(59, 130, 246, 0.3)' },
+  cyan: { from: '#FFE066', to: '#FFCC00', glow: 'rgba(255, 204, 0, 0.45)' },
+  green: { from: '#4ADE80', to: '#22C55E', glow: 'rgba(34, 197, 94, 0.3)' },
+  pink: { from: '#FFCC00', to: '#FFE066', glow: 'rgba(255, 204, 0, 0.45)' },
+  amber: { from: '#FFE066', to: '#E09800', glow: 'rgba(255, 204, 0, 0.45)' },
 };
 
 function getGlowStyle(color: ProgressColor, intensity: 'normal' | 'strong'): string {
   const c = COLORS[color].glow;
-  const a1 = intensity === 'strong' ? 0.6 : 0.4;
-  const a2 = intensity === 'strong' ? 0.3 : 0.15;
-  const a3 = intensity === 'strong' ? 0.15 : 0.08;
-  return `0 0 8px ${c} / ${a1}, 0 0 20px ${c} / ${a2}, 0 0 40px ${c} / ${a3}`;
+  return `0 0 8px ${c}, 0 0 16px ${c}`;
 }
 
 const SIZES: Record<string, string> = {
@@ -46,7 +43,7 @@ export function ProgressBar({
   value,
   max = 100,
   className,
-  color = 'purple',
+  color = 'amber',
   size = 'md',
   showGlow = false,
   indeterminate = false,

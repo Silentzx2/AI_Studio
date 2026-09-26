@@ -62,14 +62,14 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
   return (
     <header
       id="persistent-top-header"
-      className="h-[44px] px-2.5 md:px-4 bg-[hsl(var(--surface-0))]/95 backdrop-blur-md flex items-center justify-between border-b border-white/[0.08] select-none z-50 text-xs w-full flex-shrink-0 min-w-0"
+      className="h-[44px] px-2.5 md:px-4 bg-[#0d0d0d]/95 backdrop-blur-xl flex items-center justify-between border-b border-white/[0.10] select-none z-50 text-xs w-full flex-shrink-0 min-w-0 shadow-[0_2px_12px_rgba(0,0,0,0.5)]"
     >
       {/* Left Branding & Mode Dropdown */}
       <div className="flex items-center gap-2.5 md:gap-3.5 min-w-0 overflow-hidden">
         {/* Mobile menu button */}
         <button
           onClick={onMobileMenuToggle}
-          className="md:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[hsl(var(--surface-1))] transition-colors flex-shrink-0 active:scale-95"
+          className="md:hidden p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-[hsl(var(--surface-1))] transition-colors flex-shrink-0 active:scale-95"
           aria-label={isMobileNavOpen ? 'Close menu' : 'Open menu'}
         >
           <Menu className="w-4 h-4" />
@@ -81,13 +81,13 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
           className="flex items-center gap-2 cursor-pointer group p-1 flex-shrink-0"
         >
           {/* Stylized Logo Cube */}
-          <div className="w-5 h-5 rounded-[5px] bg-primary flex items-center justify-center text-primary-foreground font-black text-[10px] shadow-sm tracking-tighter group-hover:shadow-[0_0_12px_hsl(var(--primary)/0.4)] transition-all">
+          <div className="w-5 h-5 rounded-[5px] bg-gradient-to-br from-[#FFD866] via-[#F5C542] to-[#E0A800] flex items-center justify-center text-[#080808] font-black text-[10px] shadow-[0_0_10px_rgba(245,197,66,0.35)] tracking-tighter group-hover:shadow-[0_0_16px_rgba(245,197,66,0.6)] transition-all">
             <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
             </svg>
           </div>
           <span className="font-extrabold text-xs tracking-wider text-white uppercase font-sans hidden sm:inline group-hover:text-primary transition-colors">
-            ForMash 3D
+            ForMash <span className="text-primary font-black">3D</span>
           </span>
         </div>
 
@@ -96,7 +96,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
           <button
             id="btn-workspace-switcher"
             onClick={() => setWorkspaceMenuOpen(!workspaceMenuOpen)}
-            className="group h-7 px-2.5 rounded-lg bg-[hsl(var(--surface-1))] border border-white/[0.08] flex items-center gap-1.5 hover:bg-[hsl(var(--surface-2))] hover:border-white/[0.14] transition-all active:scale-95 cursor-pointer"
+            className="group h-7 px-2.5 rounded-lg bg-gradient-to-b from-[#1b1b1b] to-[#121212] border border-white/[0.12] flex items-center gap-1.5 hover:border-primary/40 hover:bg-[#202020] transition-all active:scale-95 cursor-pointer shadow-sm"
           >
             <span className="text-primary text-[11px] font-bold flex gap-1.5 items-center">
               <span>3D Workspace</span>
@@ -173,7 +173,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
         <div className="h-3.5 w-px bg-white/[0.1] mx-0.5 hidden md:block" />
 
         {/* Center/Left Top Navigation Links in Segmented Pill Bar - hidden on mobile */}
-        <nav className="relative flex items-center gap-0.5 bg-[hsl(var(--surface-0))] p-0.5 rounded-lg border border-white/[0.06] text-[11px] font-medium hidden md:flex">
+        <nav className="relative flex items-center gap-0.5 bg-[#141414] p-0.5 rounded-lg border border-white/[0.10] text-[11px] font-medium hidden md:flex shadow-inner">
           {[
             {
               id: 'home',
@@ -216,14 +216,14 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onMobileMenuToggle, isMobi
               id={item.domId}
               onClick={item.onClick}
               className={`relative px-2.5 py-1 rounded-md transition-colors cursor-pointer active:scale-95 z-10 ${
-                item.active ? 'text-primary font-bold' : 'text-zinc-400 hover:text-zinc-200'
+                item.active ? 'text-white font-bold' : 'text-zinc-300 hover:text-white'
               }`}
             >
               {item.active && (
                 <motion.div
                   layoutId="topNavActiveIndicator"
                   transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                  className="absolute inset-0 rounded-md bg-[hsl(var(--surface-2))] border border-primary/35 shadow-sm -z-10"
+                  className="absolute inset-0 rounded-md bg-gradient-to-b from-primary/20 via-primary/10 to-transparent border border-primary/45 shadow-[0_0_12px_rgba(255,204,0,0.25),inset_0_1px_0_rgba(255,255,255,0.15)] -z-10"
                 />
               )}
               <span>{item.label}</span>

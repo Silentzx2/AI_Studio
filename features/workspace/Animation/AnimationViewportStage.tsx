@@ -374,7 +374,7 @@ export const AnimationViewportStage: React.FC = () => {
               </button>
               <button
                 onClick={togglePlay}
-                className="w-7 h-7 rounded-full bg-primary hover:bg-[hsl(var(--primary)/0.9)] text-black flex items-center justify-center font-bold shadow-[0_0_12px_rgba(249,207,0,0.35)] transition-transform active:scale-95 cursor-pointer mx-1"
+                className="w-7 h-7 rounded-full bg-gradient-to-r from-[#FFE066] via-[#FFCC00] to-[#E09800] hover:brightness-105 text-[#080808] flex items-center justify-center font-black shadow-[0_0_14px_rgba(255,204,0,0.45)] transition-transform active:scale-95 cursor-pointer mx-1"
                 title={isPlaying ? 'Pause' : 'Play'}
               >
                 {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
@@ -517,7 +517,7 @@ export const AnimationViewportStage: React.FC = () => {
                   <div
                     key={idx}
                     style={{ left: `${marker.pct}%` }}
-                    className={`absolute -top-1.5 w-3 h-3 ${marker.color} rotate-45 transform -translate-x-1/2 shadow-[0_0_6px_rgba(249,207,0,0.4)] cursor-pointer hover:scale-125 transition-transform`}
+                    className={`absolute -top-1.5 w-3 h-3 ${marker.color} rotate-45 transform -translate-x-1/2 shadow-[0_0_6px_rgba(255,204,0,0.5)] cursor-pointer hover:scale-125 transition-transform`}
                     title={`${marker.label} (${((marker.pct / 100) * duration).toFixed(1)}s)`}
                   />
                 ))}
@@ -527,7 +527,7 @@ export const AnimationViewportStage: React.FC = () => {
             {/* SCRUBBER PLAYHEAD (Yellow vertical line with smooth triangular needle) */}
             <div
               style={{ left: `${scrubProgress}%` }}
-              className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none transform -translate-x-1/2 shadow-[0_0_8px_rgba(249,207,0,0.8)]"
+              className="absolute top-0 bottom-0 w-0.5 bg-primary z-20 pointer-events-none transform -translate-x-1/2 shadow-[0_0_8px_rgba(255,204,0,0.9)]"
             >
               <div className="w-3.5 h-3 bg-primary rounded-b-xs shadow-md -translate-x-[6px] flex items-center justify-center">
                 <div className="w-1 h-1 rounded-full bg-black" />

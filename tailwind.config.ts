@@ -199,7 +199,7 @@ const config: Config = {
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
         chart: { '1': 'hsl(var(--chart-1))', '2': 'hsl(var(--chart-2))', '3': 'hsl(var(--chart-3))', '4': 'hsl(var(--chart-4))', '5': 'hsl(var(--chart-5))', gpu: 'hsl(var(--chart-1))', vram: 'hsl(var(--chart-2))', cpu: 'hsl(var(--chart-3))', temp: 'hsl(var(--chart-4))' },
-        surface: { '0': 'hsl(var(--surface-0))', '1': 'hsl(var(--surface-1))', '2': 'hsl(var(--surface-2))', '3': 'hsl(var(--surface-3))' },
+        surface: { '0': 'hsl(var(--surface-0))', '1': 'hsl(var(--surface-1))', '2': 'hsl(var(--surface-2))', '3': 'hsl(var(--surface-3))', '4': 'hsl(var(--surface-4))' },
         neon: { purple: 'hsl(var(--neon-purple))', blue: 'hsl(var(--neon-blue))', cyan: 'hsl(var(--neon-cyan))', pink: 'hsl(var(--neon-pink))', green: 'hsl(var(--neon-green))', amber: 'hsl(var(--neon-amber))' },
         'studio-gray': {
           '1': 'hsl(var(--studio-gray-1))',
@@ -212,7 +212,7 @@ const config: Config = {
         },
         'studio-yellow': {
           '1': 'hsl(var(--studio-yellow-1))',
-          '2': '#F9CF00',
+          '2': '#F5C542',
         },
         'studio-white': {
           '5': 'hsl(var(--studio-white-5))',
@@ -233,7 +233,7 @@ const config: Config = {
         'scale-in': { from: { opacity: '0', transform: 'scale(0.95)' }, to: { opacity: '1', transform: 'scale(1)' } },
         'shimmer': { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } },
         'glow-pulse': { '0%, 100%': { opacity: '0.5' }, '50%': { opacity: '1' } },
-        'border-glow': { '0%, 100%': { boxShadow: '0 0 5px hsl(var(--neon-purple) / 0.3), 0 0 10px hsl(var(--neon-purple) / 0.2)' }, '50%': { boxShadow: '0 0 20px hsl(var(--neon-purple) / 0.5), 0 0 40px hsl(var(--neon-purple) / 0.3)' } },
+        'border-glow': { '0%, 100%': { boxShadow: '0 0 5px hsl(var(--primary) / 0.2), 0 0 10px hsl(var(--primary) / 0.1)' }, '50%': { boxShadow: '0 0 15px hsl(var(--primary) / 0.35), 0 0 25px hsl(var(--primary) / 0.15)' } },
         'float': { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-10px)' } },
         'spin-slow': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } },
         'progress-indeterminate': { '0%': { transform: 'translateX(-100%)' }, '100%': { transform: 'translateX(100%)' } },
@@ -242,7 +242,7 @@ const config: Config = {
         'fadeIn': { 'from': { opacity: '0', transform: 'translateY(4px)' }, 'to': { opacity: '1', transform: 'translateY(0)' } },
         'glow-sweep': { '0%, 100%': { backgroundPosition: '0% 50%' }, '50%': { backgroundPosition: '100% 50%' } },
         'aura-flow': { '0%': { transform: 'translate(0px, 0px) scale(1) rotate(0deg)' }, '33%': { transform: 'translate(30px, -50px) scale(1.2) rotate(120deg)' }, '66%': { transform: 'translate(-20px, 20px) scale(0.8) rotate(240deg)' }, '100%': { transform: 'translate(0px, 0px) scale(1) rotate(360deg)' } },
-        'energy-pulse': { '0%, 100%': { boxShadow: '0 0 15px rgba(245, 166, 35, 0.2)', borderColor: 'rgba(245, 166, 35, 0.3)' }, '50%': { boxShadow: '0 0 35px rgba(245, 166, 35, 0.6)', borderColor: 'rgba(245, 166, 35, 0.8)' } },
+        'energy-pulse': { '0%, 100%': { boxShadow: '0 0 15px rgba(245, 197, 66, 0.2)', borderColor: 'rgba(245, 197, 66, 0.3)' }, '50%': { boxShadow: '0 0 25px rgba(245, 197, 66, 0.4)', borderColor: 'rgba(245, 197, 66, 0.6)' } },
         'speed-lines-move': { '0%': { backgroundPosition: '0px 0px' }, '100%': { backgroundPosition: '1000px 0px' } }
       },
       animation: {
@@ -269,13 +269,13 @@ const config: Config = {
         'speed-lines': 'speed-lines-move 1.5s linear infinite'
       },
       boxShadow: {
-        'glow-primary': '0 0 20px hsl(var(--primary) / 0.3), 0 0 40px hsl(var(--primary) / 0.15)',
-        'glow-primary-lg': '0 0 30px hsl(var(--primary) / 0.4), 0 0 60px hsl(var(--primary) / 0.2)',
-        'glow-purple': '0 0 20px hsl(var(--neon-purple) / 0.3), 0 0 40px hsl(var(--neon-purple) / 0.15)',
-        'glow-blue': '0 0 20px hsl(var(--neon-blue) / 0.3), 0 0 40px hsl(var(--neon-blue) / 0.15)',
-        'glow-cyan': '0 0 20px hsl(var(--neon-cyan) / 0.3), 0 0 40px hsl(var(--neon-cyan) / 0.15)',
+        'glow-primary': '0 0 15px hsl(var(--primary) / 0.25), 0 0 30px hsl(var(--primary) / 0.1)',
+        'glow-primary-lg': '0 0 25px hsl(var(--primary) / 0.3), 0 0 50px hsl(var(--primary) / 0.15)',
+        'glow-purple': '0 0 15px hsl(var(--primary) / 0.2), 0 0 30px hsl(var(--primary) / 0.08)',
+        'glow-blue': '0 0 15px hsl(var(--primary) / 0.2), 0 0 30px hsl(var(--primary) / 0.08)',
+        'glow-cyan': '0 0 15px hsl(var(--primary) / 0.2), 0 0 30px hsl(var(--primary) / 0.08)',
         'card': '0 4px 24px -4px rgba(0, 0, 0, 0.4), 0 0 1px rgba(255, 255, 255, 0.05) inset',
-        'card-hover': '0 8px 32px -4px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.1) inset, 0 0 20px hsl(var(--primary) / 0.1)',
+        'card-hover': '0 8px 32px -4px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.1) inset, 0 0 15px hsl(var(--primary) / 0.1)',
         'glass': '0 2px 40px 0 rgba(0, 0, 0, 0.3)',
         'glass-lg': '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 1px rgba(255, 255, 255, 0.1) inset',
         'header-float': '0 2px 40px 0 rgba(0, 0, 0, 0.3)',

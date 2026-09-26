@@ -251,9 +251,9 @@ export function ProjectTimeline({ onLoadProject, className }: ProjectTimelinePro
         <div className="p-4 rounded-2xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] flex items-center justify-between">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Active Pipelined</span>
-            <div className="text-xl font-black text-[hsl(var(--neon-cyan))] mt-0.5">{activeCount}</div>
+            <div className="text-xl font-black text-primary mt-0.5">{activeCount}</div>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-[hsl(var(--neon-cyan)/0.1)] border border-[hsl(var(--neon-cyan)/0.2)] flex items-center justify-center text-[hsl(var(--neon-cyan))]">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
             <Cpu size={18} />
           </div>
         </div>
@@ -261,9 +261,9 @@ export function ProjectTimeline({ onLoadProject, className }: ProjectTimelinePro
         <div className="p-4 rounded-2xl bg-[hsl(var(--surface-1))] border border-[hsl(var(--border))] flex items-center justify-between">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">Avg Bake Time</span>
-            <div className="text-xl font-black text-[hsl(var(--neon-amber))] mt-0.5">~22s</div>
+            <div className="text-xl font-black text-primary mt-0.5">~22s</div>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-[hsl(var(--neon-amber)/0.1)] border border-[hsl(var(--neon-amber)/0.2)] flex items-center justify-center text-[hsl(var(--neon-amber))]">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
             <Clock size={18} />
           </div>
         </div>
@@ -291,7 +291,7 @@ export function ProjectTimeline({ onLoadProject, className }: ProjectTimelinePro
               className={cn(
                 'px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap',
                 statusFilter === filter
-                  ? 'bg-[hsl(var(--primary))] text-[hsl(var(--foreground))] shadow-sm'
+                  ? 'bg-primary text-[#080808] font-bold shadow-sm'
                   : 'bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] border border-[hsl(var(--border))]'
               )}
             >
@@ -311,7 +311,7 @@ export function ProjectTimeline({ onLoadProject, className }: ProjectTimelinePro
       </div>
 
       {/* Visual Chronological Timeline */}
-      <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-gradient-to-b before:from-[hsl(var(--primary))] before:via-[hsl(var(--neon-cyan)/0.4)] before:to-transparent">
+      <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-gradient-to-b before:from-primary before:via-primary/30 before:to-transparent">
         {filteredItems.map((item, index) => {
           const isCompleted = item.status === 'completed';
           const isGenerating = item.status === 'generating';
@@ -328,9 +328,9 @@ export function ProjectTimeline({ onLoadProject, className }: ProjectTimelinePro
                 className={cn(
                   'absolute -left-6 sm:-left-8 top-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-transform group-hover:scale-110 shadow-sm z-10',
                   isCompleted
-                    ? 'bg-[hsl(var(--surface-0))] border-[hsl(var(--neon-green))] text-[hsl(var(--neon-green))]'
+                    ? 'bg-[hsl(var(--surface-0))] border-emerald-500 text-emerald-400'
                     : isGenerating
-                    ? 'bg-[hsl(var(--surface-0))] border-[hsl(var(--neon-cyan))] text-[hsl(var(--neon-cyan))] animate-pulse'
+                    ? 'bg-[hsl(var(--surface-0))] border-primary text-primary animate-pulse'
                     : isFailed
                     ? 'bg-[hsl(var(--surface-0))] border-[hsl(var(--destructive))] text-[hsl(var(--destructive))]'
                     : 'bg-[hsl(var(--surface-0))] border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]'
@@ -343,15 +343,15 @@ export function ProjectTimeline({ onLoadProject, className }: ProjectTimelinePro
               </div>
 
               {/* Timeline Card */}
-              <div className="bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary)/0.4)] rounded-2xl p-4 transition-all duration-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="bg-[hsl(var(--surface-1))] hover:bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] hover:border-primary/40 rounded-2xl p-4 transition-all duration-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex items-start gap-3.5 min-w-0 flex-1">
                   {/* Thumbnail / Wireframe Preview */}
-                  <div className="relative w-16 h-16 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] overflow-hidden flex items-center justify-center shrink-0 group-hover:border-[hsl(var(--primary)/0.4)] transition-all">
+                  <div className="relative w-16 h-16 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] overflow-hidden flex items-center justify-center shrink-0 group-hover:border-primary/40 transition-all">
                     {item.thumbnailUrl ? (
                       <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-10 h-10 rounded bg-gradient-to-tr from-[hsl(var(--primary)/0.2)] to-transparent flex items-center justify-center">
-                        <Box size={20} className="text-[hsl(var(--primary))] opacity-80" />
+                      <div className="w-10 h-10 rounded bg-gradient-to-tr from-primary/20 to-transparent flex items-center justify-center">
+                        <Box size={20} className="text-primary opacity-80" />
                       </div>
                     )}
 
@@ -364,7 +364,7 @@ export function ProjectTimeline({ onLoadProject, className }: ProjectTimelinePro
                   {/* Details */}
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-sm font-black text-[hsl(var(--foreground))] truncate group-hover:text-[hsl(var(--primary))] transition-colors">
+                      <h4 className="text-sm font-black text-[hsl(var(--foreground))] truncate group-hover:text-primary transition-colors">
                         {item.title}
                       </h4>
 
@@ -373,9 +373,9 @@ export function ProjectTimeline({ onLoadProject, className }: ProjectTimelinePro
                         className={cn(
                           'text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1',
                           isCompleted
-                            ? 'bg-[hsl(var(--neon-green)/0.15)] text-[hsl(var(--neon-green))] border border-[hsl(var(--neon-green)/0.3)]'
+                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                             : isGenerating
-                            ? 'bg-[hsl(var(--neon-cyan)/0.15)] text-[hsl(var(--neon-cyan))] border border-[hsl(var(--neon-cyan)/0.3)]'
+                            ? 'bg-primary/15 text-primary border border-primary/30'
                             : isFailed
                             ? 'bg-[hsl(var(--destructive)/0.15)] text-[hsl(var(--destructive))] border border-[hsl(var(--destructive)/0.3)]'
                             : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--muted-foreground))] border border-[hsl(var(--border))]'

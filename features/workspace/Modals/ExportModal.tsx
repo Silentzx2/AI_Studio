@@ -290,7 +290,7 @@ export const ExportModal: React.FC = () => {
           <button
             onClick={() => void handleExport()}
             disabled={isExporting}
-            className="flex-1 sm:flex-initial px-5 sm:px-6 py-2 text-xs font-extrabold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+            className={`flex-1 sm:flex-initial px-5 sm:px-6 py-2.5 text-xs font-black rounded-xl bg-gradient-to-r from-[#FFE066] via-[#FFCC00] to-[#E09800] text-[#080808] hover:brightness-105 shadow-[0_4px_16px_rgba(255,204,0,0.38)] hover:shadow-[0_6px_22px_rgba(255,204,0,0.5)] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 btn-lighting-shine ${isExporting ? 'is-executing' : ''}`}
           >
             {isExporting ? (
               <>

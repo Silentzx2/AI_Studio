@@ -89,7 +89,7 @@ export function ModelsTab() {
         <GlassCard className="p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">VRAM Pool</span>
-            <Cpu className="w-4 h-4 text-purple-400" />
+            <Cpu className="w-4 h-4 text-primary" />
           </div>
           <div className="mt-2 text-2xl font-bold font-mono text-foreground">{totalVram.toFixed(0)} GB</div>
           <p className="text-[11px] text-muted-foreground mt-0.5">Peak GPU allocation</p>

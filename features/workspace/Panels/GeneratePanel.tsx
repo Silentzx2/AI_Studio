@@ -954,7 +954,7 @@ export const GeneratePanel: React.FC = () => {
                   type="button"
                   onClick={() => setPanelTab(tab.id)}
                   className={`relative py-1.5 px-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
-                    isActive ? 'text-black font-black bg-primary' : 'text-zinc-400 hover:text-zinc-200'
+                    isActive ? 'text-[#080808] font-black bg-gradient-to-r from-[#FFE066] via-[#FFCC00] to-[#E09800] shadow-[0_2px_8px_rgba(255,204,0,0.35)]' : 'text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -1053,7 +1053,7 @@ export const GeneratePanel: React.FC = () => {
                           <motion.div
                             layoutId="subActionActiveTab"
                             transition={{ type: 'spring', stiffness: 450, damping: 32 }}
-                            className="absolute inset-0 rounded-md bg-[hsl(var(--surface-2))] border border-primary/35 shadow-sm -z-10"
+                            className="absolute inset-0 rounded-md bg-[hsl(var(--surface-2))] border border-primary/50 shadow-[0_0_12px_rgba(255,204,0,0.2)] -z-10"
                           />
                         )}
                         <Icon className="w-3.5 h-3.5" />
@@ -1861,7 +1861,7 @@ export const GeneratePanel: React.FC = () => {
                         onClick={() => handleSelectQuality(opt.id)}
                         className={`relative w-full py-2 px-1 rounded-lg text-center transition-all duration-150 cursor-pointer flex flex-col items-center justify-center select-none ${
                           isActive
-                            ? 'bg-primary text-black font-black shadow-[0_0_14px_rgba(249,207,0,0.4)] border border-primary ring-1 ring-primary/50'
+                            ? 'bg-gradient-to-r from-[#FFE066] via-[#FFCC00] to-[#E09800] text-[#080808] font-black shadow-[0_0_14px_rgba(255,204,0,0.45)] border border-primary ring-1 ring-primary/50'
                             : 'text-zinc-400 hover:text-white hover:bg-white/[0.05] border border-transparent'
                         }`}
                       >
@@ -2295,12 +2295,12 @@ export const GeneratePanel: React.FC = () => {
           background={
             isExecuting
               ? "hsl(var(--surface-2))"
-              : "linear-gradient(to bottom, hsl(var(--neon-amber)), hsl(var(--primary)))"
+              : "linear-gradient(135deg, #FFE066 0%, #FFCC00 50%, #E09800 100%)"
           }
-          className={`w-full h-10 font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+          className={`w-full h-10 font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed btn-lighting-shine ${
             isExecuting 
-              ? 'text-primary border border-primary/20' 
-              : 'text-black shadow-[0_4px_16px_rgba(249,207,0,0.25)] hover:shadow-[0_6px_20px_rgba(249,207,0,0.35)]'
+              ? 'text-primary border border-primary/30 is-executing' 
+              : 'text-[#080808] shadow-[0_4px_18px_rgba(255,204,0,0.38)] hover:shadow-[0_6px_24px_rgba(255,204,0,0.5)] active:scale-[0.98]'
           }`}
         >
           {isExecuting ? (

@@ -201,14 +201,14 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           className={`group relative w-[52px] h-[46px] flex flex-col items-center justify-center rounded-xl cursor-pointer flex-shrink-0 select-none transition-colors duration-150 ${
             item.active
               ? 'text-white'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
+              : 'text-zinc-300 hover:text-white hover:bg-white/[0.06]'
           }`}
         >
           {/* Framer Motion Background Indicator smoothly slides between active items */}
           {item.active && (
             <motion.div
               layoutId="saasNavActivePill"
-              className="absolute inset-0 rounded-xl bg-white/[0.08] border border-white/[0.12] -z-0"
+              className="absolute inset-0 rounded-xl bg-gradient-to-b from-primary/20 via-primary/10 to-transparent border border-primary/45 shadow-[0_0_14px_rgba(255,204,0,0.25),inset_0_1px_0_rgba(255,255,255,0.15)] -z-0"
               transition={{
                 type: 'spring',
                 stiffness: 440,
@@ -228,13 +228,13 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
           <Icon
             className={`w-4 h-4 mb-1 flex-shrink-0 transition-colors duration-150 ${
               item.active
-                ? 'text-primary'
-                : 'text-zinc-400 group-hover:text-zinc-200'
+                ? 'text-primary drop-shadow-[0_0_8px_rgba(255,204,0,0.6)]'
+                : 'text-zinc-300 group-hover:text-white'
             }`}
           />
           <span
             className={`text-[9px] font-medium leading-none text-center tracking-tight truncate w-full transition-colors duration-150 ${
-              item.active ? 'text-white font-semibold' : 'text-zinc-400 group-hover:text-zinc-200'
+              item.active ? 'text-white font-bold' : 'text-zinc-300 group-hover:text-white'
             }`}
           >
             {item.label}
@@ -250,7 +250,7 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
       <nav
         id="left-tool-rail-mobile"
         aria-label="3D Studio Toolset"
-        className="h-full bg-[#10141d] flex flex-col select-none overflow-y-auto p-4"
+        className="h-full bg-[hsl(var(--surface-0))] flex flex-col select-none overflow-y-auto p-4"
       >
         <div className="flex-1 w-full flex flex-col gap-4">
           {/* Section: 3D Creation Tools */}
@@ -310,7 +310,7 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
         transition={{
           layout: { type: 'spring', stiffness: 400, damping: 32 },
         }}
-        className="relative w-[64px] h-full bg-[#10141d] border-r border-zinc-800 flex flex-col items-center py-3.5 z-20 select-none flex-shrink-0"
+        className="relative w-[64px] h-full bg-gradient-to-b from-[#141414] via-[#0d0d0d] to-[#080808] border-r border-white/[0.08] shadow-[4px_0_24px_rgba(0,0,0,0.5)] flex flex-col items-center py-3.5 z-20 select-none flex-shrink-0"
       >
         {/* Primary Tool Stack */}
         <div className="flex-1 w-full flex flex-col items-center gap-1 overflow-y-auto overflow-x-hidden scrollbar-none px-1">

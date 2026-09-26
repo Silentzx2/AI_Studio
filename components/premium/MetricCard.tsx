@@ -23,40 +23,40 @@ interface MetricCardProps {
 
 const ICON_COLORS: Record<MetricColor, { text: string; bg: string; glow: string; accent: string }> = {
   purple: {
-    text: 'text-[hsl(var(--neon-purple))]',
-    bg: 'bg-[hsl(var(--neon-purple)/0.12)]',
-    glow: '0 0 12px hsl(var(--neon-purple)/0.2), 0 0 28px hsl(var(--neon-purple)/0.08)',
-    accent: 'hsl(var(--neon-purple))',
+    text: 'text-primary',
+    bg: 'bg-primary/10',
+    glow: '0 0 12px hsl(var(--primary)/0.2)',
+    accent: 'hsl(var(--primary))',
   },
   blue: {
-    text: 'text-[hsl(var(--neon-blue))]',
-    bg: 'bg-[hsl(var(--neon-blue)/0.12)]',
-    glow: '0 0 12px hsl(var(--neon-blue)/0.2), 0 0 28px hsl(var(--neon-blue)/0.08)',
-    accent: 'hsl(var(--neon-blue))',
+    text: 'text-foreground',
+    bg: 'bg-[hsl(var(--surface-3))]',
+    glow: 'none',
+    accent: 'hsl(var(--muted-foreground))',
   },
   cyan: {
-    text: 'text-[hsl(var(--neon-cyan))]',
-    bg: 'bg-[hsl(var(--neon-cyan)/0.12)]',
-    glow: '0 0 12px hsl(var(--neon-cyan)/0.2), 0 0 28px hsl(var(--neon-cyan)/0.08)',
-    accent: 'hsl(var(--neon-cyan))',
+    text: 'text-primary',
+    bg: 'bg-primary/10',
+    glow: '0 0 12px hsl(var(--primary)/0.2)',
+    accent: '#FFD866',
   },
   green: {
-    text: 'text-[hsl(var(--neon-green))]',
-    bg: 'bg-[hsl(var(--neon-green)/0.12)]',
-    glow: '0 0 12px hsl(150 80% 55%/0.2), 0 0 28px hsl(150 80% 55%/0.08)',
-    accent: 'hsl(var(--neon-green))',
+    text: 'text-emerald-400',
+    bg: 'bg-emerald-500/10',
+    glow: '0 0 12px rgba(34, 197, 94, 0.2)',
+    accent: '#22C55E',
   },
   pink: {
-    text: 'text-[hsl(var(--neon-pink))]',
-    bg: 'bg-[hsl(var(--neon-pink)/0.12)]',
-    glow: '0 0 12px hsl(var(--neon-pink)/0.2), 0 0 28px hsl(var(--neon-pink)/0.08)',
-    accent: 'hsl(var(--neon-pink))',
+    text: 'text-primary',
+    bg: 'bg-primary/10',
+    glow: '0 0 12px hsl(var(--primary)/0.2)',
+    accent: 'hsl(var(--primary))',
   },
   amber: {
-    text: 'text-[hsl(var(--neon-amber))]',
-    bg: 'bg-[hsl(var(--neon-amber)/0.12)]',
-    glow: '0 0 12px hsl(38 95% 55%/0.2), 0 0 28px hsl(38 95% 55%/0.08)',
-    accent: 'hsl(var(--neon-amber))',
+    text: 'text-primary',
+    bg: 'bg-primary/10',
+    glow: '0 0 12px hsl(var(--primary)/0.2)',
+    accent: 'hsl(var(--primary))',
   },
 };
 
@@ -166,12 +166,12 @@ export function MetricCard({
   const decimalPlaces = hasDecimals ? String(value).split('.')[1]?.length || 0 : 0;
 
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-[hsl(var(--surface-1))] p-5 shadow-sm transition-all hover:border-white/[0.14]">
+    <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--surface-1))] p-5 shadow-sm transition-all hover:border-[hsl(var(--border))/0.8]">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2.5">
           {Icon && (
             <motion.div
-              className={cn('flex items-center justify-center w-8 h-8 rounded-lg bg-white/[0.05] text-zinc-300 border border-white/[0.06]')}
+              className={cn('flex items-center justify-center w-8 h-8 rounded-lg bg-[hsl(var(--surface-2))] text-zinc-300 border border-[hsl(var(--border)/0.5)]')}
               whileHover={{ scale: 1.08 }}
               transition={{ type: 'spring', stiffness: 400, damping: 15 }}
             >
@@ -216,7 +216,7 @@ export function MetricCard({
         </div>
 
         {sparkline && sparkline.length >= 2 && (
-          <Sparkline data={sparkline} color="hsl(var(--primary))" />
+          <Sparkline data={sparkline} color={ic.accent} />
         )}
       </div>
 

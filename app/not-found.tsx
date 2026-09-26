@@ -11,15 +11,15 @@ export default function NotFound() {
       {/* Animated Background Effects */}
       <div className="absolute inset-0 bg-mesh-gradient pointer-events-none" />
       
-      {/* Pulsing Purple Blob */}
+      {/* Pulsing Accent Blob */}
       <div 
-        className="absolute top-1/2 left-1/2 w-[600px] h-[400px] bg-[hsl(var(--neon-purple)/0.05)] blur-[100px] rounded-full pointer-events-none"
+        className="absolute top-1/2 left-1/2 w-[600px] h-[400px] bg-[hsl(var(--primary)/0.03)] blur-[100px] rounded-full pointer-events-none"
         style={{ animation: 'pulse-glow 6s ease-in-out infinite' }}
       />
 
       {/* Scanning Line */}
       <div 
-        className="absolute left-0 w-full h-px bg-gradient-to-r from-transparent via-[hsl(var(--neon-purple)/0.4)] to-transparent pointer-events-none z-20"
+        className="absolute left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent pointer-events-none z-20"
         style={{ animation: 'scan 6s cubic-bezier(0.4, 0, 0.2, 1) infinite' }}
       />
 
@@ -29,15 +29,15 @@ export default function NotFound() {
           
           {/* Floating Icon */}
           <div 
-            className="flex items-center justify-center w-20 h-20 rounded-2xl bg-[hsl(var(--neon-purple)/0.1)] border border-[hsl(var(--neon-purple)/0.2)] shadow-[0_0_30px_hsl(var(--neon-purple)/0.15)] animate-fade-up delay-100"
+            className="flex items-center justify-center w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 animate-fade-up delay-100"
             style={{ animation: 'float 4s ease-in-out infinite, fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards', opacity: 0 }}
           >
-            <Box className="w-10 h-10 text-[hsl(var(--neon-purple))]/80" />
+            <Box className="w-10 h-10 text-primary" />
           </div>
 
           {/* Text Content */}
           <div className="space-y-4">
-            <p className="animate-fade-up delay-200 text-sm font-semibold text-[hsl(var(--neon-purple))] tracking-widest uppercase">
+            <p className="animate-fade-up delay-200 text-sm font-semibold text-primary tracking-widest uppercase">
               404 Error
             </p>
             <h1 className="animate-fade-up delay-300 text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-b from-foreground to-foreground/60 bg-clip-text text-transparent">
@@ -62,7 +62,7 @@ export default function NotFound() {
             
             <Link href="/workspace" className="w-full sm:w-auto group">
               <Button 
-                className="w-full bg-gradient-to-r from-[hsl(var(--neon-purple))] to-[hsl(var(--neon-blue))] text-[hsl(var(--foreground))] border-transparent shadow-[0_0_20px_hsl(var(--neon-purple)/0.3)] hover:shadow-[0_0_40px_hsl(var(--neon-purple)/0.5)] transition-all duration-300 hover:scale-105"
+                className="w-full bg-primary text-[#080808] hover:bg-primary/90 font-bold shadow-sm transition-all duration-300 hover:scale-105"
               >
                 <Sparkles className="w-4 h-4 mr-2" />
                 Open Workspace

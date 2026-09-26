@@ -20,8 +20,8 @@ ForMash 3D is an early, experimental, pre-alpha project that has been heavily AI
 
 - **Operating System**: Linux (Ubuntu 20.04, 22.04, or 24.04 recommended)
 - **Node Runtime & Package Manager**: [Bun](https://bun.sh/) (authoritative frontend package manager)
-- **Python**: Python 3.10 (managed via Conda or venv with environment name `3daigc-api`)
-- **GPU (Recommended for Inference)**: NVIDIA GPU with CUDA 12.4 capability.
+- **Python**: Python 3.10 (managed via Conda with environment name `3daigc-api`)
+- **GPU (Required for Inference)**: NVIDIA GPU with CUDA 12.4 capability.
 - **Git**: Git with submodule support (`git >= 2.25`)
 
 ---

@@ -1,18 +1,18 @@
 --extra-index-url https://mirrors.aliyun.com/pypi/simple
 
-# ── Fast build toolchain ─────────────────────────────────────────────────────
-# ninja drives every from-source wheel build (flash-attn, nvdiffrast,
-# nvdiffrec, flex_gemm, cubvh, bpy-renderer) at full parallelism instead of a
-# single slow serial job. setuptools/wheel/cython/packaging are the metadata
-# and compile backends those projects need. Install-time copy lives in
-# backend/scripts/install.sh (installed right after torch, before any build);
-# this entry keeps the env correct if requirements.txt is installed standalone.
-ninja
-setuptools
-wheel
-cython
-packaging
-setuptools-scm
+# ── Core dependencies (pinned for torch 2.8.0 compatibility) ──────────
+# torch 2.8.0+cu128 does NOT have torch.float8_e8m0fnu
+# transformers must be <4.44 to avoid finegrained_fp8 import error
+# diffusers must match transformers version
+torch==2.8.0
+torchvision==0.23.0
+torchaudio==2.8.0
+
+# transformers/diffusers version pinning to avoid torch.float8_e8m0fnu
+# and PreTrainedModel circular import issues
+transformers==4.43.2
+diffusers==0.24.0
+huggingface_hub>=0.24.0
 
 # Core FastAPI and web server dependencies
 fastapi==0.104.1
@@ -65,11 +65,19 @@ redis==5.0.1  # For caching and job queues
 # tsinghua endpoint not work for tb-nightly 
 tb-nightly
 pydantic[email]
-transformers==5.10.1
-pyyaml
 realesrgan==0.3.0
 peft==0.17.1
 
 # extra 
 pyvista 
 vtk
+
+# Build toolchain
+ninja
+setuptools
+wheel
+cython
+packaging
+setuptools-scm
+scikit-build-core
+pybind11

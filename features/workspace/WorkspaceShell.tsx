@@ -42,6 +42,7 @@ import { StudioDashboard } from './Dashboard/StudioDashboard';
 
 import { ExportModal } from './Modals/ExportModal';
 import { SettingsModal } from './Modals/SettingsModal';
+import { DccBridgeModal } from './Modals/DccBridgeModal';
 import { FolderOpen, Sliders, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Menu, X } from 'lucide-react';
 import type { ToolType } from './types';
 import { SimpleTooltip } from '@/components/ui/simple-tooltip';
@@ -491,7 +492,7 @@ export const WorkspaceShell: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={MOTION_FAST}
-              className="absolute inset-0 left-0 md:left-[64px] z-[15] bg-[#10141d] overflow-auto flex flex-col"
+              className="absolute inset-0 left-0 md:left-[64px] z-[15] bg-[hsl(var(--surface-0))] overflow-auto flex flex-col"
             >
               <StudioDashboard />
             </motion.div>
@@ -503,7 +504,7 @@ export const WorkspaceShell: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={MOTION_FAST}
-              className="absolute inset-0 left-0 md:left-[64px] z-[15] bg-[#10141d] overflow-auto flex flex-col"
+              className="absolute inset-0 left-0 md:left-[64px] z-[15] bg-[hsl(var(--surface-0))] overflow-auto flex flex-col"
             >
               <OutputsPage />
             </motion.div>
@@ -515,7 +516,7 @@ export const WorkspaceShell: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={MOTION_FAST}
-              className="absolute inset-0 left-0 md:left-[64px] z-[15] bg-[#10141d] overflow-auto flex flex-col"
+              className="absolute inset-0 left-0 md:left-[64px] z-[15] bg-[hsl(var(--surface-0))] overflow-auto flex flex-col"
             >
               <SystemPage />
             </motion.div>
@@ -527,7 +528,7 @@ export const WorkspaceShell: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={MOTION_FAST}
-              className="absolute inset-0 left-0 md:left-[64px] z-[15] bg-[#10141d] overflow-auto flex flex-col"
+              className="absolute inset-0 left-0 md:left-[64px] z-[15] bg-[hsl(var(--surface-0))] overflow-auto flex flex-col"
             >
               <JobDetailView onBack={() => setMainNav('workspace')} />
             </motion.div>
@@ -536,6 +537,7 @@ export const WorkspaceShell: React.FC = () => {
       </div>
       <SettingsModal />
       <ExportModal />
+      <DccBridgeModal />
     </div>
   );
 };

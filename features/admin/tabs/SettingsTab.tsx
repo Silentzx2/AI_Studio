@@ -157,7 +157,7 @@ const load = useCallback(async () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-            <Settings className="w-6 h-6 text-[hsl(var(--neon-purple))]" />
+            <Settings className="w-6 h-6 text-primary" />
             Settings & Configuration
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -177,11 +177,11 @@ const load = useCallback(async () => {
               onClick={() => setActiveSubTab(tab.id)}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all shrink-0 ${
                 isActive
-                  ? 'bg-[hsl(var(--neon-purple)/0.2)] text-[hsl(var(--foreground))] border border-[hsl(var(--neon-purple)/0.4)] shadow-sm font-semibold'
+                  ? 'bg-primary/20 text-foreground border border-primary/40 shadow-sm font-semibold'
                   : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-2)/0.6)] border border-transparent'
               }`}
             >
-              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[hsl(var(--neon-purple))]' : ''}`} />
+              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-primary' : ''}`} />
               <span>{tab.label}</span>
             </button>
           );
@@ -226,7 +226,7 @@ const load = useCallback(async () => {
               {/* System Information */}
               <GlassCard className="p-5" delay={0.05}>
                 <div className="flex items-center gap-2 mb-4">
-                  <Server className="w-4 h-4 text-[hsl(var(--neon-cyan))]" />
+                  <Server className="w-4 h-4 text-primary" />
                   <h3 className="text-sm font-semibold">System Hardware & Environment</h3>
                   <button
                     onClick={load}
@@ -260,7 +260,7 @@ const load = useCallback(async () => {
               <GlassCard className="p-5" delay={0.1}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <Key className="w-4 h-4 text-[hsl(var(--neon-purple))]" />
+                    <Key className="w-4 h-4 text-primary" />
                     <h3 className="text-sm font-semibold">HuggingFace API Token</h3>
                   </div>
                   <Badge variant={hfStatus.configured ? (hfStatus.valid ? 'success' : 'warning') : 'default'}>
@@ -281,7 +281,7 @@ const load = useCallback(async () => {
                     value={hfToken}
                     onChange={(e) => setHfToken(e.target.value)}
                     placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                    className="flex-1 h-10 px-4 rounded-xl glass text-sm border border-[hsl(var(--border))] focus:border-[hsl(var(--neon-purple)/0.4)] focus:outline-none font-mono placeholder:text-muted-foreground/50"
+                    className="flex-1 h-10 px-4 rounded-xl glass text-sm border border-[hsl(var(--border))] focus:border-primary/50 focus:outline-none font-mono placeholder:text-muted-foreground/50"
                   />
                   <NeonButton variant="primary" size="md" onClick={handleSaveToken} disabled={saving || !hfToken.trim()}>
                     <Save className="w-3.5 h-3.5 mr-1.5" />
@@ -299,7 +299,7 @@ const load = useCallback(async () => {
               {runtimeConfig.length > 0 && (
                 <GlassCard className="p-5" delay={0.15}>
                   <div className="flex items-center gap-2 mb-4">
-                    <Settings className="w-4 h-4 text-[hsl(var(--neon-blue))]" />
+                    <Settings className="w-4 h-4 text-primary" />
                     <h3 className="text-sm font-semibold">Backend Engine Configuration</h3>
                   </div>
                   <div className="space-y-2">

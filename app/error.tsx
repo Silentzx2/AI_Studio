@@ -90,7 +90,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
             >
               {/* Scanline inside terminal */}
               <div 
-                className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[hsl(var(--neon-pink)/0.5)] to-transparent"
+                className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[hsl(var(--destructive)/0.5)] to-transparent"
                 style={{ animation: 'error-scanline 4s linear infinite' }}
               />
               <p className="text-[10px] font-mono text-[hsl(var(--destructive)/0.7)] mb-2 uppercase tracking-widest flex items-center gap-2">
@@ -120,7 +120,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           </Button>
           
           <Link href="/" className="w-full sm:w-auto group">
-            <Button className="w-full bg-gradient-to-r from-[hsl(var(--neon-purple))] to-[hsl(var(--neon-blue))] text-[hsl(var(--foreground))] border-transparent shadow-[0_0_20px_hsl(var(--neon-purple)/0.3)] hover:shadow-[0_0_40px_hsl(var(--neon-purple)/0.5)] transition-all duration-300 hover:scale-105">
+            <Button className="w-full bg-primary text-[#080808] hover:bg-primary/90 font-bold shadow-sm transition-all duration-300 hover:scale-105">
               <ArrowLeft className="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" />
               Abort to Home
             </Button>

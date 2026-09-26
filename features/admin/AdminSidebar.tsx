@@ -54,7 +54,7 @@ export default function AdminSidebar({
             <Boxes size={18} className="text-[hsl(var(--foreground))]" />
           </div>
           <div>
-            <p className="text-[11px] font-bold tracking-[0.15em] text-[hsl(var(--neon-purple))] uppercase">ForMash 3D</p>
+            <p className="text-[11px] font-bold tracking-[0.15em] text-primary uppercase">ForMash 3D</p>
             <p className="text-xs font-medium text-[hsl(var(--muted-foreground))] mt-0.5">Control Panel</p>
           </div>
         </div>
@@ -71,8 +71,8 @@ export default function AdminSidebar({
               <div className={cn(
                 'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200',
                 isActive
-                  ? 'bg-[hsl(var(--neon-purple)/0.3)]'
-                  : 'bg-transparent group-hover:bg-[hsl(var(--neon-purple)/0.1)]',
+                  ? 'bg-primary/20'
+                  : 'bg-transparent group-hover:bg-primary/10',
               )}>
                 <Icon size={15} className={cn(
                   'transition-colors duration-200',
@@ -84,19 +84,19 @@ export default function AdminSidebar({
                 isActive ? 'text-[hsl(var(--foreground))] font-medium' : 'text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--muted-foreground))]',
               )}>{label}</span>
               {badge && (
-                <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-[hsl(var(--neon-purple)/0.3)] text-[hsl(var(--primary))] border border-[hsl(var(--neon-purple)/0.2)]">
+                <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-primary/20 text-primary border border-primary/30">
                   {badge}
                 </span>
               )}
               {href && <ExternalLink size={11} className="text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--muted-foreground))] transition-colors" />}
-              {isActive && <ChevronRight size={13} className="text-[hsl(var(--neon-purple))]" />}
+              {isActive && <ChevronRight size={13} className="text-primary" />}
             </>
           );
 
           const baseClass = cn(
             'group w-full flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-200 text-left relative',
             isActive
-              ? 'bg-[hsl(var(--neon-purple)/0.15)] border border-[hsl(var(--neon-purple)/0.2)]'
+              ? 'bg-primary/10 border border-primary/25'
               : 'hover:bg-[hsl(var(--primary)/0.05)] border border-transparent hover:border-[hsl(var(--primary)/0.10)]',
           );
 
@@ -138,7 +138,7 @@ export default function AdminSidebar({
                 className={cn(
                   'group w-full flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-200 text-left relative border',
                   isActive
-                    ? 'bg-[hsl(var(--neon-purple)/0.15)] border-[hsl(var(--neon-purple)/0.2)]'
+                    ? 'bg-primary/10 border-primary/25'
                     : 'hover:bg-[hsl(var(--primary)/0.05)] border-transparent hover:border-[hsl(var(--primary)/0.10)]',
                 )}
               >

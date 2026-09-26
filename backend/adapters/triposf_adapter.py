@@ -228,7 +228,7 @@ class TripoSFImageToRawMeshAdapter(ImageToMeshModel):
 
             # 3. Load quantized voxels and sample points
             sparse_voxels, points_sample = load_quantized_mesh_original(
-                temp_gt_path,
+                str(temp_gt_path),
                 volume_resolution=resolution,
                 use_normals=use_normals,
                 pc_sample_number=sample_points_num,

@@ -4,20 +4,29 @@
 
 All colors and surfaces in ForMash 3D use HSL CSS variable design tokens. Direct hex color literals in UI code are strictly disallowed.
 
-| Token | CSS Variable Value | Purpose / Usage |
-| :--- | :--- | :--- |
-| `background` | `0 0% 5%` | App backdrop / canvas shell base |
-| `foreground` | `0 0% 98%` | Primary high-contrast typography |
-| `--surface-0` | `0 0% 6%` | Deepest surface (viewports, canvas backgrounds) |
-| `--surface-1` | `0 0% 10%` | Primary panel backgrounds, cards, navigation rails |
-| `--surface-2` | `0 0% 14%` | Secondary containers, active tabs, nested sub-panels |
-| `--surface-3` | `0 0% 18%` | Hovered interactive states, input backgrounds |
-| `--surface-4` | `0 0% 24%` | Raised borders, highlighted elements |
-| `--primary` | `48 96% 50%` | Vibrant studio amber (#F9CF00), primary accents |
-| `--neon-amber` | `48 100% 50%` | Glowing accents, progress bars, active badges |
-| `--neon-green` | `142 71% 45%` | Online/connected status, success indicators |
-| `--destructive` | `0 72% 56%` | Error states, dangerous actions, delete modals |
-| `--border` | `0 0% 22%` | Standard card and container borders |
+| Token | CSS Variable Value | Hex / Color Equivalent | Purpose / Usage |
+| :--- | :--- | :--- | :--- |
+| `background` | `0 0% 3.1%` | `#080808` | Global Matte Black app backdrop / canvas shell base |
+| `foreground` | `0 0% 96%` | `#F5F5F5` | Primary high-contrast typography (clean crisp white) |
+| `--surface-0` | `0 0% 2.4%` | `#060606` | Deepest surface (3D viewport, canvas background) |
+| `--surface-1` | `0 0% 6.7%` | `#111111` | Primary panel backgrounds, cards, navigation rails |
+| `--surface-2` | `0 0% 10.2%` | `#1A1A1A` | Secondary containers, active tabs, nested sub-panels |
+| `--surface-3` | `0 0% 14.1%` | `#242424` | Hovered interactive states, input backgrounds |
+| `--surface-4` | `0 0% 20%` | `#333333` | Raised borders, highlighted elements |
+| `--primary` | `48 100% 50%` | `#FFCC00` | Vivid Studio Electric Gold (high-saturation, maximum LCD punch) |
+| `--primary-foreground`| `0 0% 3%` | `#080808` | High-contrast dark typography on primary yellow (>12:1 WCAG contrast) |
+| `--accent-dark` | — | `#E09800` | Pressed states, gradient bottom stop |
+| `--accent-light` | — | `#FFE066` | Hover states, specular highlight top stop |
+| `--border` | `0 0% 20%` | `#333333` | Standard card and container borders |
+| `--muted-foreground` | `0 0% 63%` | `#A0A0A0` | Readable secondary/placeholder typography (>4.5:1 WCAG AA) |
+| `--chart-gpu` | `48 100% 50%` | `#FFCC00` | Telemetry GPU telemetry line |
+| `--chart-vram`| `48 100% 70%`| `#FFE066` | Telemetry VRAM telemetry line |
+| `--chart-cpu` | `0 0% 75%` | `#BFBFBF` | Telemetry CPU telemetry line |
+| `--chart-temp`| `40 100% 44%`| `#E09800` | Telemetry temperature line |
+| Semantic Success | — | `#22C55E` / `emerald-400` | Online status, completed jobs, healthy checks |
+| Semantic Warning | — | `#FFCC00` / `amber-400` | Degraded service, queue wait |
+| Semantic Destructive | `0 72% 56%` | `#EF4444` / `rose-500` | Errors, deletion modals, fatal logs |
+| Semantic Info | — | `#3B82F6` / `sky-400` | Info notices, informative tooltips |
 
 ---
 
@@ -136,4 +145,21 @@ The `WorkspaceShell` (`features/workspace/WorkspaceShell.tsx`) is the main appli
   - **Auto-Rig (UniRig AI)**: Invokes backend `unirig_auto_rig` pipeline with user-chosen target skeleton presets (`biped`, `humanoid`, `quadruped`). No ARDY references appear in the rigging module.
   - **Manual Rig with Bilateral Symmetry (X-Mirror)**: Interactive 3D bone placement with automatic opposite-side mirroring (`[-x, y, z]`). Editing or translating a bone on one side automatically mirrors to its anatomical counterpart (`Left*` <-> `Right*`, `*_L` <-> `*_R`).
   - **Real 3D Armature**: Three.js octahedron bone meshes and glowing spherical joints rendered natively in `MeshViewer` (no fake 2D SVG overlays), with gizmo controls (`select`, `move`, `rotate`, `scale`).
+
+---
+
+## 9. Specular Lighting, Button Shine & DCC Bridge Integration
+
+- **Button Specular Sweep (`.btn-lighting-shine`)**:
+  - Implements an interactive lighting shine animation (`btn-specular-sweep`) across primary generation buttons (3D Generation, PBR Texturing, Retopology, Segmentation, Motion, and Export).
+  - Uses an angled pseudo-element `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.45) 50%, transparent 100%)` translating across the surface on idle and hover.
+- **Glassmorphism Tokens**:
+  - `.glass-panel`: Ultra-clean frosted glass container with `backdrop-blur-xl`, subtle background tint, and 1px specular border highlights (`rgba(255,255,255,0.12)`).
+  - `.glass-card-interactive`: Elevated interactive card with hover transform, shadow elevation, and primary border transition.
+- **Studio Environment Engine**:
+  - Real-time Three.js scene environment customization with 6 backdrop color presets, 5 lighting atmospheres, and 4 chromatic light tones (Studio, Warm Gold, Cyber Cool, Neutral).
+  - Fully dynamic directional lighting calculation (Key, Fill, Rim, Ambient) and contact shadow intensity.
+- **DCC Live Bridge (`DccBridgeModal.tsx`)**:
+  - Out-of-the-box bridge support for Blender 4.x/5.x, Unreal Engine 5 (Remote Control API), Unity Editor, and Autodesk Maya.
+  - Features local daemon health checking, custom port binding, pipeline toggle flags, and 1-click Python ingestion scripts.
 

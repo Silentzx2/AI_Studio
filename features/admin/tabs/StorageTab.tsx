@@ -222,7 +222,7 @@ export function StorageTab() {
                 className={`h-full rounded-full transition-all duration-500 ${
                   usagePercent >= 90
                     ? 'bg-gradient-to-r from-amber-500 to-rose-500'
-                    : 'bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--neon-cyan))]'
+                    : 'bg-primary'
                 }`}
                 style={{ width: `${Math.max(2, usagePercent)}%` }}
               />
@@ -237,7 +237,7 @@ export function StorageTab() {
             </div>
             <div className="p-3 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
               <span className="text-[10px] uppercase font-bold text-[hsl(var(--muted-foreground))] tracking-wider">Free Headroom</span>
-              <p className="text-lg font-bold font-mono text-[hsl(var(--neon-green))] mt-0.5">{formatGB(data?.available || 0)}</p>
+              <p className="text-lg font-bold font-mono text-emerald-400 mt-0.5">{formatGB(data?.available || 0)}</p>
             </div>
             <div className="p-3 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
               <span className="text-[10px] uppercase font-bold text-[hsl(var(--muted-foreground))] tracking-wider">Utilization</span>
@@ -245,7 +245,7 @@ export function StorageTab() {
             </div>
             <div className="p-3 rounded-lg bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
               <span className="text-[10px] uppercase font-bold text-[hsl(var(--muted-foreground))] tracking-wider">Storage Health</span>
-              <p className="text-xs font-bold text-[hsl(var(--neon-green))] mt-1 flex items-center gap-1">
+              <p className="text-xs font-bold text-emerald-400 mt-1 flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Normal
               </p>
             </div>
@@ -260,11 +260,11 @@ export function StorageTab() {
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Models */}
-          <Card className="bg-[hsl(var(--surface-1))] border-[hsl(var(--border)/0.6)] hover:border-[hsl(var(--primary)/0.4)] transition-all">
+          <Card className="bg-[hsl(var(--surface-1))] border-[hsl(var(--border)/0.6)] hover:border-primary/40 transition-all">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                  <Database className="w-4 h-4 text-[hsl(var(--primary))]" />
+                  <Database className="w-4 h-4 text-primary" />
                   AI Models
                 </CardTitle>
                 <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))]">/models</span>
@@ -272,7 +272,7 @@ export function StorageTab() {
               <CardDescription className="text-xs">Weights &amp; checkpoints</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold font-mono text-[hsl(var(--primary))]">
+              <div className="text-xl font-bold font-mono text-primary">
                 {formatGB(data?.models_size || 0)}
               </div>
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">HunYuan, Trellis, TripoSR weights</p>
@@ -280,11 +280,11 @@ export function StorageTab() {
           </Card>
 
           {/* Exports & Generated 3D */}
-          <Card className="bg-[hsl(var(--surface-1))] border-[hsl(var(--border)/0.6)] hover:border-[hsl(var(--neon-cyan)/0.4)] transition-all">
+          <Card className="bg-[hsl(var(--surface-1))] border-[hsl(var(--border)/0.6)] hover:border-primary/40 transition-all">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                  <Layers className="w-4 h-4 text-[hsl(var(--neon-cyan))]" />
+                  <Layers className="w-4 h-4 text-primary" />
                   Generated 3D
                 </CardTitle>
                 <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))]">/exports</span>
@@ -292,7 +292,7 @@ export function StorageTab() {
               <CardDescription className="text-xs">GLB, OBJ, FBX outputs</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold font-mono text-[hsl(var(--neon-cyan))]">
+              <div className="text-xl font-bold font-mono text-foreground">
                 {formatGB(data?.exports_size || 0)}
               </div>
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">Exported 3D meshes &amp; textures</p>
@@ -300,11 +300,11 @@ export function StorageTab() {
           </Card>
 
           {/* Reference Uploads */}
-          <Card className="bg-[hsl(var(--surface-1))] border-[hsl(var(--border)/0.6)] hover:border-[hsl(var(--neon-blue)/0.4)] transition-all">
+          <Card className="bg-[hsl(var(--surface-1))] border-[hsl(var(--border)/0.6)] hover:border-primary/40 transition-all">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                  <FolderArchive className="w-4 h-4 text-[hsl(var(--neon-blue))]" />
+                  <FolderArchive className="w-4 h-4 text-muted-foreground" />
                   Uploads
                 </CardTitle>
                 <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))]">/uploads</span>
@@ -312,7 +312,7 @@ export function StorageTab() {
               <CardDescription className="text-xs">Input reference images</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold font-mono text-[hsl(var(--neon-blue))]">
+              <div className="text-xl font-bold font-mono text-foreground">
                 {formatGB(data?.uploads_size || 0)}
               </div>
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">Image-to-3D reference assets</p>
@@ -320,11 +320,11 @@ export function StorageTab() {
           </Card>
 
           {/* Temporary & Cache */}
-          <Card className="bg-[hsl(var(--surface-1))] border-[hsl(var(--border)/0.6)] hover:border-[hsl(var(--neon-amber)/0.4)] transition-all">
+          <Card className="bg-[hsl(var(--surface-1))] border-[hsl(var(--border)/0.6)] hover:border-primary/40 transition-all">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[hsl(var(--neon-amber))]" />
+                  <Sparkles className="w-4 h-4 text-primary" />
                   Temp &amp; Cache
                 </CardTitle>
                 <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[hsl(var(--surface-2))] text-[hsl(var(--muted-foreground))]">/temp</span>
@@ -332,7 +332,7 @@ export function StorageTab() {
               <CardDescription className="text-xs">Intermediate artifacts</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold font-mono text-[hsl(var(--neon-amber))]">
+              <div className="text-xl font-bold font-mono text-primary">
                 {formatGB((data?.temp_size || 0) + (data?.thumbnails_size || 0))}
               </div>
               <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">Pruned when Clear Cache is clicked</p>

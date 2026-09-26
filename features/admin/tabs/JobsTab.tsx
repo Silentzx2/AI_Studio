@@ -25,9 +25,9 @@ import type { AdminJob } from '@/types';
 import { cn } from '@/lib/utils';
 
 const STATUS_CONFIG = {
-  completed: { icon: CheckCircle, color: 'text-[hsl(var(--neon-green))]', bg: 'bg-[hsl(var(--neon-green)/0.1)]', label: 'Completed' },
-  generating: { icon: Loader2, color: 'text-[hsl(var(--neon-purple))]', bg: 'bg-[hsl(var(--neon-purple)/0.1)]', label: 'Running' },
-  queued: { icon: Clock, color: 'text-[hsl(var(--neon-amber))]', bg: 'bg-[hsl(var(--neon-amber)/0.1)]', label: 'Queued' },
+  completed: { icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10', label: 'Completed' },
+  generating: { icon: Loader2, color: 'text-primary', bg: 'bg-primary/10', label: 'Running' },
+  queued: { icon: Clock, color: 'text-primary', bg: 'bg-primary/10', label: 'Queued' },
   failed: { icon: XCircle, color: 'text-[hsl(var(--destructive))]', bg: 'bg-[hsl(var(--destructive)/0.1)]', label: 'Failed' },
   cancelled: { icon: XCircle, color: 'text-zinc-400', bg: 'bg-zinc-500/10', label: 'Cancelled' },
 };
@@ -86,7 +86,7 @@ export function JobsTab() {
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <AlertCircle className="w-10 h-10 text-muted-foreground/50" />
         <p className="text-sm text-muted-foreground">{error}</p>
-        <button onClick={() => { setLoading(true); load(); }} className="text-xs text-[hsl(var(--neon-purple))] hover:underline flex items-center gap-1.5 cursor-pointer">
+        <button onClick={() => { setLoading(true); load(); }} className="text-xs text-primary hover:underline flex items-center gap-1.5 cursor-pointer">
           <RefreshCw className="w-3.5 h-3.5" /> Retry
         </button>
       </div>
@@ -140,7 +140,7 @@ export function JobsTab() {
             className={cn(
               'px-3 py-1.5 rounded-xl text-xs font-medium capitalize transition-all border cursor-pointer',
               filter === f
-                ? 'bg-[hsl(var(--neon-purple)/0.15)] text-foreground border-[hsl(var(--neon-purple)/0.3)]'
+                ? 'bg-primary/15 text-primary border-primary/30 font-semibold'
                 : 'glass text-muted-foreground border-[hsl(var(--border))] hover:text-foreground'
             )}
           >
@@ -215,11 +215,11 @@ export function JobsTab() {
                       )}
                     </div>
                     {job.progress !== undefined ? (
-                      <ProgressBar value={job.progress} color={job.status === 'completed' ? 'green' : job.status === 'failed' ? 'pink' : 'purple'} size="sm" />
+                      <ProgressBar value={job.progress} color={job.status === 'completed' ? 'green' : job.status === 'failed' ? 'pink' : 'amber'} size="sm" />
                     ) : (
                       <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
                         {job.status === 'generating' && (
-                          <div className="h-full w-full bg-[hsl(var(--neon-purple))] animate-pulse" />
+                          <div className="h-full w-full bg-primary animate-pulse" />
                         )}
                       </div>
                     )}

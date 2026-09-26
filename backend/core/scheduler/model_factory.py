@@ -341,6 +341,18 @@ def get_model_configs_from_settings(
                 supported_inputs = getattr(model_config, "supported_inputs", [])
                 supported_outputs = getattr(model_config, "supported_outputs", [])
                 max_workers = getattr(model_config, "max_workers", 1)
+            elif isinstance(model_config, dict):
+                # Handle dict-based configs from YAML
+                enabled = model_config.get("enabled", True)
+                if not enabled:
+                    logger.info(f"Skipping disabled model: {model_id}")
+                    continue
+
+                vram_requirement = model_config.get("vram_requirement", 4096)
+                model_path = model_config.get("model_path", None)
+                supported_inputs = model_config.get("supported_inputs", [])
+                supported_outputs = model_config.get("supported_outputs", [])
+                max_workers = model_config.get("max_workers", 1)
             else:
                 logger.warning(f"Unknown model config type for {model_id}, skipping")
                 continue

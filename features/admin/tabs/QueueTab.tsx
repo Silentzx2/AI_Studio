@@ -102,7 +102,7 @@ const handlePurge = async () => {
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <AlertCircle className="w-10 h-10 text-muted-foreground/50" />
         <p className="text-sm text-muted-foreground">{error}</p>
-        <button onClick={() => { setLoading(true); load(); }} className="text-xs text-[hsl(var(--neon-purple))] hover:underline flex items-center gap-1.5">
+        <button onClick={() => { setLoading(true); load(); }} className="text-xs text-primary hover:underline flex items-center gap-1.5 cursor-pointer">
           <RefreshCw className="w-3.5 h-3.5" /> Retry
         </button>
       </div>
@@ -131,9 +131,9 @@ const handlePurge = async () => {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard label="Active" value={queue?.active ?? 0} icon={Activity} color="purple" delay={0.05} />
+        <MetricCard label="Active" value={queue?.active ?? 0} icon={Activity} color="amber" delay={0.05} />
         <MetricCard label="Queued" value={queue?.queued ?? 0} icon={Clock} color="blue" delay={0.1} />
-        <MetricCard label="Reserved" value={queue?.reserved ?? 0} icon={Zap} color="cyan" delay={0.15} />
+        <MetricCard label="Reserved" value={queue?.reserved ?? 0} icon={Zap} color="amber" delay={0.15} />
         <MetricCard label="Workers" value={queue?.workers ?? 0} icon={Users} color="green" delay={0.2} />
       </div>
 
@@ -174,7 +174,7 @@ const handlePurge = async () => {
 
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {isRepaired && !isRepairing && (
-                      <span className="text-[11px] text-[hsl(var(--neon-green))] flex items-center gap-1 font-medium">
+                      <span className="text-[11px] text-emerald-400 flex items-center gap-1 font-medium">
                         <CheckCircle2 className="w-3.5 h-3.5" /> Repaired
                       </span>
                     )}

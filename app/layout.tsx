@@ -35,25 +35,15 @@ export default function RootLayout({
         className={`font-sans antialiased bg-background text-foreground relative overflow-x-hidden`}
       >
         <GoogleFonts />
-        {/* Global app background (solid / gradient / wallpaper) — sits behind all UI */}
+        {/* Global app background canvas gradient */}
         <div
           className="fixed inset-0 pointer-events-none z-[-1]"
-          style={{ background: "var(--app-background, transparent)" }}
+          style={{ background: "radial-gradient(120% 80% at 50% -10%, #171717 0%, #0d0d0d 45%, #080808 100%)" }}
           aria-hidden="true"
         />
-        {/* Global ambient glow - Top Left Purple */}
+        {/* Overhead studio ambient warm light */}
         <div
-          className="fixed top-0 left-0 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[hsl(var(--neon-purple)/0.07)] blur-[180px] rounded-full pointer-events-none z-0"
-          aria-hidden="true"
-        />
-        {/* Global ambient glow - Bottom Right Cyan */}
-        <div
-          className="fixed bottom-0 right-0 translate-x-1/2 translate-y-1/2 w-[600px] h-[600px] bg-[hsl(var(--neon-cyan)/0.05)] blur-[150px] rounded-full pointer-events-none z-0"
-          aria-hidden="true"
-        />
-        {/* Subtle grid overlay */}
-        <div
-          className="fixed inset-0 pointer-events-none z-[1] opacity-[0.015] bg-[linear-gradient(hsl(var(--neon-purple))_1px,transparent_1px),linear-gradient(90deg,hsl(var(--neon-purple))_1px,transparent_1px)] bg-[size:4rem_4rem]"
+          className="fixed top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1100px] h-[550px] bg-[radial-gradient(ellipse_at_center,rgba(255,204,0,0.09)_0%,rgba(224,152,0,0.03)_45%,transparent_75%)] pointer-events-none z-0"
           aria-hidden="true"
         />
         {/* Cinematic vignette */}

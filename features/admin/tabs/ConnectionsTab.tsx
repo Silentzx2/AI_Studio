@@ -48,12 +48,12 @@ import React, { useState, useEffect } from 'react';
        fetchConnections();
      }, []);
 
-     if (loading && !data) return <div className="flex h-40 items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[hsl(var(--neon-amber))]" /></div>;
+     if (loading && !data) return <div className="flex h-40 items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
      if (error) return <div className="p-6 text-destructive flex items-center gap-2"><AlertCircle /> {error}</div>;
      if (!data) return null;
 
      const renderStatus = (info: ConnectionInfo) => {
-       if (info.ok) return <div className="flex items-center gap-2 text-[hsl(var(--neon-green))]"><CheckCircle2 className="w-5 h-5" /> Connected</div>;
+       if (info.ok) return <div className="flex items-center gap-2 text-emerald-400"><CheckCircle2 className="w-5 h-5" /> Connected</div>;
        return <div className="flex flex-col gap-1 text-destructive"><div className="flex items-center gap-2"><AlertCircle className="w-5 h-5" /> Error</div><p className="text-xs opacity-80">{info.error}</p></div>;
      };
 
@@ -61,10 +61,10 @@ import React, { useState, useEffect } from 'react';
        <div className="p-6 space-y-6">
          <div className="flex items-center justify-between">
            <div>
-             <h2 className="text-3xl font-bold tracking-tight text-[hsl(var(--neon-amber))]">System Connections</h2>
+             <h2 className="text-3xl font-bold tracking-tight text-foreground">System Connections</h2>
              <p className="text-muted-foreground mt-2">Cache and storage connection status</p>
            </div>
-           <Button onClick={fetchConnections} disabled={loading} className="bg-[hsl(var(--neon-amber))] text-black hover:bg-[hsl(var(--neon-amber))]/90 font-bold">
+           <Button onClick={fetchConnections} disabled={loading} className="bg-primary text-[#080808] hover:bg-primary/90 font-bold">
              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Network className="w-4 h-4 mr-2" />}
              Test Connections
            </Button>

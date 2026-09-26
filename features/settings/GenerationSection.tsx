@@ -180,7 +180,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
-            <Box className="w-5 h-5 text-[hsl(var(--neon-blue))]" />
+            <Box className="w-5 h-5 text-primary" />
             Output Format & Quality
           </CardTitle>
           <CardDescription>Specify standard 3D export file formats and render target resolution.</CardDescription>
@@ -221,7 +221,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
-            <Sliders className="w-5 h-5 text-[hsl(var(--neon-green))]" />
+            <Sliders className="w-5 h-5 text-emerald-400" />
             Inference & Sampling Parameters
           </CardTitle>
           <CardDescription>Control quality vs speed trade-offs during diffusion generation.</CardDescription>
@@ -271,7 +271,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                <Gauge className="w-5 h-5 text-[hsl(var(--neon-blue))]" />
+                <Gauge className="w-5 h-5 text-primary" />
                 Low VRAM Execution Mode (&lt;8GB GPUs)
               </CardTitle>
               <div className="flex items-center gap-2">
@@ -289,7 +289,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
             <div className="p-4 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-1">
                 <span className="text-sm font-semibold text-[hsl(var(--foreground))] flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[hsl(var(--neon-blue))]" />
+                  <Sparkles className="w-4 h-4 text-primary" />
                   Target Provider Compatibility: {selectedModelObj?.label || provider || 'Default Model'}
                 </span>
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">
@@ -298,7 +298,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
               </div>
               <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap self-start sm:self-auto ${
                 lowVram
-                  ? 'bg-[hsl(var(--neon-blue))]/15 text-[hsl(var(--neon-blue))] border border-[hsl(var(--neon-blue))]/30'
+                  ? 'bg-primary/15 text-primary border border-primary/30'
                   : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
               }`}>
                 {lowVram ? 'Low VRAM Active' : 'Full VRAM Mode'}
@@ -313,7 +313,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <ListOrdered className="w-5 h-5 text-[hsl(var(--neon-cyan))]" />
+              <ListOrdered className="w-5 h-5 text-primary" />
               Batch Generation &amp; Queue Pipelining
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -331,7 +331,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
           <div className="p-4 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">
               <span className="text-sm font-semibold text-[hsl(var(--foreground))] flex items-center gap-1.5">
-                <Zap className="w-4 h-4 text-[hsl(var(--neon-cyan))]" />
+                <Zap className="w-4 h-4 text-primary" />
                 Consecutive Job Queueing
               </span>
               <p className="text-xs text-[hsl(var(--muted-foreground))]">
@@ -340,7 +340,7 @@ export function GenerationSection({ onSaveRegister }: { onSaveRegister?: (save: 
             </div>
             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap self-start sm:self-auto ${
               batchEnabled
-                ? 'bg-[hsl(var(--neon-cyan))]/15 text-[hsl(var(--neon-cyan))] border border-[hsl(var(--neon-cyan))]/30'
+                ? 'bg-primary/15 text-primary border border-primary/30'
                 : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
             }`}>
               {batchEnabled ? 'Active in Workspace' : 'Standard Mode'}

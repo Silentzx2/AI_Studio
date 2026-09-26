@@ -88,9 +88,9 @@ export function AdminShell({ activeTab, onTabChange, children }: AdminShellProps
       >
         <div className="flex items-center gap-3 h-16 px-4 border-b border-[hsl(var(--border))] shrink-0">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-[hsl(var(--neon-purple)/0.2)] to-[hsl(var(--neon-blue)/0.2)] border border-[hsl(var(--neon-purple)/0.3)] group-hover:border-[hsl(var(--neon-purple)/0.5)] transition-colors">
-              <Box className="w-5 h-5 text-[hsl(var(--neon-purple))]" />
-              <div className="absolute inset-0 rounded-xl bg-[hsl(var(--neon-purple)/0.05)] group-hover:bg-[hsl(var(--neon-purple)/0.1)] transition-colors" />
+            <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-primary/10 border border-primary/30 group-hover:border-primary/50 transition-colors">
+              <Box className="w-5 h-5 text-primary" />
+              <div className="absolute inset-0 rounded-xl bg-primary/5 group-hover:bg-primary/10 transition-colors" />
             </div>
             {!collapsed && (
               <div className="flex flex-col">
@@ -120,7 +120,7 @@ export function AdminShell({ activeTab, onTabChange, children }: AdminShellProps
                 className={cn(
                   'group relative flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all duration-200',
                   isActive
-                    ? 'bg-gradient-to-r from-[hsl(var(--neon-purple)/0.15)] to-[hsl(var(--neon-blue)/0.05)] text-foreground border border-[hsl(var(--neon-purple)/0.2)]'
+                    ? 'bg-primary/10 text-foreground border border-primary/30'
                     : 'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-2))] border border-transparent',
                   collapsed && 'justify-center'
                 )}
@@ -128,13 +128,13 @@ export function AdminShell({ activeTab, onTabChange, children }: AdminShellProps
                 {isActive && (
                   <motion.div
                     layoutId="sidebar-active-glow"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 rounded-full bg-gradient-to-b from-[hsl(var(--neon-purple))] to-[hsl(var(--neon-blue))]"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 rounded-full bg-primary"
                   />
                 )}
-                <Icon className={cn('w-[18px] h-[18px] shrink-0', isActive && 'text-[hsl(var(--neon-purple))]')} />
+                <Icon className={cn('w-[18px] h-[18px] shrink-0', isActive && 'text-primary')} />
                 {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
                 {isActive && !collapsed && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-purple))] shadow-glow-purple" />
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
                 )}
               </button>
             );
@@ -179,7 +179,7 @@ export function AdminShell({ activeTab, onTabChange, children }: AdminShellProps
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search models, jobs, logs..."
-                className="w-full h-9 pl-9 pr-4 rounded-xl glass text-sm text-foreground placeholder:text-muted-foreground/50 border border-[hsl(var(--border))] focus:border-[hsl(var(--neon-purple)/0.4)] focus:outline-none transition-colors"
+                className="w-full h-9 pl-9 pr-4 rounded-xl glass text-sm text-foreground placeholder:text-muted-foreground/50 border border-[hsl(var(--border))] focus:border-primary/50 focus:outline-none transition-colors"
               />
               <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden md:flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-surface-2 text-[10px] text-muted-foreground border border-border">
                 ⌘K
@@ -189,30 +189,30 @@ export function AdminShell({ activeTab, onTabChange, children }: AdminShellProps
 
           <div className="flex items-center gap-2 lg:gap-3">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl glass border border-[hsl(var(--border))]">
-              <Cpu className="w-3.5 h-3.5 text-[hsl(var(--neon-cyan))]" />
+              <Cpu className="w-3.5 h-3.5 text-primary" />
               <span className="text-xs font-medium text-muted-foreground">GPU</span>
               <StatusDot status={gpuOnline ? 'online' : 'offline'} size="sm" />
             </div>
 
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl glass border border-[hsl(var(--border))]">
-              <Wifi className="w-3.5 h-3.5 text-[hsl(var(--neon-green))]" />
+              <Wifi className="w-3.5 h-3.5 text-emerald-400" />
               <span className="text-xs font-medium text-muted-foreground">Backend</span>
               <StatusDot status={backendOnline ? 'online' : 'offline'} size="sm" />
             </div>
 
             <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl glass border border-[hsl(var(--border))]">
-              <Zap className="w-3.5 h-3.5 text-[hsl(var(--neon-amber))]" />
+              <Zap className="w-3.5 h-3.5 text-primary" />
               <span className="text-xs font-mono text-muted-foreground">VRAM</span>
               <span className="text-xs font-mono text-foreground">{vramUsed}/{vramTotal} GB</span>
             </div>
 
             <button className="relative p-2 rounded-xl glass border border-[hsl(var(--border))] text-muted-foreground hover:text-foreground transition-colors">
               <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[hsl(var(--neon-pink))] shadow-glow-purple" />
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary" />
             </button>
 
-            <button className="flex items-center gap-2 p-1 pr-3 rounded-xl glass border border-[hsl(var(--border))] hover:border-[hsl(var(--neon-purple)/0.3)] transition-colors">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[hsl(var(--neon-purple))] to-[hsl(var(--neon-blue))] flex items-center justify-center text-xs font-bold text-[hsl(var(--foreground))]">
+            <button className="flex items-center gap-2 p-1 pr-3 rounded-xl glass border border-[hsl(var(--border))] hover:border-primary/40 transition-colors">
+              <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center text-xs font-bold text-[#080808]">
                 AI
               </div>
               <span className="hidden md:block text-xs font-medium text-foreground">Admin</span>

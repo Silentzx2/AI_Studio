@@ -319,8 +319,8 @@ export const RightAssetsPanel: React.FC = () => {
           onClick={() => fileInputRef.current?.click()}
           className={`group relative w-full rounded-xl border border-dashed cursor-pointer p-3 flex flex-col items-center justify-center text-center transition-all ${
             isDragOver
-              ? 'border-primary bg-primary/10 shadow-[0_0_16px_rgba(249,207,0,0.15)]'
-              : 'border-white/[0.12] hover:border-primary/70 bg-[hsl(var(--surface-0))] hover:bg-[#1A1B1F]'
+              ? 'border-primary bg-primary/15 shadow-[0_0_16px_rgba(255,204,0,0.25)]'
+              : 'border-white/[0.12] hover:border-primary/70 bg-[hsl(var(--surface-0))] hover:bg-[hsl(var(--surface-1))]'
           }`}
         >
           {uploadProgress.active ? (

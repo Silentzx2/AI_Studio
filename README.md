@@ -44,6 +44,7 @@
 > Compact overview of recent milestone updates (maximum 3 entries preserved; full technical history available in **[Docs/CHANGELOG.md](Docs/CHANGELOG.md)**).
 
 * **2026-09-26** — **Generation Runtime Hardening & Jobs UI Consolidation**: Hardened TripoSR/TripoSG model adapters with deterministic snapshot provenance, native error preservation, and output validation; eliminated endless job requeue loops on worker startup failure; fatalized required installer dependencies; and consolidated Jobs UI into the left navigation rail with direct deep-linking to `/workspace/jobs`.
+* **2026-09-26** — **Bug Fixes**: Fixed `text_to_textured_mesh` feature availability, resolved `torch.float8_e8m0fnu` AttributeError (torch 2.8.0 compatibility), fixed `diffusers`/`transformers` circular import, fixed `open3d.io.read_triangle_mesh` PosixPath type error.
 * **2026-09-25** — **Backend Environment Discovery & Startup Fix**: Resolved Google Colab/VPS backend launch failure by implementing auto-discovery of Conda (`3daigc-api`) and Venv environments in non-interactive subshells, eliminating disk-exhausting raw PyPI downloads on startup.
 * **2026-09-25** — **Project Rebrand to ForMash 3D**: Executed complete first-party rebrand from AI Studio to ForMash 3D (`ForMash3D`) across UI, API gateway, documentation, and web assets while preserving backward-compatible environment variables.
 
@@ -242,7 +243,7 @@ The model registry is dynamically configured via `backend/config/models.yaml`, p
 ### Prerequisites
 
 - **OS**: Linux (Ubuntu 20.04, 22.04, or 24.04 recommended)
-- **GPU**: NVIDIA GPU with CUDA 12.4 capability (minimum 8GB VRAM for basic models, 16GB+ recommended)
+- **GPU**: NVIDIA GPU with CUDA 12.4 capability (minimum 8GB VRAM for basic models, 16GB+ recommended).
 - **Node & Package Manager**: [Bun](https://bun.sh/)
 - **Python**: Python 3.10 (via Conda environment `3daigc-api`)
 - **Disk Space**: At least 50 GB free disk space (models and cache require significant storage)

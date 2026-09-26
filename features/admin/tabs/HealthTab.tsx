@@ -119,9 +119,9 @@ export function HealthTab() {
         <div className="flex items-center gap-4">
           <div className={cn(
             'flex items-center justify-center w-16 h-16 rounded-2xl',
-            down > 0 ? 'bg-[hsl(var(--destructive)/0.1)]' : degraded > 0 ? 'bg-[hsl(var(--neon-amber)/0.1)]' : 'bg-[hsl(var(--neon-green)/0.1)]'
+            down > 0 ? 'bg-destructive/10' : degraded > 0 ? 'bg-primary/10' : 'bg-emerald-500/10'
           )}>
-            <HeartPulse className={cn('w-8 h-8', down > 0 ? 'text-[hsl(var(--destructive))]' : degraded > 0 ? 'text-[hsl(var(--neon-amber))]' : 'text-[hsl(var(--neon-green))]')} />
+            <HeartPulse className={cn('w-8 h-8', down > 0 ? 'text-destructive' : degraded > 0 ? 'text-primary' : 'text-emerald-400')} />
           </div>
           <div>
             <h2 className="text-xl font-bold">
@@ -142,12 +142,12 @@ export function HealthTab() {
                 <div className="flex items-center gap-3">
                   <div className={cn(
                     'flex items-center justify-center w-9 h-9 rounded-xl',
-                    check.status === 'healthy' ? 'bg-[hsl(var(--neon-green)/0.1)]' :
-                    check.status === 'degraded' ? 'bg-[hsl(var(--neon-amber)/0.1)]' : 'bg-[hsl(var(--destructive)/0.1)]'
+                    check.status === 'healthy' ? 'bg-emerald-500/10' :
+                    check.status === 'degraded' ? 'bg-primary/10' : 'bg-destructive/10'
                   )}>
-                    {check.status === 'healthy' ? <CheckCircle className="w-4 h-4 text-[hsl(var(--neon-green))]" /> :
-                     check.status === 'degraded' ? <AlertTriangle className="w-4 h-4 text-[hsl(var(--neon-amber))]" /> :
-                     <XCircle className="w-4 h-4 text-[hsl(var(--destructive))]" />}
+                    {check.status === 'healthy' ? <CheckCircle className="w-4 h-4 text-emerald-400" /> :
+                     check.status === 'degraded' ? <AlertTriangle className="w-4 h-4 text-primary" /> :
+                     <XCircle className="w-4 h-4 text-destructive" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">

@@ -87,7 +87,7 @@ export function RuntimeTab() {
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <XCircle className="w-10 h-10 text-[hsl(var(--destructive))]" />
         <p className="text-sm text-muted-foreground">{error}</p>
-        <button onClick={() => { setLoading(true); load(); }} className="text-xs text-[hsl(var(--neon-purple))] hover:underline flex items-center gap-1.5">
+        <button onClick={() => { setLoading(true); load(); }} className="text-xs text-primary hover:underline flex items-center gap-1.5 cursor-pointer">
           <RefreshCw className="w-3.5 h-3.5" /> Retry
         </button>
       </div>
@@ -124,10 +124,10 @@ export function RuntimeTab() {
       <GlassCard className="p-4" delay={0.05}>
         <div className="flex flex-wrap items-center gap-4 lg:gap-6">
           {[
-            { label: 'CUDA', value: status?.cuda_version ?? '—', icon: Cpu, color: 'text-[hsl(var(--neon-green))]' },
-            { label: 'Driver', value: status?.driver_version ?? '—', icon: Server, color: 'text-[hsl(var(--neon-blue))]' },
-            { label: 'Network In', value: (status?.network_in ?? 0) > 0 ? `${(status?.network_in ?? 0).toFixed(1)} MB` : '—', icon: Wifi, color: 'text-[hsl(var(--neon-cyan))]' },
-            { label: 'Network Out', value: (status?.network_out ?? 0) > 0 ? `${(status?.network_out ?? 0).toFixed(1)} MB` : '—', icon: Activity, color: 'text-[hsl(var(--neon-purple))]' },
+            { label: 'CUDA', value: status?.cuda_version ?? '—', icon: Cpu, color: 'text-emerald-400' },
+            { label: 'Driver', value: status?.driver_version ?? '—', icon: Server, color: 'text-foreground' },
+            { label: 'Network In', value: (status?.network_in ?? 0) > 0 ? `${(status?.network_in ?? 0).toFixed(1)} MB` : '—', icon: Wifi, color: 'text-primary' },
+            { label: 'Network Out', value: (status?.network_out ?? 0) > 0 ? `${(status?.network_out ?? 0).toFixed(1)} MB` : '—', icon: Activity, color: 'text-primary' },
           ].map((item) => {
             const Icon = item.icon;
             return (
@@ -143,12 +143,12 @@ export function RuntimeTab() {
         {/* Enhanced Hardware Details - Prominent Display */}
         <div className="mt-4 pt-4 border-t border-[hsl(var(--border))]/[0.15] grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* GPU Detail Card */}
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))/0.1] to-[hsl(var(--primary))/0.05] border border-[hsl(var(--primary))/0.2]">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[hsl(var(--primary)/0.2)]">
-              <Cpu className="w-5 h-5 text-[hsl(var(--neon-purple))]" />
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--primary)/0.25)]">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[hsl(var(--primary)/0.15)]">
+              <Cpu className="w-5 h-5 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--neon-purple))]/70 font-medium">GPU</span>
+              <span className="text-[10px] uppercase tracking-wider text-primary font-medium">GPU</span>
               <p className="text-sm font-semibold text-foreground truncate" title={status?.gpu_name}>
                 {status?.gpu_name || 'Not Detected'}
               </p>
@@ -161,12 +161,12 @@ export function RuntimeTab() {
           </div>
           
           {/* CPU Detail Card */}
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-[hsl(var(--accent-color-secondary))/0.1] to-[hsl(var(--neon-blue))/0.05] border border-[hsl(var(--accent-color-secondary))/0.2]">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[hsl(var(--accent-color-secondary)/0.2)]">
-              <Server className="w-5 h-5 text-[hsl(var(--neon-cyan))]" />
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[hsl(var(--surface-3))]">
+              <Server className="w-5 h-5 text-muted-foreground" />
             </div>
             <div className="min-w-0 flex-1">
-              <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--neon-cyan))]/70 font-medium">CPU</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">CPU</span>
               <p className="text-sm font-semibold text-foreground truncate" title={status?.cpu_name}>
                 {status?.cpu_name 
                   ? (status.cpu_name.length > 35 ? status.cpu_name.slice(0, 35) + '…' : status.cpu_name)
@@ -181,12 +181,12 @@ export function RuntimeTab() {
           </div>
           
           {/* Disk/Storage Detail Card */}
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 to-green-500/5 border border-[hsl(var(--neon-green)/0.2)]">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[hsl(var(--neon-green)/0.2)]">
-              <HardDrive className="w-5 h-5 text-[hsl(var(--neon-green))]" />
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-[hsl(var(--surface-2))] border border-[hsl(var(--border))]">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[hsl(var(--surface-3))]">
+              <HardDrive className="w-5 h-5 text-emerald-400" />
             </div>
             <div className="min-w-0 flex-1">
-              <span className="text-[10px] uppercase tracking-wider text-[hsl(var(--neon-green))]/70 font-medium">Storage</span>
+              <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-medium">Storage</span>
               <p className="text-sm font-semibold text-foreground">
                 {(status?.storage_used_gb ?? 0).toFixed(0)} / {(status?.storage_total_gb ?? 0).toFixed(0)} GB
               </p>
@@ -199,8 +199,8 @@ export function RuntimeTab() {
       </GlassCard>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricCard label="GPU" value={Math.round(gpu)} unit="%" icon={Cpu} color="purple" delay={0.1}>
-          <div className="mt-3"><ProgressBar value={gpu} color="purple" size="sm" showGlow /></div>
+        <MetricCard label="GPU" value={Math.round(gpu)} unit="%" icon={Cpu} color="amber" delay={0.1}>
+          <div className="mt-3"><ProgressBar value={gpu} color="amber" size="sm" showGlow /></div>
         </MetricCard>
         <MetricCard label="VRAM" value={vramTotal > 0 ? Math.round((vram / vramTotal) * 100) : 0} unit="%" icon={Zap} color="blue" delay={0.15}>
           <div className="mt-3"><ProgressBar value={(vram / vramTotal) * 100} color="blue" size="sm" showGlow /></div>
@@ -208,8 +208,8 @@ export function RuntimeTab() {
             {(vram / 1024).toFixed(1)} / {(vramTotal / 1024).toFixed(0)} GB
           </div>
         </MetricCard>
-        <MetricCard label="CPU" value={Math.round(cpu)} unit="%" icon={Server} color="cyan" delay={0.2}>
-          <div className="mt-3"><ProgressBar value={cpu} color="cyan" size="sm" showGlow /></div>
+        <MetricCard label="CPU" value={Math.round(cpu)} unit="%" icon={Server} color="amber" delay={0.2}>
+          <div className="mt-3"><ProgressBar value={cpu} color="amber" size="sm" showGlow /></div>
         </MetricCard>
         <MetricCard label="RAM" value={Math.round(ram)} unit="%" icon={MemoryStick} color="green" delay={0.25}>
           <div className="mt-3"><ProgressBar value={ram} color="green" size="sm" showGlow /></div>
@@ -233,7 +233,7 @@ export function RuntimeTab() {
             {logs.length > 0 ? logs.map((log, i) => (
               <motion.div key={log.id || i} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }} className="flex gap-2 text-xs">
                 <span className="text-muted-foreground/50 shrink-0">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                <span className={cn('shrink-0 font-bold', log.level === 'error' ? 'text-[hsl(var(--destructive))]' : log.level === 'warn' ? 'text-[hsl(var(--neon-amber))]' : log.level === 'success' ? 'text-[hsl(var(--neon-green))]' : 'text-[hsl(var(--neon-blue))]')}>
+                <span className={cn('shrink-0 font-bold', log.level === 'error' ? 'text-destructive' : log.level === 'warn' ? 'text-primary' : log.level === 'success' ? 'text-emerald-400' : 'text-sky-400')}>
                   {log.level.toUpperCase()}
                 </span>
                 <span className="text-muted-foreground">
@@ -278,7 +278,7 @@ export function RuntimeTab() {
                 <span className="text-xs text-muted-foreground flex items-center gap-1.5"><HardDrive className="w-3.5 h-3.5" /> Storage</span>
                 <span className="text-xs font-mono text-foreground">{(status?.storage_used_gb ?? 0).toFixed(0)} / {(status?.storage_total_gb ?? 0).toFixed(0)} GB</span>
               </div>
-              <ProgressBar value={((status?.storage_used_gb ?? 0) / (status?.storage_total_gb ?? 1)) * 100} color="cyan" size="sm" />
+              <ProgressBar value={((status?.storage_used_gb ?? 0) / (status?.storage_total_gb ?? 1)) * 100} color="amber" size="sm" />
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -292,7 +292,7 @@ export function RuntimeTab() {
                 <span className="text-xs text-muted-foreground flex items-center gap-1.5"><Gauge className="w-3.5 h-3.5" /> GPU Utilization</span>
                 <span className="text-xs font-mono text-foreground">{Math.round(gpu)}%</span>
               </div>
-              <ProgressBar value={gpu} color="purple" size="sm" showGlow />
+              <ProgressBar value={gpu} color="amber" size="sm" showGlow />
             </div>
           </div>
         </GlassCard>

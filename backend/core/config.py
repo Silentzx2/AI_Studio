@@ -3,6 +3,21 @@ import logging.config
 from pathlib import Path
 from typing import Dict, List, Optional
 
+# ── Compatibility shim: torch 2.8.0 does not have float8_e8m0fnu ──
+# transformers >=4.44 references torch.float8_e8m0fnu which causes
+# AttributeError on torch 2.8.0. Patch it before transformers imports.
+import torch
+if not hasattr(torch, "float8_e8m0fnu"):
+    try:
+        torch.float8_e8m0fnu = torch.float8_e4m3fn
+    except Exception:
+        pass
+if not hasattr(torch, "float8_e5m2"):
+    try:
+        torch.float8_e5m2 = torch.float8_e4m3fn
+    except Exception:
+        pass
+
 import yaml
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -227,7 +242,14 @@ def get_settings() -> Settings:
         # Load models separately if exists
         if models_config.exists():
             models = load_models_config(str(models_config))
-            settings.models = models
+            if models:
+                settings.models = models
+            else:
+                from core.scheduler.model_factory import get_default_model_configs
+                settings.models = get_default_model_configs()
+        else:
+            from core.scheduler.model_factory import get_default_model_configs
+            settings.models = get_default_model_configs()
 
     return settings
 

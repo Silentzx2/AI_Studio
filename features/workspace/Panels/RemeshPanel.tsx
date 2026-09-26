@@ -452,7 +452,7 @@ export const RemeshPanel: React.FC = () => {
                   }`}
                 >
                   <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-colors ${
-                    remeshSettings.preserveShape ? 'bg-primary border-primary text-black' : 'border-[#3d4252]'
+                    remeshSettings.preserveShape ? 'bg-primary border-primary text-black' : 'border-white/[0.15]'
                   }`}>
                     {remeshSettings.preserveShape && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                   </div>
@@ -470,7 +470,7 @@ export const RemeshPanel: React.FC = () => {
                   }`}
                 >
                   <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-colors ${
-                    remeshSettings.preserveSharpEdges ? 'bg-primary border-primary text-black' : 'border-[#3d4252]'
+                    remeshSettings.preserveSharpEdges ? 'bg-primary border-primary text-black' : 'border-white/[0.15]'
                   }`}>
                     {remeshSettings.preserveSharpEdges && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                   </div>
@@ -488,7 +488,7 @@ export const RemeshPanel: React.FC = () => {
                   }`}
                 >
                   <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-colors ${
-                    remeshSettings.preserveUVs ? 'bg-primary border-primary text-black' : 'border-[#3d4252]'
+                    remeshSettings.preserveUVs ? 'bg-primary border-primary text-black' : 'border-white/[0.15]'
                   }`}>
                     {remeshSettings.preserveUVs && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                   </div>
