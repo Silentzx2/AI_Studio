@@ -43,9 +43,9 @@
 
 > Compact overview of recent milestone updates (maximum 3 entries preserved; full technical history available in **[Docs/CHANGELOG.md](Docs/CHANGELOG.md)**).
 
+* **2026-09-26** — **Generation Runtime Hardening & Jobs UI Consolidation**: Hardened TripoSR/TripoSG model adapters with deterministic snapshot provenance, native error preservation, and output validation; eliminated endless job requeue loops on worker startup failure; fatalized required installer dependencies; and consolidated Jobs UI into the left navigation rail with direct deep-linking to `/workspace/jobs`.
 * **2026-09-25** — **Backend Environment Discovery & Startup Fix**: Resolved Google Colab/VPS backend launch failure by implementing auto-discovery of Conda (`3daigc-api`) and Venv environments in non-interactive subshells, eliminating disk-exhausting raw PyPI downloads on startup.
 * **2026-09-25** — **Project Rebrand to ForMash 3D**: Executed complete first-party rebrand from AI Studio to ForMash 3D (`ForMash3D`) across UI, API gateway, documentation, and web assets while preserving backward-compatible environment variables.
-* **2026-09-25** — **Repository & Submodule Migration**: Updated canonical repository origin to `Silentzx2/ForMash3D` and submodule tree to `Silentzx2/ForMash3D-ThirdParty` with bundled prebuilt CUDA wheelhouse.
 
 ---
 
@@ -197,25 +197,25 @@ flowchart TB
 
 ## 🤖 Supported Model Catalog
 
-The model registry is dynamically configured via `backend/config/models.yaml`.
+The model registry is dynamically configured via `backend/config/models.yaml`, providing **23 discrete model configurations** across 15 neural architectures:
 
-| Model | Category | VRAM Requirement | Est. Latency | Key Capabilities |
+| Model Architecture | Registered Adapters (23 total) | Category / Tasks | VRAM Budget | Key Capabilities |
 |---|---|---|---|---|
-| **Hunyuan3D-2.1** | Shape + Texture | 8–19.5 GB | ~90s | High-fidelity shape generation, multi-view paint diffusion |
-| **TRELLIS** | Structured 3D | 11.5 GB | ~60s | FlexiCubes PBR meshes, 2048x2048 textures |
-| **TRELLIS.2** | Structured 3D | 23.5 GB | ~60s | Higher-fidelity FlexiCubes with advanced PBR |
-| **TripoSR** | Image-to-Mesh | 6 GB | ~2–5s | Ultra-fast feedforward single-image 3D reconstruction |
-| **TripoSG** | Image/Scribble-to-Mesh | 8 GB | ~10–20s | High-fidelity image and scribble guided 3D geometry |
-| **TripoSF** | SparseFlex Mesh | 12 GB | ~5–15s | High-resolution arbitrary-topology modeling with SparseFlex VAE |
-| **ARDY** | Motion AI | 8 GB | ~10–25s | Interactive autoregressive text-to-motion generation |
-| **PartPacker** | Image-to-Mesh | 10 GB | ~60s | Rectified-flow part-level shape generation |
-| **UltraShape** | Image-to-Mesh | 26.6 GB | ~30s | Arbitrary-topology mesh reconstruction |
-| **PartField** | Segmentation | 4 GB | ~15s | Semantic part decomposition of 3D meshes |
-| **P3-SAM** | Segmentation | 60 GB | ~15s | High-precision 3D SAM segmentation |
-| **UniRig** | Auto-Rigging | 9 GB | ~20s | Automated bipedal skeletal armature generation |
-| **FastMesh-V1K** | Retopology | 16 GB | ~30s | Fast neural retopology and manifold cleanup |
-| **FastMesh-V4K** | Retopology | 24.5 GB | ~30s | High-resolution dense mesh retopology |
-| **VoxHammer** | Mesh Editing | 40 GB | ~20s | Voxel-guided localized neural mesh editing |
+| **Hunyuan3D-2.1** | `hunyuan3dv21_image_to_raw_mesh`<br>`hunyuan3dv21_image_to_textured_mesh`<br>`hunyuan3dv21_image_mesh_painting` | Raw & Textured Mesh, Mesh Painting | 8–19.5 GB | High-fidelity shape generation, multi-view paint diffusion |
+| **TRELLIS** | `trellis_text_to_textured_mesh`<br>`trellis_image_to_textured_mesh`<br>`trellis_text_mesh_painting`<br>`trellis_image_mesh_painting` | Text/Image to Mesh, Mesh Painting | 11.5 GB | FlexiCubes PBR meshes, 2048x2048 textures |
+| **TRELLIS.2** | `trellis2_image_to_textured_mesh`<br>`trellis2_image_mesh_painting` | Structured 3D & Painting | 23.5 GB | Higher-fidelity FlexiCubes with advanced PBR |
+| **TripoSR** | `triposr_image_to_raw_mesh` | Single-Image to Mesh | 6 GB | Ultra-fast feedforward 3D reconstruction with texture baking |
+| **TripoSG** | `triposg_image_to_raw_mesh` | Image & Scribble to Mesh | 8 GB | High-fidelity image and scribble guided 3D geometry |
+| **TripoSF** | `triposf_image_to_raw_mesh` | SparseFlex Mesh | 12 GB | High-resolution arbitrary-topology modeling with SparseFlex VAE |
+| **ARDY** | `ardy_motion_generation` | Motion AI | 8 GB | Interactive autoregressive text-to-motion generation |
+| **PartPacker** | `partpacker_image_to_raw_mesh` | Part-Level Image to Mesh | 10 GB | Rectified-flow part-level shape generation |
+| **UltraShape** | `ultrashape_image_to_raw_mesh` | Arbitrary-Topology Mesh | 26.6 GB | Dense surface reconstruction via cubvh |
+| **PartField** | `partfield_mesh_segmentation` | Mesh Segmentation | 4 GB | Semantic part decomposition of 3D meshes |
+| **P3-SAM** | `p3sam_mesh_segmentation` | High-Precision Segmentation | 60 GB | High-precision point prompt 3D SAM segmentation |
+| **UniRig** | `unirig_auto_rig` | Auto-Rigging | 9 GB | Automated bipedal skeletal armature generation |
+| **FastMesh** | `fastmesh_v1k_retopology`<br>`fastmesh_v4k_retopology` | Mesh Retopology (1K & 4K) | 16–24.5 GB | Fast neural retopology and manifold cleanup |
+| **PartUV** | `partuv_uv_unwrapping` | UV Unwrapping | 7 GB | Automated seam placement and UV chart packing |
+| **VoxHammer** | `voxhammer_text_mesh_editing`<br>`voxhammer_image_mesh_editing` | Text/Image Mesh Editing | 40 GB | Voxel-guided localized neural mesh editing |
 
 ---
 

@@ -105,6 +105,9 @@ export const WorkspaceShell: React.FC = () => {
           navigateToMainNav('assets');
         } else if (e.key === '3') {
           e.preventDefault();
+          navigateToMainNav('jobs');
+        } else if (e.key === '4') {
+          e.preventDefault();
           navigateToMainNav('system');
         } else if (e.key === ',') {
           e.preventDefault();

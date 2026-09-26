@@ -164,13 +164,24 @@ def model_worker_process(
             if success:
                 loaded_model = model
                 logger.info(f"✓ Worker {worker_id} successfully loaded model '{model_id}' on GPU {gpu_id}")
+                control_response_queue.put(WorkerResponse("init", True, {"model_id": model_id}))
             else:
-                logger.error(f"❌ Worker {worker_id} model.load({gpu_id}) returned False for model '{model_id}'")
+                err_msg = f"Worker {worker_id} model.load({gpu_id}) returned False for model '{model_id}'"
+                logger.error(f"❌ {err_msg}")
+                try:
+                    control_response_queue.put(WorkerResponse("init", False, error=err_msg))
+                except Exception:
+                    pass
                 return  # Exit worker if model loading fails
         except Exception as e:
             import traceback
             tb = traceback.format_exc()
-            logger.error(f"❌ FATAL ERROR loading model '{model_id}' in worker {worker_id}:\n{tb}")
+            err_msg = f"FATAL ERROR loading model '{model_id}' in worker {worker_id}: {e}"
+            logger.error(f"❌ {err_msg}\n{tb}")
+            try:
+                control_response_queue.put(WorkerResponse("init", False, error=f"{err_msg}\n{tb}"))
+            except Exception:
+                pass
             return  # Exit worker if model loading fails
 
         # Main worker loop
@@ -468,6 +479,8 @@ class MultiprocessModelScheduler:
         self.worker_control_queues: Dict[str, mp.Queue] = {}
         self.worker_control_response_queues: Dict[str, mp.Queue] = {}
         self.worker_current_job: Dict[str, Optional[str]] = {}
+        self.worker_current_callback: Dict[str, Optional[str]] = {}
+        self.job_to_callback: Dict[str, str] = {}
 
         # Model management
         self.model_registry: Dict[str, Dict[str, Any]] = {}
@@ -489,6 +502,7 @@ class MultiprocessModelScheduler:
         self.pending_results: Dict[str, asyncio.Future] = {}
         self.result_lock = threading.Lock()
         self.main_event_loop: Optional[asyncio.AbstractEventLoop] = None
+        self.last_worker_error: Dict[str, str] = {}
 
         # Thread pool for async operations
         self.thread_executor = ThreadPoolExecutor(max_workers=4)
@@ -657,6 +671,8 @@ class MultiprocessModelScheduler:
         self.worker_control_queues.clear()
         self.worker_control_response_queues.clear()
         self.worker_current_job.clear()
+        self.worker_current_callback.clear()
+        self.job_to_callback.clear()
         self.worker_assignments.clear()
         self.worker_status.clear()
         self.worker_last_used.clear()
@@ -872,6 +888,17 @@ class MultiprocessModelScheduler:
                     f"No models available for feature: {job_request.feature}",
                 )
                 return
+            elif worker_result == "MODEL_LOAD_FAILED":
+                target_model = self._get_model_id_for_job(job_request)
+                load_err = self.last_worker_error.pop(target_model, f"Model '{target_model}' worker startup/load failed")
+                logger.error(
+                    f"Job {job_request.job_id} failed: model '{target_model}' could not be loaded: {load_err}"
+                )
+                await self.job_queue.fail_job(
+                    job_request.job_id,
+                    f"Model load failed: {load_err}",
+                )
+                return
             elif worker_result in ["WORKERS_BUSY", "NO_VRAM"]:
                 # Resources unavailable - put job back at front of queue and wait
                 logger.info(
@@ -905,12 +932,13 @@ class MultiprocessModelScheduler:
 
             with self.result_lock:
                 self.pending_results[callback_id] = result_future
+                self.job_to_callback[job_request.job_id] = callback_id
 
             # Mark worker as busy and send job
-            self._mark_worker_busy(worker_id, job_request.job_id)
+            self._mark_worker_busy(worker_id, job_request.job_id, callback_id)
             job_data = (job_request, callback_id)
             self.worker_queues[worker_id].put(job_data)
-            logger.info(f"Sent job {job_request.job_id} to worker {worker_id}")
+            logger.info(f"Sent job {job_request.job_id} to worker {worker_id} (callback: {callback_id})")
 
             # Create a separate task to handle the result asynchronously
             # This allows the main loop to continue processing other jobs
@@ -944,17 +972,25 @@ class MultiprocessModelScheduler:
         """Handle job result asynchronously without blocking the main processing loop"""
         try:
             logger.info(f"Waiting for result for job {job_id}")
-            result = await result_future
+            result = await asyncio.wait_for(result_future, timeout=600.0)
             logger.info(f"Received result for job {job_id}: {result}")
 
             # Update job status through JobQueue
-            if result["success"]:
-                await self.job_queue.complete_job(job_id, result["result"])
+            if result.get("success"):
+                await self.job_queue.complete_job(job_id, result.get("result"))
                 logger.info(f"Job {job_id} completed successfully")
             else:
-                await self.job_queue.fail_job(job_id, result["error"])
-                logger.info(f"Job {job_id} failed: {result['error']}")
+                await self.job_queue.fail_job(job_id, result.get("error", "Unknown error"))
+                logger.info(f"Job {job_id} failed: {result.get('error')}")
 
+        except asyncio.TimeoutError:
+            logger.error(f"Job {job_id} timed out waiting for worker result (600s)")
+            try:
+                await self.job_queue.fail_job(
+                    job_id, "Job processing timed out after 600 seconds"
+                )
+            except Exception as e_to:
+                logger.error(f"Failed to mark timed-out job {job_id} as failed: {e_to}")
         except Exception as e:
             logger.error(f"Error handling result for job {job_id}: {e}")
             # Try to mark job as failed
@@ -1073,7 +1109,7 @@ class MultiprocessModelScheduler:
         if worker_id:
             return worker_id
         else:
-            return "NO_VRAM"  # Failed to create worker, likely VRAM issue
+            return "MODEL_LOAD_FAILED"
 
     async def _create_worker_for_model(
         self, model_id: str, gpu_id: int
@@ -1138,14 +1174,36 @@ class MultiprocessModelScheduler:
             # Start process
             worker_process.start()
 
-            # Brief wait to catch immediate startup/model-load failures
-            time.sleep(0.5)
-            if not worker_process.is_alive():
-                worker_process.join(timeout=1.0)
+            # Wait for worker process to initialize and report model load status
+            init_success = False
+            error_reason = f"Worker {worker_id} terminated unexpectedly during model initialization"
+            start_wait = time.time()
+            max_load_timeout = 180.0
+
+            while time.time() - start_wait < max_load_timeout:
+                if not worker_process.is_alive():
+                    worker_process.join(timeout=1.0)
+                    break
+                try:
+                    init_resp = control_response_queue.get(timeout=0.2)
+                    if isinstance(init_resp, WorkerResponse) and init_resp.msg_id == "init":
+                        if init_resp.success:
+                            init_success = True
+                        else:
+                            error_reason = init_resp.error or error_reason
+                        break
+                except queue.Empty:
+                    continue
+
+            if not init_success:
                 logger.error(
-                    f"Worker {worker_id} failed during startup (model load failure?)"
+                    f"Worker {worker_id} failed during startup/model-load: {error_reason}"
                 )
+                self.last_worker_error[model_id] = error_reason
                 self._remove_worker_tracking(worker_id, model_id, gpu_id, vram_requirement)
+                if worker_process.is_alive():
+                    worker_process.terminate()
+                    worker_process.join(timeout=2.0)
                 return None
 
             logger.info(
@@ -1319,25 +1377,35 @@ class MultiprocessModelScheduler:
             Available worker ID or None if all are busy
         """
         for worker_id in worker_ids:
-            # Check if worker exists and is not busy
-            if worker_id in self.workers and not self.worker_status.get(
-                worker_id, False
-            ):
+            # Check if worker exists, is alive, and is not busy
+            proc = self.workers.get(worker_id)
+            if proc and proc.is_alive() and not self.worker_status.get(worker_id, False):
                 return worker_id
         return None
 
-    def _mark_worker_busy(self, worker_id: str, job_id: Optional[str] = None):
+    def _mark_worker_busy(
+        self, worker_id: str, job_id: Optional[str] = None, callback_id: Optional[str] = None
+    ):
         """Mark a worker as busy"""
         self.worker_status[worker_id] = True
         self.worker_last_used[worker_id] = time.time()
         if job_id is not None:
             self.worker_current_job[worker_id] = job_id
+        if callback_id is not None:
+            self.worker_current_callback[worker_id] = callback_id
 
     def _mark_worker_available(self, worker_id: str):
         """Mark a worker as available"""
         self.worker_status[worker_id] = False
         self.worker_last_used[worker_id] = time.time()
-        self.worker_current_job.pop(worker_id, None)
+        job_id = self.worker_current_job.pop(worker_id, None)
+        callback_id = self.worker_current_callback.pop(worker_id, None)
+        if job_id:
+            self.job_to_callback.pop(job_id, None)
+        if callback_id:
+            for j_id, cb_id in list(self.job_to_callback.items()):
+                if cb_id == callback_id:
+                    self.job_to_callback.pop(j_id, None)
 
     def _handle_worker_responses(self):
         """Handle responses from worker processes (runs in separate thread)"""
@@ -1362,12 +1430,15 @@ class MultiprocessModelScheduler:
 
                                 # Set result in event loop
                                 if self.main_event_loop and not future.done():
-                                    self.main_event_loop.call_soon_threadsafe(
-                                        future.set_result, result
-                                    )
-                                    logger.info(
-                                        f"Set future result for callback {callback_id}"
-                                    )
+                                    try:
+                                        self.main_event_loop.call_soon_threadsafe(
+                                            future.set_result, result
+                                        )
+                                        logger.info(
+                                            f"Set future result for callback {callback_id}"
+                                        )
+                                    except asyncio.InvalidStateError:
+                                        pass
                                 else:
                                     logger.warning(
                                         f"Cannot set future result: main_event_loop={self.main_event_loop}, future.done()={future.done()}"
@@ -1457,9 +1528,9 @@ class MultiprocessModelScheduler:
                 logger.error(f"Error in idle worker cleanup: {e}")
                 await asyncio.sleep(10)  # Wait longer on error
 
-    async def _cleanup_dead_workers(self):
+    async def _cleanup_dead_workers(self, run_once: bool = False):
         """Periodically check for and clean up dead worker processes"""
-        while self.running:
+        while self.running or run_once:
             try:
                 dead_workers = []
                 for worker_id, process in list(self.workers.items()):
@@ -1469,8 +1540,31 @@ class MultiprocessModelScheduler:
                 for worker_id in dead_workers:
                     try:
                         job_id = self.worker_current_job.get(worker_id)
+                        callback_id = self.worker_current_callback.get(worker_id)
+                        if not callback_id and job_id:
+                            callback_id = self.job_to_callback.get(job_id)
+
+                        # Clean up pending future for this dead worker's job
+                        fut = None
+                        with self.result_lock:
+                            if callback_id:
+                                fut = self.pending_results.pop(callback_id, None)
+                            if job_id:
+                                self.job_to_callback.pop(job_id, None)
+
+                        if fut is not None and not fut.done():
+                            try:
+                                fut.set_result({
+                                    "success": False,
+                                    "error": f"Worker {worker_id} terminated unexpectedly during execution",
+                                    "job_id": job_id,
+                                })
+                            except asyncio.InvalidStateError:
+                                pass
+
+                        # Mark worker unavailable and clean up process/VRAM exactly once
+                        self._mark_worker_available(worker_id)
                         await self._destroy_worker(worker_id)
-                        self.worker_current_job.pop(worker_id, None)
 
                         if job_id:
                             try:
@@ -1485,10 +1579,14 @@ class MultiprocessModelScheduler:
                     except Exception as e:
                         logger.error(f"Error cleaning up dead worker {worker_id}: {e}")
 
+                if run_once:
+                    break
                 await asyncio.sleep(5.0)
 
             except Exception as e:
                 logger.error(f"Error in dead worker cleanup: {e}")
+                if run_once:
+                    break
                 await asyncio.sleep(10)
 
     async def _job_queue_cleanup_loop(self):
@@ -1514,6 +1612,7 @@ class MultiprocessModelScheduler:
         self.worker_status.pop(worker_id, None)
         self.worker_last_used.pop(worker_id, None)
         self.worker_current_job.pop(worker_id, None)
+        self.worker_current_callback.pop(worker_id, None)
         if model_id in self.worker_assignments:
             if worker_id in self.worker_assignments[model_id]:
                 self.worker_assignments[model_id].remove(worker_id)
@@ -1528,7 +1627,11 @@ class MultiprocessModelScheduler:
 
         try:
             # Remove from worker assignments first
-            worker_config = self.worker_configs[worker_id]
+            worker_config = self.worker_configs.get(worker_id)
+            if not worker_config:
+                self.workers.pop(worker_id, None)
+                return
+
             model_id = worker_config.model_config["model_id"]
             gpu_id = worker_config.gpu_id
             vram_requirement = worker_config.model_config.get("vram_requirement", 1024)
@@ -1550,14 +1653,15 @@ class MultiprocessModelScheduler:
                 pass  # Ignore timeout/communication errors during shutdown
 
             # Terminate the process
-            process = self.workers.pop(worker_id)
-            process.join(timeout=5.0)
-            if process.is_alive():
-                logger.warning(f"Force terminating worker {worker_id}")
-                process.terminate()
-                process.join(timeout=2.0)
+            process = self.workers.pop(worker_id, None)
+            if process:
+                process.join(timeout=5.0)
                 if process.is_alive():
-                    process.kill()
+                    logger.warning(f"Force terminating worker {worker_id}")
+                    process.terminate()
+                    process.join(timeout=2.0)
+                    if process.is_alive():
+                        process.kill()
 
             # Deallocate VRAM from GPU
             self.gpu_monitor.deallocate_vram(gpu_id, vram_requirement)
@@ -1570,6 +1674,8 @@ class MultiprocessModelScheduler:
             self.worker_control_response_queues.pop(worker_id, None)
             self.worker_status.pop(worker_id, None)
             self.worker_last_used.pop(worker_id, None)
+            self.worker_current_job.pop(worker_id, None)
+            self.worker_current_callback.pop(worker_id, None)
 
             logger.info(
                 f"Worker {worker_id} destroyed and cleaned up, deallocated {vram_requirement}MB VRAM from GPU {gpu_id}"

@@ -78,37 +78,86 @@ class TripoSGImageToRawMeshAdapter(ImageToMeshModel):
             if p not in sys.path:
                 sys.path.insert(0, p)
 
+    def _resolve_rmbg_source(self) -> str:
+        candidates = [Path(self.rmbg_path), Path(__file__).resolve().parent.parent / "pretrained" / "RMBG-1.4"]
+        local_cand = next((str(cand) for cand in candidates if cand.exists()), None)
+        if local_cand:
+            logger.info(f"Resolved local RMBG source at: {local_cand}")
+            return local_cand
+        logger.info("Using remote RMBG source: 'briaai/RMBG-1.4'")
+        return "briaai/RMBG-1.4"
+
+    def _resolve_model_source(self) -> str:
+        candidates = [
+            Path(self.model_path),
+            Path(__file__).resolve().parent.parent / "pretrained" / "TripoSG",
+        ]
+        for cand in candidates:
+            if cand.exists() and (cand / "model_index.json").exists():
+                logger.info(f"Resolved local TripoSG snapshot at: {cand}")
+                return str(cand)
+
+        # Attempt to populate local snapshot first so Diffusers loads custom pipeline components locally
+        target_dir = Path(__file__).resolve().parent.parent / "pretrained" / "TripoSG"
+        try:
+            from huggingface_hub import snapshot_download
+            logger.info(f"Local TripoSG snapshot missing; downloading weights snapshot to {target_dir}...")
+            target_dir.mkdir(parents=True, exist_ok=True)
+            snapshot_download(
+                repo_id="VAST-AI/TripoSG",
+                local_dir=str(target_dir),
+                local_dir_use_symlinks=False,
+            )
+            if (target_dir / "model_index.json").exists():
+                logger.info(f"Successfully downloaded TripoSG weights snapshot to {target_dir}")
+                return str(target_dir)
+        except Exception as dl_err:
+            logger.warning(f"Failed downloading local TripoSG snapshot ({dl_err}); attempting direct load from 'VAST-AI/TripoSG'")
+
+        return "VAST-AI/TripoSG"
+
     def _load_model(self):
         """Load TripoSG pipeline and RMBG background remover."""
         try:
             self._ensure_triposg_in_path()
-            logger.info(f"Loading TripoSG from {self.model_path} (root: {self.triposg_root})")
+            triposg_source = self._resolve_model_source()
+            logger.info(f"Loading TripoSG from source '{triposg_source}' (root: {self.triposg_root})")
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
             dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
             # 1. Background remover
-            rmbg_source = str(self.rmbg_path) if self.rmbg_path.exists() else "briaai/RMBG-1.4"
+            rmbg_source = self._resolve_rmbg_source()
             try:
                 from briarmbg import BriaRMBG
                 self.rmbg_net = BriaRMBG.from_pretrained(rmbg_source).to(device)
                 self.rmbg_net.eval()
-                logger.info("✓ TripoSG RMBG network loaded")
+                logger.info(f"✓ TripoSG RMBG network loaded from {rmbg_source}")
             except Exception as rmbg_err:
                 logger.warning(f"RMBG-1.4 model failed to load ({rmbg_err}); background removal will use fallback")
                 self.rmbg_net = None
 
             # 2. TripoSG Pipeline
-            triposg_source = str(self.model_path) if Path(self.model_path).exists() else "VAST-AI/TripoSG"
-            from triposg.pipelines.pipeline_triposg import TripoSGPipeline
+            try:
+                from triposg.pipelines.pipeline_triposg import TripoSGPipeline
+            except (ImportError, OSError) as e:
+                err_msg = f"TripoSG code dependency import failed ({e}) from root {self.triposg_root}"
+                logger.error(err_msg)
+                raise RuntimeError(err_msg) from e
 
-            self.pipe = TripoSGPipeline.from_pretrained(triposg_source).to(device, dtype)
-            logger.info(f"✓ TripoSGPipeline loaded on {device} ({dtype})")
+            try:
+                self.pipe = TripoSGPipeline.from_pretrained(triposg_source).to(device, dtype)
+            except Exception as pipe_err:
+                err_msg = f"TripoSG model load failed for source '{triposg_source}': {pipe_err}"
+                logger.error(err_msg)
+                raise RuntimeError(err_msg) from pipe_err
+
+            logger.info(f"✓ TripoSGPipeline loaded on {device} ({dtype}) from {triposg_source}")
             return self.pipe
 
         except Exception as e:
             logger.error(f"Failed to load TripoSG model: {e}")
-            raise RuntimeError(f"Failed to load TripoSG model: {e}")
+            raise RuntimeError(f"Failed to load TripoSG model: {e}") from e
 
     def _unload_model(self):
         """Unload TripoSG pipeline and free CUDA memory."""
@@ -231,8 +280,19 @@ class TripoSGImageToRawMeshAdapter(ImageToMeshModel):
             output_path.parent.mkdir(parents=True, exist_ok=True)
             mesh.export(str(output_path))
 
+            # Validate output mesh file
+            if not output_path.exists() or output_path.stat().st_size == 0:
+                raise RuntimeError(f"TripoSG failed to write output mesh or file is empty: {output_path}")
+
             final_mesh = self.mesh_processor.load_mesh(output_path)
+            if final_mesh is None:
+                raise RuntimeError(f"TripoSG generated output mesh could not be parsed: {output_path}")
+
             mesh_stats = self.mesh_processor.get_mesh_stats(final_mesh)
+            vertex_count = mesh_stats.get("vertex_count", 0)
+            face_count = mesh_stats.get("face_count", 0)
+            if vertex_count <= 0 or face_count <= 0:
+                raise RuntimeError(f"TripoSG generated an invalid empty mesh (vertices: {vertex_count}, faces: {face_count})")
 
             response = {
                 "output_mesh_path": str(output_path),
@@ -241,8 +301,8 @@ class TripoSGImageToRawMeshAdapter(ImageToMeshModel):
                     "model": self.model_id,
                     "input_image": str(image_path),
                     "output_format": output_format,
-                    "vertex_count": mesh_stats.get("vertex_count", 0),
-                    "face_count": mesh_stats.get("face_count", 0),
+                    "vertex_count": vertex_count,
+                    "face_count": face_count,
                     "steps": steps,
                     "guidance_scale": guidance,
                     "seed": seed,
@@ -257,7 +317,7 @@ class TripoSGImageToRawMeshAdapter(ImageToMeshModel):
         except Exception as e:
             self.status = ModelStatus.ERROR
             logger.error(f"TripoSG generation failed: {e}")
-            raise RuntimeError(f"TripoSG generation failed: {e}")
+            raise RuntimeError(f"TripoSG generation failed: {e}") from e
 
     def get_supported_formats(self) -> Dict[str, List[str]]:
         return {"input": self.supported_input_formats, "output": self.supported_output_formats}

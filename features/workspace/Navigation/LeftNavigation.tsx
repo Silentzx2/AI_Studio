@@ -11,6 +11,7 @@ import {
   Grid,
   Sparkles,
   Bone,
+  ListOrdered,
 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useWorkspace } from '../store/WorkspaceContext';
@@ -54,14 +55,15 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({ isMobileDrawer =
     onToolSelect?.();
   };
 
-  const handleMainNavClick = (nav: 'dashboard' | 'assets' | 'system') => {
+  const handleMainNavClick = (nav: 'dashboard' | 'assets' | 'system' | 'jobs') => {
     navigateToMainNav(nav);
     onToolSelect?.();
   };
 
-const isActive = (tool: ToolType) => mainNav === 'workspace' && activeTool === tool;
-   const isOverviewActive = mainNav === 'dashboard';
-   const isAssetsActive = mainNav === 'assets';
+  const isActive = (tool: ToolType) => mainNav === 'workspace' && activeTool === tool;
+  const isOverviewActive = mainNav === 'dashboard';
+  const isAssetsActive = mainNav === 'assets';
+  const isJobsActive = mainNav === 'jobs';
 
   // Check if a specific tool is running a background generation
   const isModelExecuting = isExecuting && (activeTask?.type === 'image-to-3d' || activeTask?.type === 'text-to-3d' || !activeTask?.type);
@@ -169,6 +171,15 @@ const isActive = (tool: ToolType) => mainNav === 'workspace' && activeTool === t
       icon: FolderOpen,
       active: isAssetsActive,
       onClick: () => handleMainNavClick('assets'),
+    },
+    {
+      id: 'tool-btn-jobs',
+      label: 'Jobs',
+      tooltip: 'Generation Jobs & Run Inspector • ⌘3',
+      shortcut: '⌘3',
+      icon: ListOrdered,
+      active: isJobsActive,
+      onClick: () => handleMainNavClick('jobs'),
     },
   ];
 

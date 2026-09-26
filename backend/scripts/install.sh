@@ -567,19 +567,31 @@ echo "Installing TripoSF, TripoSG, TripoSR, ardy Dependencies"
 echo "========================================"
 if [ -d "$PROJECT_ROOT/backend/thirdparty/TripoSF" ]; then
     echo "[INFO] Installing TripoSF requirements..."
-    $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSF/requirements.txt" || true
+    if ! $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSF/requirements.txt"; then
+        echo "[ERROR] Failed to install TripoSF requirements."
+        exit 1
+    fi
 fi
 if [ -d "$PROJECT_ROOT/backend/thirdparty/TripoSG" ]; then
     echo "[INFO] Installing TripoSG requirements..."
-    $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSG/requirements.txt" || true
+    if ! $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSG/requirements.txt"; then
+        echo "[ERROR] Failed to install TripoSG requirements."
+        exit 1
+    fi
 fi
 if [ -d "$PROJECT_ROOT/backend/thirdparty/TripoSR" ]; then
     echo "[INFO] Installing TripoSR requirements..."
-    $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSR/requirements.txt" || true
+    if ! $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/TripoSR/requirements.txt"; then
+        echo "[ERROR] Failed to install TripoSR requirements."
+        exit 1
+    fi
 fi
 if [ -d "$PROJECT_ROOT/backend/thirdparty/ardy" ]; then
     echo "[INFO] Installing ardy requirements..."
-    $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/ardy/requirements.txt" || true
+    if ! $UV_PIP install --find-links="$WHEEL_DIR" -r "$PROJECT_ROOT/backend/thirdparty/ardy/requirements.txt"; then
+        echo "[ERROR] Failed to install ardy requirements."
+        exit 1
+    fi
 fi
 
 cd "$PROJECT_ROOT/backend"
@@ -620,30 +632,76 @@ fi
 
 echo ""
 echo "========================================"
+echo "Installing System Runtime Libraries"
+echo "========================================"
+
+if command -v apt-get >/dev/null 2>&1 || command -v apt >/dev/null 2>&1; then
+    APT_BIN="$(command -v apt-get 2>/dev/null || command -v apt 2>/dev/null)"
+    echo "[INFO] Debian/Ubuntu detected. Installing system runtime packages (libsm6, libegl-mesa0, libgl1-mesa-dev)..."
+    SUDO_CMD=""
+    if [ "$(id -u)" -ne 0 ]; then
+        if command -v sudo >/dev/null 2>&1; then
+            SUDO_CMD="sudo"
+        else
+            echo "[ERROR] Root or sudo access required to install system dependencies via apt."
+            exit 1
+        fi
+    fi
+
+    if ! $SUDO_CMD "$APT_BIN" update -qq; then
+        echo "[ERROR] Failed to update apt repositories."
+        exit 1
+    fi
+
+    if ! $SUDO_CMD "$APT_BIN" install -y --no-install-recommends libsm6 libegl-mesa0 libgl1-mesa-dev; then
+        echo "[ERROR] Failed to install required system runtime libraries (libsm6, libegl-mesa0, libgl1-mesa-dev) via apt."
+        exit 1
+    fi
+    echo "[SUCCESS] System runtime libraries installed successfully"
+else
+    echo "[WARN] apt package manager not found. Skipping apt system library installation."
+    echo "[WARN] Ensure libsm6, libegl-mesa0, and OpenGL runtime libraries are installed for your platform."
+fi
+
+echo ""
+echo "========================================"
+echo "Validating Runtime Environment"
+echo "========================================"
+
+python -c "
+import sys
+print(f'Python Executable: {sys.executable}')
+print(f'Python Version: {sys.version.split()[0]}')
+
+try:
+    import torch
+    print(f'PyTorch Version: {torch.__version__}')
+    print(f'PyTorch CUDA Version: {torch.version.cuda}')
+    cuda_avail = torch.cuda.is_available()
+    print(f'CUDA Available: {cuda_avail}')
+    if cuda_avail:
+        print(f'GPU Device Name: {torch.cuda.get_device_name(0)}')
+        print(f'GPU Device Capability: {torch.cuda.get_device_capability(0)}')
+    else:
+        print('GPU Device Name: None (CPU mode)')
+except Exception as e:
+    print(f'PyTorch/CUDA check error: {e}')
+
+for pkg in ['numpy', 'diffusers', 'transformers', 'pymeshlab', 'open3d', 'trimesh']:
+    try:
+        mod = __import__(pkg)
+        print(f'{pkg}: {getattr(mod, \"__version__\", \"installed\")}')
+    except Exception as e:
+        print(f'{pkg}: NOT FOUND ({e})')
+"
+
+persist_env_config 2>/dev/null || true
+
+echo ""
+echo "========================================"
 echo "Installation Complete!"
 echo "========================================"
 echo "All installation done successfully!"
-persist_env_config 2>/dev/null || true
-
-echo "Checking CUDA availability..."
-python -c "import torch; print(torch.cuda.is_available())" && echo "CUDA installed successfully" || echo "Failed"
-
-echo "Checking PyTorch version..."
-python -c "import torch; print(torch.__version__)" && echo "PyTorch installed successfully" || echo "Failed"
-
-echo "Checking Blender availability..."
-python -c "import bpy" && echo "Blender installed successfully" || echo "Failed"
-
-echo "Checking Other Packages..."
-python -c "import kaolin; print(kaolin.__version__)" && echo "Kaolin installed successfully" || echo "Failed"
-python -c "import open3d; import pymeshlab" && echo "Open3D and pymeshlab installed successfully" || echo "Failed"
-
-# install other runtime dependencies
-sudo apt update
-sudo apt install -y --no-install-recommends \
-  libsm6 \
-  libegl-mesa0 \
-  libgl1-mesa-dev
 
 
 
